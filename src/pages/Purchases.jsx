@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useAppStore } from '../store/StoreContext';
-import { Plus, Calculator, Save, X } from 'lucide-react';
+import { useAppStore } from '../store/appStoreContext';
+import { Plus, Save, X } from 'lucide-react';
 
 export default function Purchases() {
-  const { products, purchases, addPurchase, updatePurchase, addProduct } = useAppStore();
+  const { purchases, addPurchase, updatePurchase, addProduct } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [expandedPurchaseId, setExpandedPurchaseId] = useState(null);
   const [editingPurchaseId, setEditingPurchaseId] = useState(null);

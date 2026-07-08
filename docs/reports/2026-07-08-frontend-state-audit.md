@@ -11,9 +11,9 @@ App dang phu hop vai tro MVP/demo nghiep vu, nhung chua an toan de dung nhu he t
 
 P0 - Du lieu khong ben vung
 
-- `products`, `purchases`, `orders`, `losses` chi nam trong `useState`. Reload trang se mat du lieu.
-- Chua co backup/export/import du lieu noi bo cho toan bo state.
-- De xuat: toi thieu dung local persistence tam thoi; huong dung la backend + PostgreSQL.
+- Da xu ly gan han: `products`, `purchases`, `orders`, `losses` duoc luu vao `localStorage` qua key versioned.
+- Van con gioi han: `localStorage` chi phu hop mockup/test tren mot may, chua thay the backup/database that.
+- De xuat tiep theo: them export/import JSON de sao luu mock data khi test nhieu kich ban.
 
 P0 - FIFO chua co co che transaction
 
@@ -22,8 +22,8 @@ P0 - FIFO chua co co che transaction
 
 P1 - `StoreContext.jsx` gom qua nhieu trach nhiem
 
-- Vua giu state, vua tinh inventory, enrich order/loss, vua xu ly FIFO.
-- De xuat tach `inventoryService`, `fifoService`, `pricingService` thanh pure functions de test.
+- Da xu ly mot phan: logic FIFO, derived inventory va gia ban tham khao da tach sang `src/domain/inventory.js`.
+- De xuat tiep theo: them unit test cho `buildDerivedStore` va `calculateSuggestedPrice`.
 
 P1 - Import Excel con mong manh
 
@@ -57,4 +57,3 @@ P2 - Encoding/hien thi tieng Viet can chuan hoa
 - Da doc cac file chinh: `StoreContext.jsx`, `Purchases.jsx`, `Orders.jsx`, `Products.jsx`, `Losses.jsx`, `Dashboard.jsx`.
 - Agy da hoan thanh mot report kien truc muc tieu nhung ghi vao scratch; Codex da tong hop lai vao report dung trong repo.
 - Chua sua source code app trong vong audit nay.
-

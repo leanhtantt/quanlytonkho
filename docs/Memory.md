@@ -13,6 +13,14 @@ File nay ghi lai quyet dinh, bai hoc va moc phat trien quan trong cua du an.
   - `docs/reports/2026-07-08-frontend-state-audit.md`
 - Ghi nhan rui ro lon nhat: state dang nam trong React memory, FIFO chua co transaction/audit trail, Dashboard dang dung du lieu demo.
 
+## 2026-07-08 - Local mock persistence va refactor FIFO
+
+- Chua gan database that; giai do hien tai uu tien mock data de test nghiep vu.
+- Them `src/lib/useLocalStorage.js` de luu `products`, `purchases`, `orders`, `losses` vao `localStorage`.
+- Tach logic FIFO, derived inventory va gia ban tham khao sang `src/domain/inventory.js`.
+- `StoreContext.jsx` chi con giu raw state/actions va goi domain function de tinh du lieu phai sinh.
+- Don warning lint nho: import khong dung trong `App`, `Purchases`, `Orders`; gia ban tham khao dung chung tu domain module.
+
 ## Cac giai do truoc
 
 ### Giai do 1: Khoi tao va thiet ke giao dien MVP
@@ -38,4 +46,3 @@ File nay ghi lai quyet dinh, bai hoc va moc phat trien quan trong cua du an.
 - Bo ty gia trong form, nhap truc tiep VND.
 - Dung tong tien mua va tong can nang de phan bo chi phi.
 - Bo sung giam gia va boi thuong phan bo theo ty trong gia tri.
-

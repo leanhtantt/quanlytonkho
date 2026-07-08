@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useAppStore } from '../store/StoreContext';
+import { useAppStore } from '../store/appStoreContext';
 import { Search, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { calculateSuggestedPrice } from '../domain/inventory';
 
 export default function Products() {
   const { inventory } = useAppStore();
@@ -11,14 +12,6 @@ export default function Products() {
     p.name.toLowerCase().includes(search.toLowerCase()) || 
     p.id.toLowerCase().includes(search.toLowerCase())
   );
-
-  const calculateSuggestedPrice = (cost) => {
-    if (cost > 10000) {
-      return Math.round(((cost + 3000) * 2.5) / 0.745);
-    } else {
-      return Math.round(((cost + 3000) * 2.2) / 0.745);
-    }
-  };
 
   return (
     <div className="animate-fade-in">

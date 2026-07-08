@@ -1,12 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { useAppStore } from '../store/StoreContext';
+import { useAppStore } from '../store/appStoreContext';
 import { Search, Plus, Save, X, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const SHOPS = ['Chà Tiktok', 'Chà Shopee', 'Lyn WD', 'Lyn - Phụ kiện', 'Lyn Tiktok'];
 
 export default function Orders() {
-  const { products, inventory, orders, addOrder, updateOrder } = useAppStore();
+  const { products, orders, addOrder, updateOrder } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);

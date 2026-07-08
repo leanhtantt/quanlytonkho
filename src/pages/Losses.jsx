@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppStore } from '../store/StoreContext';
+import { useAppStore } from '../store/appStoreContext';
 import { ShieldAlert, Plus, Save, X } from 'lucide-react';
 
 export default function Losses() {

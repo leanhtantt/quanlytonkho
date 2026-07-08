@@ -5,8 +5,8 @@ Ung dung web quan ly ban hang va ton kho cho shop phu kien cuoi BAP. Du an hien 
 ## Trang thai hien tai
 
 - Frontend: React + Vite.
-- State: React Context, tinh toan du lieu phai sinh trong `src/store/StoreContext.jsx`.
-- Du lieu: dang nam trong bo nho trinh duyet khi app chay, chua co backend/database that.
+- State: React Context + pure domain functions trong `src/domain/inventory.js`.
+- Du lieu: mock data duoc luu vao `localStorage`, chua co backend/database that.
 - Nghiep vu chinh: nhap lo hang, phan bo chi phi, tinh gia von FIFO, quan ly don ban, import Excel, ghi nhan hao hut.
 
 ## Chay du an
@@ -31,7 +31,11 @@ src/
   main.jsx                    Diem khoi chay React
   index.css                   Design tokens va style global
   store/
-    StoreContext.jsx          State + tinh ton kho FIFO + loi nhuan/hao hut
+    StoreContext.jsx          Raw state + actions, luu mock data vao localStorage
+  domain/
+    inventory.js              FIFO, gia ban tham khao, derived inventory
+  lib/
+    useLocalStorage.js        Hook luu state mock vao localStorage
   pages/
     Dashboard.jsx             Tong quan hien dang dung du lieu demo
     Purchases.jsx             Nhap hang, phan bo phi, tao batch FIFO
@@ -44,7 +48,18 @@ docs/
   reports/                    Bao cao audit/kien truc
 ```
 
-## Huong kien truc khuyen nghi
+## Giai do hien tai: mock data truoc
+
+Du an chua gan database that. Trong giai do mockup/test luong nghiep vu, app luu cac bang raw vao `localStorage`:
+
+- `bap-store.products.v1`
+- `bap-store.purchases.v1`
+- `bap-store.orders.v1`
+- `bap-store.losses.v1`
+
+Khi can reset du lieu test, co the xoa cac key nay trong DevTools Application/Local Storage.
+
+## Huong kien truc khuyen nghi sau nay
 
 Huong toi uu la **modular monolith** voi backend va PostgreSQL, khong tach microservices som. Cac module nen tach theo ranh gioi nghiep vu:
 
@@ -62,6 +77,5 @@ Chi tiet xem:
 
 - Giao dich tien/hang phai co audit trail append-only; sua sai bang giao dich dao, khong xoa lich su.
 - FIFO can duoc xu ly trong database transaction khi co backend, uu tien row-level lock tren batch cu nhat.
-- Khong de `StoreContext.jsx` tiep tuc phinh to khi them tinh nang moi; tach domain service/pure functions truoc khi gan API.
+- Khong de `StoreContext.jsx` tiep tuc phinh to khi them tinh nang moi; logic FIFO/gia von nen nam trong `src/domain/`.
 - Import Excel phai co buoc mapping/canh bao loi ro rang truoc khi ghi du lieu that.
-

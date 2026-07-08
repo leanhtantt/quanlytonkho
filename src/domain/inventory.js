@@ -1,8 +1,28 @@
 export const DEFAULT_PRODUCTS = [
-  { id: 'SP01', name: 'BÃ¡p LÃ¬ XÃ¬ (Äá»)' },
-  { id: 'SP02', name: 'Chá»¯ Há»· DÃ¡n Cá»­a' },
-  { id: 'SP03', name: 'Combo BÃª TrÃ¡p 7 Quáº£' }
+  { id: 'SP01', name: 'Báp Lì Xì (Đỏ)' },
+  { id: 'SP02', name: 'Chữ Hỷ Dán Cửa' },
+  { id: 'SP03', name: 'Combo Bê Tráp 7 Quả' }
 ];
+
+const DEFAULT_PRODUCT_NAMES = new Map(DEFAULT_PRODUCTS.map(product => [product.id, product.name]));
+const MOJIBAKE_MARKERS = ['Ã', 'Â', 'Ä'];
+
+export function repairProductNames(products) {
+  let changed = false;
+
+  const repairedProducts = products.map((product) => {
+    const defaultName = DEFAULT_PRODUCT_NAMES.get(product.id);
+    const looksCorrupt = typeof product.name === 'string'
+      && MOJIBAKE_MARKERS.some(marker => product.name.includes(marker));
+
+    if (!defaultName || !looksCorrupt) return product;
+
+    changed = true;
+    return { ...product, name: defaultName };
+  });
+
+  return changed ? repairedProducts : products;
+}
 
 export function calculateSuggestedPrice(cost) {
   if (cost > 10000) {
@@ -92,7 +112,7 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
       const order = event.data;
       let orderTotalCost = 0;
 
-      if (order.status !== 'HoÃ n hÃ ng') {
+      if (order.status !== 'Hoàn hàng') {
         const enrichedItems = order.items.map((item) => {
           if (item.isReturned) {
             return { ...item, totalCostDeducted: 0, batchesDeducted: [] };

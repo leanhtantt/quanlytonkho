@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { buildDerivedStore, DEFAULT_PRODUCTS } from '../domain/inventory';
+import { useEffect, useMemo } from 'react';
+import { buildDerivedStore, DEFAULT_PRODUCTS, repairProductNames } from '../domain/inventory';
 import { useLocalStorage } from '../lib/useLocalStorage';
 import { StoreContext } from './appStoreContext';
 
@@ -8,6 +8,10 @@ export function StoreProvider({ children }) {
   const [purchases, setPurchases] = useLocalStorage('bap-store.purchases.v1', []);
   const [orders, setOrders] = useLocalStorage('bap-store.orders.v1', []);
   const [losses, setLosses] = useLocalStorage('bap-store.losses.v1', []);
+
+  useEffect(() => {
+    setProducts(prev => repairProductNames(prev));
+  }, [setProducts]);
 
   const addPurchase = (purchase) => setPurchases(prev => [...prev, purchase]);
   const updatePurchase = (purchaseId, updatedData) => {

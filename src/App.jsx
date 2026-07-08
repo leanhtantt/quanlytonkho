@@ -1,10 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, Truck, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Truck, ShieldAlert, TrendingUp } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
 import Purchases from './pages/Purchases';
 import Losses from './pages/Losses';
+import Profit from './pages/Profit';
 
 function Sidebar() {
   const location = useLocation();
@@ -15,6 +16,7 @@ function Sidebar() {
     { path: '/products', name: 'Tồn Kho', icon: <Package size={20} /> },
     { path: '/orders', name: 'Xuất Bán', icon: <ShoppingCart size={20} /> },
     { path: '/losses', name: 'Hao Hụt', icon: <ShieldAlert size={20} /> },
+    { path: '/profit', name: 'Lợi Nhuận', icon: <TrendingUp size={20} /> },
   ];
 
   return (
@@ -54,6 +56,7 @@ function App() {
               <Route path="/products" element={<Products />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/losses" element={<Losses />} />
+              <Route path="/profit" element={<Profit />} />
             </Routes>
           </div>
         </div>

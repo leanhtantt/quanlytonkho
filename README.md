@@ -42,6 +42,7 @@ src/
     Products.jsx              Ton kho va chi tiet lo con lai
     Orders.jsx                Don hang, import Excel, doi soat doanh thu
     Losses.jsx                Ghi nhan hao hut theo FIFO
+    Profit.jsx                Phân tích lợi nhuận, chi phí quảng cáo và biểu đồ dòng tiền
 docs/
   business_rules.md           Quy tac nghiep vu dang ap dung
   Memory.md                   Nhat ky phat trien va quyet dinh
@@ -56,6 +57,7 @@ Du an chua gan database that. Trong giai do mockup/test luong nghiep vu, app luu
 - `bap-store.purchases.v1`
 - `bap-store.orders.v1`
 - `bap-store.losses.v1`
+- `bap-store.monthlyAds.v1`
 
 Khi can reset du lieu test, co the xoa cac key nay trong DevTools Application/Local Storage.
 

@@ -2,6 +2,13 @@
 
 File nay ghi lai quyet dinh, bai hoc va moc phat trien quan trong cua du an.
 
+## 2026-07-08 - Profit Analytics Feature
+
+- Bo sung trang `Profit` de phan tich loi nhuan hang thang, nhap chi phi quang cao.
+- Logic gop nhom duoc tach ra module thuan `src/domain/profitAnalytics.js` co the import tu Node, dam bao TDD.
+- Tinh doanh thu dong tien (cash-month) bang cach shift thoi gian +15 ngay.
+- Them bieu do BarChart su dung `recharts`.
+
 ## 2026-07-08 - Architecture review va init boi canh repo
 
 - Nap skill `senior-architect` va giao agy `Gemini 3.1 Pro (High)` de de xuat kien truc muc tieu.

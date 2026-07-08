@@ -8,6 +8,7 @@ export function StoreProvider({ children }) {
   const [purchases, setPurchases] = useLocalStorage('bap-store.purchases.v1', []);
   const [orders, setOrders] = useLocalStorage('bap-store.orders.v1', []);
   const [losses, setLosses] = useLocalStorage('bap-store.losses.v1', []);
+  const [ads, setAds] = useLocalStorage('bap-store.monthlyAds.v1', []);
 
   useEffect(() => {
     setProducts(prev => repairProductNames(prev));
@@ -39,6 +40,8 @@ export function StoreProvider({ children }) {
     orders: derivedState.enrichedOrders,
     losses: derivedState.enrichedLosses,
     inventory: derivedState.inventory,
+    ads,
+    setAds,
     addPurchase,
     updatePurchase,
     addOrder,

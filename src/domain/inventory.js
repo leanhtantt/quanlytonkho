@@ -1,8 +1,4 @@
-export const DEFAULT_PRODUCTS = [
-  { id: 'SP01', name: 'Báp Lì Xì (Đỏ)' },
-  { id: 'SP02', name: 'Chữ Hỷ Dán Cửa' },
-  { id: 'SP03', name: 'Combo Bê Tráp 7 Quả' }
-];
+export const DEFAULT_PRODUCTS = [];
 
 const DEFAULT_PRODUCT_NAMES = new Map(DEFAULT_PRODUCTS.map(product => [product.id, product.name]));
 const MOJIBAKE_MARKERS = ['Ã', 'Â', 'Ä'];
@@ -35,20 +31,20 @@ export function calculateSuggestedPrice(cost) {
 export function buildDerivedStore({ products, purchases, orders, losses }) {
   const inv = {};
 
-  products.forEach((product) => {
-    inv[product.id] = {
-      ...product,
-      totalImported: 0,
-      totalSold: 0,
-      totalLost: 0,
-      stock: 0,
-      batches: []
-    };
-  });
-
   purchases.forEach((purchase) => {
     purchase.items.forEach((item) => {
-      if (!inv[item.productId]) return;
+      if (!inv[item.productId]) {
+        const product = products.find(p => p.id === item.productId);
+        inv[item.productId] = {
+          id: item.productId,
+          name: item.name || product?.name || item.productId,
+          totalImported: 0,
+          totalSold: 0,
+          totalLost: 0,
+          stock: 0,
+          batches: []
+        };
+      }
 
       const inventoryItem = inv[item.productId];
       inventoryItem.totalImported += item.qty;
@@ -166,4 +162,3 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
     enrichedLosses
   };
 }
-

@@ -1,0 +1,154 @@
+import React, { useState } from 'react';
+import { useAppStore } from '../store/StoreContext';
+import { Search, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
+
+export default function Products() {
+  const { inventory } = useAppStore();
+  const [search, setSearch] = useState('');
+  const [expandedId, setExpandedId] = useState(null);
+
+  const filteredProducts = inventory.filter(p => 
+    p.name.toLowerCase().includes(search.toLowerCase()) || 
+    p.id.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const calculateSuggestedPrice = (cost) => {
+    if (cost > 10000) {
+      return Math.round(((cost + 3000) * 2.5) / 0.745);
+    } else {
+      return Math.round(((cost + 3000) * 2.2) / 0.745);
+    }
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Quản lý Tồn Kho (FIFO)</h1>
+          <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Theo dõi tồn kho và giá vốn chi tiết theo từng lô nhập</p>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+        <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)' }}>
+          <div style={{ position: 'relative', width: '300px' }}>
+            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+            <input 
+              type="text" 
+              placeholder="Tìm kiếm mã hoặc tên SP..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem 0.75rem 2.5rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                backgroundColor: 'var(--color-bg-base)',
+                color: 'var(--color-text-base)',
+                outline: 'none',
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="table-container" style={{ border: 'none', borderRadius: '0' }}>
+          <table>
+            <thead>
+              <tr>
+                <th style={{ width: '40px' }}></th>
+                <th>Mã SP</th>
+                <th>Sản phẩm</th>
+                <th>Đã nhập</th>
+                <th>Đã bán</th>
+                <th>Hao hụt</th>
+                <th>Tổng Tồn (Thực)</th>
+                <th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProducts.map(product => {
+                const isExpanded = expandedId === product.id;
+                const remainingBatches = product.batches.filter(b => b.qtyRemaining > 0);
+                
+                return (
+                  <React.Fragment key={product.id}>
+                    <tr style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--color-bg-hover)' : '' }} onClick={() => setExpandedId(isExpanded ? null : product.id)}>
+                      <td>
+                        {remainingBatches.length > 0 ? (
+                          isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />
+                        ) : null}
+                      </td>
+                      <td style={{ fontWeight: 600, color: 'var(--color-text-muted)' }}>{product.id}</td>
+                      <td style={{ fontWeight: 500 }}>{product.name}</td>
+                      <td style={{ color: 'var(--color-success)' }}>{product.totalImported}</td>
+                      <td style={{ color: 'var(--color-primary)' }}>{product.totalSold}</td>
+                      <td style={{ color: 'var(--color-danger)' }}>{product.totalLost}</td>
+                      <td style={{ fontWeight: 700, fontSize: '1.1rem' }}>{product.stock}</td>
+                      <td>
+                        {(() => {
+                          const threshold = product.id.includes('LX') ? 50 : 10;
+                          if (product.stock > threshold) {
+                            return <span className="badge badge-success">Sẵn hàng</span>;
+                          } else if (product.stock > 0) {
+                            return <span className="badge badge-warning">Sắp hết</span>;
+                          } else {
+                            return <span className="badge badge-danger">Hết hàng</span>;
+                          }
+                        })()}
+                      </td>
+                    </tr>
+                    
+                    {/* Expanded details showing batches */}
+                    {isExpanded && remainingBatches.length > 0 && (
+                      <tr>
+                        <td colSpan={8} style={{ padding: 0, backgroundColor: 'var(--color-bg-base)' }}>
+                          <div style={{ padding: '1rem 3rem', borderLeft: '4px solid var(--color-primary)' }}>
+                            <h5 style={{ marginBottom: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                              Chi tiết các lô hàng đang còn trong kho (Nhập trước -&gt; Xuất trước)
+                            </h5>
+                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                              {remainingBatches.map((batch, idx) => (
+                                <div key={idx} style={{ 
+                                  backgroundColor: 'var(--color-bg-surface)', 
+                                  border: '1px solid var(--color-border)', 
+                                  padding: '0.75rem 1rem', 
+                                  borderRadius: 'var(--radius-md)',
+                                  minWidth: '200px'
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                    <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Lô: {batch.purchaseId}</span>
+                                    <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>Tồn: {batch.qtyRemaining}</span>
+                                  </div>
+                                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Ngày nhập: {batch.date}</div>
+                                  <div style={{ fontSize: '0.875rem', color: 'var(--color-primary)', fontWeight: 600, marginTop: '0.5rem' }}>
+                                    Giá vốn: {batch.costVnd.toLocaleString()} đ
+                                  </div>
+                                  <div style={{ fontSize: '0.875rem', color: 'var(--color-warning)', fontWeight: 600, marginTop: '0.25rem' }}>
+                                    Giá bán tham khảo: {calculateSuggestedPrice(batch.costVnd).toLocaleString()} đ
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              
+              {filteredProducts.length === 0 && (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+                    <PackageOpen size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+                    <p>Không tìm thấy sản phẩm nào.</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

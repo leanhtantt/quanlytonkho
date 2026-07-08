@@ -9,6 +9,7 @@ export function StoreProvider({ children }) {
   const [orders, setOrders] = useLocalStorage('bap-store.orders.v1', []);
   const [losses, setLosses] = useLocalStorage('bap-store.losses.v1', []);
   const [ads, setAds] = useLocalStorage('bap-store.monthlyAds.v1', []);
+  const [transactions, setTransactions] = useLocalStorage('bap-store.transactions.v1', []);
 
   useEffect(() => {
     setProducts(prev => repairProductNames(prev));
@@ -26,6 +27,8 @@ export function StoreProvider({ children }) {
   const addProduct = (product) => {
     setProducts(prev => prev.find(p => p.id === product.id) ? prev : [...prev, product]);
   };
+  const addTransaction = (txn) => setTransactions(prev => [...prev, txn]);
+  const deleteTransaction = (txnId) => setTransactions(prev => prev.filter(t => t.id !== txnId));
 
   const derivedState = useMemo(() => buildDerivedStore({
     products,
@@ -47,7 +50,10 @@ export function StoreProvider({ children }) {
     addOrder,
     updateOrder,
     addLoss,
-    addProduct
+    addProduct,
+    transactions,
+    addTransaction,
+    deleteTransaction
   };
 
   return (

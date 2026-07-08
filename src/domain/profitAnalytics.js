@@ -38,9 +38,14 @@ export function calculateProfitAnalytics(orders, losses, ads) {
     stats.orderProductCost += costNum;
 
     // Cash month shifting
-    const dateObj = new Date(order.date);
-    dateObj.setDate(dateObj.getDate() + 15);
-    const cashMonth = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0');
+    let cashMonth;
+    if (order.settlementDate) {
+      cashMonth = order.settlementDate.substring(0, 7);
+    } else {
+      const dateObj = new Date(order.date);
+      dateObj.setDate(dateObj.getDate() + 15);
+      cashMonth = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0');
+    }
     
     const cashStats = getStats(cashMonth, shop);
     if (hasActualRevenue) {

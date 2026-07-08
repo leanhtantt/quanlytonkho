@@ -6,6 +6,8 @@ import Orders from './pages/Orders';
 import Purchases from './pages/Purchases';
 import Losses from './pages/Losses';
 import Profit from './pages/Profit';
+import Treasury from './pages/Treasury';
+import { Wallet } from 'lucide-react';
 
 function Sidebar() {
   const location = useLocation();
@@ -17,17 +19,18 @@ function Sidebar() {
     { path: '/orders', name: 'Xuất Bán', icon: <ShoppingCart size={20} /> },
     { path: '/losses', name: 'Hao Hụt', icon: <ShieldAlert size={20} /> },
     { path: '/profit', name: 'Lợi Nhuận', icon: <TrendingUp size={20} /> },
+    { path: '/treasury', name: 'Sổ Quỹ', icon: <Wallet size={20} /> },
   ];
 
   return (
     <div className="sidebar">
       <div className="sidebar-logo">
-        <div style={{ background: 'var(--color-primary)', color: 'white', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+        <div className="sidebar-logo-mark">
           <Package size={24} />
         </div>
         <span>Cưới Hỏi BAP</span>
       </div>
-      <div style={{ marginTop: '2rem' }}>
+      <nav className="nav-list" aria-label="Điều hướng chính">
         {menuItems.map((item) => (
           <Link
             key={item.path}
@@ -38,7 +41,7 @@ function Sidebar() {
             {item.name}
           </Link>
         ))}
-      </div>
+      </nav>
     </div>
   );
 }
@@ -57,6 +60,7 @@ function App() {
               <Route path="/orders" element={<Orders />} />
               <Route path="/losses" element={<Losses />} />
               <Route path="/profit" element={<Profit />} />
+              <Route path="/treasury" element={<Treasury />} />
             </Routes>
           </div>
         </div>

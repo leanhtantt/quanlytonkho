@@ -384,7 +384,7 @@ const inputStyle = {
   padding: '0.75rem 1rem',
   borderRadius: 'var(--radius-md)',
   border: '1px solid var(--color-border)',
-  backgroundColor: 'transparent',
+  backgroundColor: 'var(--color-bg-surface)',
   color: 'var(--color-text-base)',
   outline: 'none',
   boxSizing: 'border-box'

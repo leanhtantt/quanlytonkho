@@ -24,6 +24,7 @@ export default function Orders() {
   const [status, setStatus] = useState('Đang giao'); // Vẫn giữ để filter nhưng Hoàn hàng dùng item.isReturned
   const [packagingFee, setPackagingFee] = useState(1000);
   const [actualRevenue, setActualRevenue] = useState('');
+  const [settlementDate, setSettlementDate] = useState('');
   const [items, setItems] = useState([]);
   
   // New Item State
@@ -90,6 +91,7 @@ export default function Orders() {
     setStatus('Đang giao');
     setPackagingFee(1000);
     setActualRevenue('');
+    setSettlementDate('');
   };
 
   const handleSaveOrder = () => {
@@ -108,6 +110,7 @@ export default function Orders() {
       status, 
       packagingFee: Number(packagingFee) || 0,
       actualRevenue: actualRevenue !== '' ? Number(actualRevenue) : null,
+      settlementDate: settlementDate !== '' ? settlementDate : null,
       items,
       hasError: false // Đã sửa xong thì clear lỗi
     };
@@ -129,6 +132,7 @@ export default function Orders() {
     setStatus(o.status);
     setPackagingFee(o.packagingFee ?? 1000);
     setActualRevenue(o.actualRevenue !== null && o.actualRevenue !== undefined ? o.actualRevenue : '');
+    setSettlementDate(o.settlementDate || '');
     setItems(o.items.map(i => ({ ...i }))); // deep copy
     
     setShowForm(true);
@@ -154,13 +158,34 @@ export default function Orders() {
           const keys = Object.keys(row);
           const idKey = keys.find(k => k.toLowerCase().includes('mã đơn') || k.toLowerCase().includes('order id') || k.toLowerCase() === 'id' || k.toLowerCase().includes('mã'));
           const revKey = keys.find(k => k.toLowerCase().includes('doanh thu') || k.toLowerCase().includes('thực tế') || k.toLowerCase().includes('thu về'));
+          const dateKey = keys.find(k => k.toLowerCase().includes('ngày đối soát') || k.toLowerCase().includes('ngày thanh toán') || k.toLowerCase().includes('ngày hoàn thành'));
           
           if (idKey && revKey) {
             const rowId = row[idKey]?.toString().trim();
             const rowRev = Number(row[revKey]);
+            const rowDate = dateKey && row[dateKey] ? row[dateKey].toString().trim() : undefined;
+            
+            let parsedDate = undefined;
+            if (rowDate) {
+              if (!isNaN(Number(rowDate))) {
+                const jsDate = new Date(Math.round((rowDate - 25569) * 86400 * 1000));
+                parsedDate = jsDate.toISOString().split('T')[0];
+              } else if (rowDate.includes('/')) {
+                const parts = rowDate.split(/[\s/:-]+/);
+                if (parts.length >= 3) {
+                  const day = parts[0].padStart(2, '0');
+                  const month = parts[1].padStart(2, '0');
+                  const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+                  parsedDate = `${year}-${month}-${day}`;
+                }
+              } else {
+                parsedDate = rowDate.substring(0, 10);
+              }
+            }
+
             if (rowId && !isNaN(rowRev)) {
               if (orders.find(o => o.id === rowId)) {
-                updateOrder(rowId, { actualRevenue: rowRev });
+                updateOrder(rowId, { actualRevenue: rowRev, settlementDate: parsedDate });
                 updateCount++;
               }
             }
@@ -295,12 +320,12 @@ export default function Orders() {
           <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Quản lý đơn, hoàn hàng 1 phần và đối soát tự động qua Excel</p>
         </div>
         {!showForm && (
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div className="header-actions">
             <input type="file" accept=".xlsx, .xls, .csv" style={{ display: 'none' }} ref={fileInputRef} onChange={handleExcelUpload} />
             <input type="file" accept=".xlsx, .xls, .csv" style={{ display: 'none' }} ref={importInputRef} onChange={handleExcelImportOrders} />
             
-            <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
-              <select value={importShop} onChange={e => setImportShop(e.target.value)} style={{ border: 'none', backgroundColor: 'transparent', padding: '0.5rem 1rem', outline: 'none', color: 'var(--color-text-base)', borderRight: '1px solid var(--color-border)' }}>
+            <div className="import-control">
+              <select value={importShop} onChange={e => setImportShop(e.target.value)}>
                 {SHOPS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <button className="btn btn-outline" style={{ border: 'none', borderColor: 'transparent', color: 'var(--color-primary)' }} onClick={() => importInputRef.current.click()}>
@@ -351,6 +376,10 @@ export default function Orders() {
             <div>
               <label style={labelStyle}>Phí đóng gói (VNĐ)</label>
               <input type="number" step="1000" value={packagingFee} onChange={e => setPackagingFee(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={{...labelStyle, color: 'var(--color-primary)'}}>Ngày nhận tiền</label>
+              <input type="date" value={settlementDate} onChange={e => setSettlementDate(e.target.value)} style={inputStyle} />
             </div>
             <div>
               <label style={{...labelStyle, color: 'var(--color-primary)'}}>Doanh thu Thực tế (VNĐ)</label>
@@ -470,9 +499,10 @@ export default function Orders() {
                 <th style={{ width: '40px' }}></th>
                 <th>Mã Đơn</th>
                 <th>Kênh Bán</th>
-                <th>Ngày</th>
+                <th>Ngày Đặt</th>
                 <th>Doanh Thu Dự Kiến</th>
                 <th style={{ color: 'var(--color-primary)' }}>Thực Tế (Nhận)</th>
+                <th style={{ color: 'var(--color-primary)' }}>Ngày Nhận</th>
                 <th>Tổng Lợi Nhuận Gộp</th>
                 <th style={{ width: '80px', textAlign: 'center' }}>Thao tác</th>
               </tr>
@@ -493,7 +523,7 @@ export default function Orders() {
 
                 return (
                   <React.Fragment key={o.id}>
-                    <tr style={{ cursor: 'pointer', backgroundColor: o.hasError ? '#fee2e2' : (isExpanded ? 'var(--color-bg-hover)' : '') }} onClick={() => setExpandedOrderId(isExpanded ? null : o.id)}>
+                    <tr style={{ cursor: 'pointer', backgroundColor: o.hasError ? 'var(--color-danger-light)' : (isExpanded ? 'var(--color-bg-hover)' : '') }} onClick={() => setExpandedOrderId(isExpanded ? null : o.id)}>
                       <td>
                         {isExpanded ? <span style={{fontSize: '12px'}}>▼</span> : <span style={{fontSize: '12px'}}>▶</span>}
                       </td>
@@ -506,6 +536,9 @@ export default function Orders() {
                       <td style={{ fontWeight: 600 }}>{totalRevenue.toLocaleString()} đ</td>
                       <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
                         {o.actualRevenue !== null && o.actualRevenue !== undefined ? o.actualRevenue.toLocaleString() + ' đ' : '-'}
+                      </td>
+                      <td style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>
+                        {o.settlementDate || '-'}
                       </td>
                       <td style={{ fontWeight: 600, color: profit > 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
                         {profit.toLocaleString()} đ

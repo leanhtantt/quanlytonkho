@@ -50,22 +50,29 @@ export default function Profit() {
   }, [data]);
 
   // Colors for shops
-  const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
+  const colors = [
+    'var(--color-primary)',
+    'var(--color-info)',
+    'var(--color-warning)',
+    'var(--color-danger)',
+    'var(--color-accent)',
+    'var(--color-success)'
+  ];
 
   return (
     <div>
       <div className="page-header">
-        <h1>Phân Tích Lợi Nhuận</h1>
+        <h1 className="page-title">Phân Tích Lợi Nhuận</h1>
       </div>
 
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <h3>Nhập Chi Phí Quảng Cáo</h3>
-        <form onSubmit={handleSaveAd} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', marginTop: '1rem' }}>
-          <div>
+        <form onSubmit={handleSaveAd} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '1rem' }}>
+          <div style={{ flex: '1 1 160px' }}>
             <label>Tháng</label>
             <input type="month" value={adMonth} onChange={e => setAdMonth(e.target.value)} required />
           </div>
-          <div>
+          <div style={{ flex: '1 1 220px' }}>
             <label>Shop</label>
             <input
               type="text"
@@ -79,7 +86,7 @@ export default function Profit() {
               {shops.map(s => <option key={s} value={s} />)}
             </datalist>
           </div>
-          <div>
+          <div style={{ flex: '1 1 180px' }}>
             <label>Chi phí (VND)</label>
             <input type="number" value={adAmount} onChange={e => setAdAmount(e.target.value)} required />
           </div>
@@ -91,10 +98,13 @@ export default function Profit() {
         <h3>Biểu đồ Lợi Nhuận Dòng Tiền (Cash-Month Profit)</h3>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis tickFormatter={(val) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(val)} />
-            <Tooltip formatter={(value) => formatCurrency(value)} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+            <XAxis dataKey="name" tick={{ fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} tickFormatter={(val) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(val)} />
+            <Tooltip
+              formatter={(value) => formatCurrency(value)}
+              contentStyle={{ backgroundColor: 'var(--color-bg-surface)', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-base)' }}
+            />
             <Legend />
             {shops.map((s, idx) => (
               <Bar key={s} dataKey={s} fill={colors[idx % colors.length]} />
@@ -129,7 +139,7 @@ export default function Profit() {
             </thead>
             <tbody>
               {data.map((row, i) => (
-                <tr key={i} style={{ fontWeight: row.isTotal ? 'bold' : 'normal', backgroundColor: row.isTotal ? 'var(--color-bg)' : 'transparent' }}>
+                <tr key={i} style={{ fontWeight: row.isTotal ? 'bold' : 'normal', backgroundColor: row.isTotal ? 'var(--color-bg-subtle)' : 'transparent' }}>
                   <td>{row.month}</td>
                   <td>{row.shop}</td>
                   <td>{row.totalOrders}</td>
@@ -150,7 +160,7 @@ export default function Profit() {
               ))}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan="16" style={{ textAlign: 'center' }}>Chưa có dữ liệu</td>
+                  <td colSpan="16" style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
                 </tr>
               )}
             </tbody>

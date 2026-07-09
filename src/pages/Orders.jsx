@@ -522,8 +522,8 @@ export default function Orders() {
                         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                           <ProductImage imageId={prod?.imageId} size={32} />
                           <div>
-                            <div style={{ fontWeight: 600 }}>{item.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.productId}</div>
+                            <div style={{ fontWeight: 600 }}>{prod?.name || item.name || 'Sản phẩm không xác định'}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{prod?.sku || item.productId}</div>
                           </div>
                         </div>
                       </td>
@@ -690,7 +690,7 @@ export default function Orders() {
                                         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                                           <ProductImage imageId={prod?.imageId} size={32} />
                                           <div>
-                                            <div style={{ fontWeight: 500 }}>{item.name}</div>
+                                            <div style={{ fontWeight: 500 }}>{prod?.name || item.name || 'Sản phẩm không xác định'}</div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{prod?.sku || item.productId}</div>
                                           </div>
                                         </div>

@@ -148,13 +148,16 @@ export default function Purchases() {
     setTotalIntlShipping(p.totalIntlShipping || 0);
     
     // Reconstruct items with total values since store saves unit values
-    setItems(p.items.map(item => ({
-      id: item.productId,
-      name: item.name,
-      qty: item.qty,
-      totalVndPrice: item.totalVndPrice || 0,
-      totalWeightKg: item.weightKg * item.qty
-    })));
+    setItems(p.items.map(item => {
+      const prod = products.find(prod => prod.id === item.productId);
+      return {
+        id: item.productId,
+        name: prod?.name || item.name || 'Sản phẩm không xác định',
+        qty: item.qty,
+        totalVndPrice: item.totalVndPrice || 0,
+        totalWeightKg: item.weightKg * item.qty
+      };
+    }));
     
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -390,7 +393,7 @@ export default function Purchases() {
                                       <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
                                         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                                           <div>
-                                            <div style={{ fontWeight: 500 }}>{item.name}</div>
+                                            <div style={{ fontWeight: 500 }}>{prod?.name || item.name || 'Sản phẩm không xác định'}</div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{prod?.sku || item.productId}</div>
                                           </div>
                                         </div>

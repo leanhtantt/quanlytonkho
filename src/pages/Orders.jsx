@@ -43,9 +43,11 @@ export default function Orders() {
   const fileInputRef = useRef(null); // Cho Đối soát Doanh thu
   const importInputRef = useRef(null); // Cho Import Đơn Hàng mới
 
-  const handleProductSelect = (id) => {
-    setSelectedProductId(id.toUpperCase());
-    const prod = products.find(p => p.id === id.toUpperCase());
+  const handleProductSelect = (code) => {
+    const val = code.toUpperCase();
+    setSelectedProductId(val);
+    // Match by the product code (SKU) the user sees, falling back to internal id.
+    const prod = products.find(p => (p.sku || '').toUpperCase() === val || p.id === code);
     if (prod) {
       setSelectedProductName(prod.name);
     }
@@ -53,15 +55,19 @@ export default function Orders() {
 
   const handleAddItem = () => {
     if (!selectedProductId || !selectedProductName || qty <= 0) return;
-    
-    setItems([...items, { 
-      productId: selectedProductId, 
-      name: selectedProductName, 
-      qty: Number(qty), 
+
+    // The user only enters/sees the product code (SKU), but store the internal id
+    // so inventory/cost matching elsewhere keeps working.
+    const prod = products.find(p => (p.sku || '').toUpperCase() === selectedProductId.toUpperCase() || p.id === selectedProductId);
+
+    setItems([...items, {
+      productId: prod ? prod.id : selectedProductId.toUpperCase(),
+      name: selectedProductName,
+      qty: Number(qty),
       sellingPrice: Number(sellingPrice),
       isReturned
     }]);
-    
+
     setSelectedProductId('');
     setSelectedProductName('');
     setQty(1);
@@ -77,7 +83,8 @@ export default function Orders() {
 
   const handleEditItem = (index) => {
     const item = items[index];
-    setSelectedProductId(item.productId);
+    const prod = products.find(p => p.id === item.productId);
+    setSelectedProductId(prod ? (prod.sku || prod.id) : item.productId);
     setSelectedProductName(item.name);
     setQty(item.qty);
     setSellingPrice(item.sellingPrice);
@@ -469,7 +476,7 @@ export default function Orders() {
             <h4 style={{ marginBottom: '1rem' }}>Thêm Sản Phẩm</h4>
             <datalist id="products-list">
               {products.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.sku || p.id}>{p.name}</option>
               ))}
             </datalist>
             

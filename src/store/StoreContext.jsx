@@ -75,6 +75,10 @@ export function StoreProvider({ children }) {
     const updated = await api.updatePurchase(purchaseId, updatedData);
     setPurchases(prev => prev.map(p => p.id === purchaseId ? updated : p));
   };
+  const deletePurchase = async (purchaseId) => {
+    await api.deletePurchase(purchaseId);
+    setPurchases(prev => prev.filter(p => p.id !== purchaseId));
+  };
   const addOrder = async (order) => {
     const created = await api.createOrder(order);
     setOrders(prev => [...prev, created]);
@@ -134,6 +138,7 @@ export function StoreProvider({ children }) {
     setAds,
     addPurchase,
     updatePurchase,
+    deletePurchase,
     addOrder,
     updateOrder,
     addLoss,

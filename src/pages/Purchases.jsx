@@ -3,7 +3,7 @@ import { useAppStore } from '../store/appStoreContext';
 import { Plus, Save, X } from 'lucide-react';
 
 export default function Purchases() {
-  const { purchases, addPurchase, updatePurchase, addProduct, products } = useAppStore();
+  const { purchases, addPurchase, updatePurchase, deletePurchase, addProduct, products } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [expandedPurchaseId, setExpandedPurchaseId] = useState(null);
   const [editingPurchaseId, setEditingPurchaseId] = useState(null);
@@ -124,6 +124,15 @@ export default function Purchases() {
     setDiscountVnd(0);
     setCompensationVnd(0);
     setTotalIntlShipping(0);
+  };
+
+  const handleDeletePurchase = async (p) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa phiếu nhập "${p.id}"? Toàn bộ lô hàng của phiếu này sẽ bị gỡ khỏi kho.`)) return;
+    try {
+      await deletePurchase(p.id);
+    } catch (err) {
+      alert(`Không xóa được phiếu nhập: ${err.message}`);
+    }
   };
 
   const handleEditPurchase = (p) => {
@@ -345,8 +354,11 @@ export default function Purchases() {
                       <td>{totalQty}</td>
                       <td style={{ fontWeight: 600, color: 'var(--color-success)' }}>{totalVnd.toLocaleString()} đ</td>
                       <td>
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={(e) => { e.stopPropagation(); handleEditPurchase(p); }}>
+                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={(e) => { e.stopPropagation(); handleEditPurchase(p); }}>
                           Sửa
+                        </button>
+                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={(e) => { e.stopPropagation(); handleDeletePurchase(p); }}>
+                          Xóa
                         </button>
                       </td>
                     </tr>

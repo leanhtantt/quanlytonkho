@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from './prismaClient';
 import { z } from 'zod';
-import { createPurchaseOrder } from './services/procurementService';
+import { createPurchaseOrder, deletePurchaseOrder, replacePurchaseOrder } from './services/procurementService';
 import { deductStockFIFO } from './services/inventoryService';
 import { recordLoss } from './services/financeService';
 
@@ -119,60 +119,69 @@ apiRouter.get('/purchases', async (req, res) => {
   res.json(mapped);
 });
 
+// Turn the frontend purchase payload into the shape the procurement service expects,
+// resolving each item's SKU/code to the real Product UUID.
+function buildPurchaseInput(data: any, dbProducts: any[]) {
+  return {
+    code: data.id,
+    supplier: data.orderName,
+    receivedAt: new Date(data.date),
+    notes: data.notes,
+    totalDiscount: data.discountVnd,
+    totalCompensation: data.compensationVnd,
+    purchaseFee: data.purchasingFee,
+    domesticShippingFee: data.domesticShipping,
+    internationalShippingFee: data.totalIntlShipping,
+    items: data.items.map((it: any) => {
+      const prod = dbProducts.find(p => p.sku === it.productId || p.id === it.productId);
+      return {
+        productId: prod ? prod.id : it.productId,
+        qty: it.qty,
+        totalCost: it.totalVndPrice,
+        totalWeight: it.weightKg * it.qty
+      };
+    })
+  };
+}
+
+// Reload a purchase order and map it to the shape the frontend expects (id = code, etc.).
+async function loadMappedPurchase(poId: string, data?: any) {
+  const fullPo = await prisma.purchaseOrder.findUnique({
+    where: { id: poId },
+    include: { purchaseItems: { include: { inventoryBatches: true } } }
+  });
+  if (!fullPo) return null;
+  return {
+    ...fullPo,
+    id: fullPo.code,
+    date: fullPo.receivedAt.toISOString().split('T')[0],
+    purchasingFee: Number(fullPo.purchaseFee),
+    domesticShipping: Number(fullPo.domesticShipping),
+    intlShipping: Number(fullPo.intlShipping),
+    discountVnd: Number(fullPo.totalDiscount),
+    compensationVnd: Number(fullPo.totalCompensation),
+    totalIntlShipping: Number(fullPo.intlShipping),
+    items: fullPo.purchaseItems.map(pi => ({
+      ...pi,
+      name: data?.items?.find((i: any) => i.productId === pi.productId)?.name || pi.productId,
+      qty: pi.qty,
+      totalVndPrice: Number(pi.totalCost),
+      weightKg: pi.qty > 0 ? Number((Number(pi.totalWeight) / pi.qty).toFixed(3)) : 0,
+      finalCostVnd: pi.inventoryBatches[0] ? Number(pi.inventoryBatches[0].unitCost) : 0
+    }))
+  };
+}
+
 apiRouter.post('/purchases', async (req, res) => {
   const parsed = purchaseSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const data = parsed.data;
     const dbProducts = await prisma.product.findMany();
+    const po = await createPurchaseOrder(buildPurchaseInput(data, dbProducts));
 
-    const po = await createPurchaseOrder({
-      code: data.id,
-      supplier: data.orderName,
-      receivedAt: new Date(data.date),
-      notes: data.notes,
-      totalDiscount: data.discountVnd,
-      totalCompensation: data.compensationVnd,
-      purchaseFee: data.purchasingFee,
-      domesticShippingFee: data.domesticShipping,
-      internationalShippingFee: data.totalIntlShipping,
-      items: data.items.map(it => {
-        const prod = dbProducts.find(p => p.sku === it.productId || p.id === it.productId);
-        return {
-          productId: prod ? prod.id : it.productId,
-          qty: it.qty,
-          totalCost: it.totalVndPrice,
-          totalWeight: it.weightKg * it.qty
-        };
-      })
-    });
-
-    const fullPo = await prisma.purchaseOrder.findUnique({
-      where: { id: po.id },
-      include: { purchaseItems: { include: { inventoryBatches: true } } }
-    });
-
-    if (!fullPo) return res.status(500).json({ error: "Failed to load created PO" });
-
-    const mapped = {
-      ...fullPo,
-      id: fullPo.code,
-      date: fullPo.receivedAt.toISOString().split('T')[0],
-      purchasingFee: Number(fullPo.purchaseFee),
-      domesticShipping: Number(fullPo.domesticShipping),
-      intlShipping: Number(fullPo.intlShipping),
-      discountVnd: Number(fullPo.totalDiscount),
-      compensationVnd: Number(fullPo.totalCompensation),
-      totalIntlShipping: Number(fullPo.intlShipping),
-      items: fullPo.purchaseItems.map(pi => ({
-        ...pi,
-        name: data.items.find(i => i.productId === pi.productId)?.name || pi.productId,
-        qty: pi.qty,
-        totalVndPrice: Number(pi.totalCost),
-        weightKg: pi.qty > 0 ? Number((Number(pi.totalWeight) / pi.qty).toFixed(3)) : 0,
-        finalCostVnd: pi.inventoryBatches[0] ? Number(pi.inventoryBatches[0].unitCost) : 0
-      }))
-    };
+    const mapped = await loadMappedPurchase(po.id, data);
+    if (!mapped) return res.status(500).json({ error: 'Failed to load created PO' });
     res.json(mapped);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -180,11 +189,38 @@ apiRouter.post('/purchases', async (req, res) => {
 });
 
 apiRouter.put('/purchases/:id', async (req, res) => {
-  const po = await prisma.purchaseOrder.update({
-    where: { id: req.params.id },
-    data: req.body
-  });
-  res.json(po);
+  try {
+    // The frontend id is the purchase order's code; resolve it to the real UUID.
+    const existing = await prisma.purchaseOrder.findUnique({ where: { code: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Không tìm thấy phiếu nhập.' });
+
+    const body = { ...req.body, id: req.body.id || req.params.id };
+    const parsed = purchaseSchema.safeParse(body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+    const data = parsed.data;
+    const dbProducts = await prisma.product.findMany();
+    const po = await replacePurchaseOrder(existing.id, buildPurchaseInput(data, dbProducts));
+
+    const mapped = await loadMappedPurchase(po.id, data);
+    if (!mapped) return res.status(500).json({ error: 'Failed to load updated PO' });
+    res.json(mapped);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+apiRouter.delete('/purchases/:id', async (req, res) => {
+  try {
+    // The frontend id is the purchase order's code; resolve it to the real UUID.
+    const existing = await prisma.purchaseOrder.findUnique({ where: { code: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Không tìm thấy phiếu nhập.' });
+
+    await deletePurchaseOrder(existing.id);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 // --- Orders ---
@@ -256,11 +292,40 @@ apiRouter.post('/orders', async (req, res) => {
 });
 
 apiRouter.put('/orders/:id', async (req, res) => {
-  const order = await prisma.order.update({
-    where: { id: req.params.id },
-    data: req.body
-  });
-  res.json(order);
+  try {
+    // The frontend id is the order's externalCode; resolve it to the real UUID.
+    const existing = await prisma.order.findUnique({ where: { externalCode: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
+
+    const b = req.body || {};
+    // Only write fields that actually exist as columns on Order.
+    const data: any = {};
+    if (b.status !== undefined) data.status = b.status;
+    if (b.channel !== undefined) data.channel = b.channel;
+    else if (b.shop !== undefined) data.channel = b.shop; // frontend calls the channel "shop"
+    if (b.date !== undefined) data.orderedAt = new Date(b.date);
+    if (b.actualRevenue !== undefined) {
+      data.actualRevenue = (b.actualRevenue === null || b.actualRevenue === '') ? null : Number(b.actualRevenue);
+    }
+
+    await prisma.order.update({ where: { id: existing.id }, data });
+
+    const withItems = await prisma.order.findUnique({
+      where: { id: existing.id },
+      include: { orderItems: true }
+    });
+    const mapped = {
+      ...withItems,
+      id: withItems!.externalCode,
+      date: withItems!.orderedAt.toISOString().split('T')[0],
+      items: withItems!.orderItems.map(oi => ({ ...oi, qty: oi.qty }))
+    };
+    // Preserve any frontend-only fields the caller sent (e.g. packagingFee) for this session;
+    // canonical DB fields override. NOTE: those extra fields are not persisted yet (no columns).
+    res.json({ ...b, ...mapped, items: b.items ?? mapped.items });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 // --- Losses ---

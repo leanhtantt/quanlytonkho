@@ -31,6 +31,7 @@ export const api = {
   getPurchases: () => authFetch('/api/purchases'),
   createPurchase: (data) => authFetch('/api/purchases', { method: 'POST', body: JSON.stringify(data) }),
   updatePurchase: (id, data) => authFetch(`/api/purchases/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePurchase: (id) => authFetch(`/api/purchases/${id}`, { method: 'DELETE' }),
   
   getOrders: () => authFetch('/api/orders'),
   createOrder: (data) => authFetch('/api/orders', { method: 'POST', body: JSON.stringify(data) }),

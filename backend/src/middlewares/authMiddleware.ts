@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import { initializeApp, getApps, applicationDefault } from 'firebase-admin/app';
+import { initializeApp, getApps } from 'firebase-admin/app';
 import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
 
-// Initialize Firebase Admin (requires GOOGLE_APPLICATION_CREDENTIALS in env)
+// Initialize Firebase Admin for token verification (only requires projectId)
 if (!getApps().length) {
   initializeApp({
-    credential: applicationDefault(),
+    projectId: 'tanle-dev',
   });
 }
 

@@ -508,3 +508,104 @@ tbody tr:hover td {
     justify-content: flex-start;
   }
 }
+
+/* --- Sidebar footer --- */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sidebar-user-email {
+  padding: 0 var(--space-4);
+  font-size: 0.8rem;
+  color: var(--color-text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logout-btn {
+  background: none;
+  cursor: pointer;
+  color: var(--color-danger) !important;
+}
+
+.logout-btn:hover {
+  background: var(--color-danger-light) !important;
+}
+
+/* --- Login page --- */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--color-bg-base) 0%, var(--color-primary-light) 100%);
+  padding: var(--space-4);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  justify-content: center;
+}
+
+.login-card h2 {
+  text-align: center;
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.login-card label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.login-error {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.login-toggle {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.login-toggle button {
+  background: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.login-toggle button:hover {
+  text-decoration: underline;
+}

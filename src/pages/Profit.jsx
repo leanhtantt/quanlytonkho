@@ -8,7 +8,7 @@ function formatCurrency(value) {
 }
 
 export default function Profit() {
-  const { orders, losses, ads, setAds } = useAppStore();
+  const { orders, losses, ads, setAds, partners, defaultPackagingCost } = useAppStore();
 
   const [adMonth, setAdMonth] = useState('');
   const [adShop, setAdShop] = useState('');
@@ -34,7 +34,7 @@ export default function Profit() {
     setAdAmount('');
   };
 
-  const data = useMemo(() => calculateProfitAnalytics(orders, losses, ads), [orders, losses, ads]);
+  const data = useMemo(() => calculateProfitAnalytics(orders, losses, ads, partners, defaultPackagingCost), [orders, losses, ads, partners, defaultPackagingCost]);
 
   // For the chart, we want cashMonthProfit by month, grouped by shop.
   // The easiest way for Recharts BarChart is an array of objects where each object is a month:
@@ -130,11 +130,13 @@ export default function Profit() {
                 <th>Vốn (+15d)</th>
                 <th>SL Hao hụt</th>
                 <th>Giá trị Hao hụt</th>
+                <th>Đóng gói</th>
                 <th>QC</th>
                 <th>LN Đơn hàng</th>
                 <th>LN Dòng tiền</th>
-                <th>Cổ phần Shop</th>
-                <th>Cổ phần Mỗi người</th>
+                {partners.map(p => (
+                  <th key={p.name}>Cổ phần {p.name} ({p.share}%)</th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -151,16 +153,20 @@ export default function Profit() {
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.estimatedMatchingCost)}</td>
                   <td>{row.monthlyLossQty}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.monthlyLossValue)}</td>
+                  <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.packagingCost)}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.ads)}</td>
                   <td style={{ color: row.orderMonthProfit < 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{formatCurrency(row.orderMonthProfit)}</td>
                   <td style={{ color: row.cashMonthProfit < 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{formatCurrency(row.cashMonthProfit)}</td>
-                  <td style={{ color: row.shopCapitalShare < 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{formatCurrency(row.shopCapitalShare)}</td>
-                  <td style={{ color: row.eachPartnerShare < 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{formatCurrency(row.eachPartnerShare)}</td>
+                  {partners.map(p => (
+                    <td key={p.name} style={{ color: row.partnerShares[p.name] < 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>
+                      {formatCurrency(row.partnerShares[p.name])}
+                    </td>
+                  ))}
                 </tr>
               ))}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan="16" style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
+                  <td colSpan={15 + partners.length} style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
                 </tr>
               )}
             </tbody>

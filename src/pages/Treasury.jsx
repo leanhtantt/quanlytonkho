@@ -8,79 +8,69 @@ function formatCurrency(value) {
 }
 
 export default function Treasury() {
-  const { transactions, addTransaction, deleteTransaction, orders, losses, ads } = useAppStore();
+  const { transactions, addTransaction, deleteTransaction, orders, losses, ads, accounts, partners } = useAppStore();
 
   const [showForm, setShowForm] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [type, setType] = useState('THU'); // THU, CHI, CHUYEN
-  const [account, setAccount] = useState('Hà');
-  const [fromAccount, setFromAccount] = useState('Hà');
-  const [toAccount, setToAccount] = useState('Luyến');
+  const [account, setAccount] = useState(accounts[0] || '');
+  const [fromAccount, setFromAccount] = useState(accounts[0] || '');
+  const [toAccount, setToAccount] = useState(accounts[1] || accounts[0] || '');
   const [category, setCategory] = useState('Rút tiền từ Sàn');
-  const [person, setPerson] = useState('Hà'); // Hà, Châu, Luyến
+  const [person, setPerson] = useState(partners.length > 0 ? partners[0].name : ''); 
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
 
-  // 1. Calculate Balances & Capital
-  let balanceHa = 0;
-  let balanceLuyen = 0;
-  let balanceChau = 0;
-  let balanceCash = 0;
-  const capital = {
-    'Hà': { contributed: 0, withdrawn: 0 },
-    'Luyến': { contributed: 0, withdrawn: 0 },
-    'Châu': { contributed: 0, withdrawn: 0 }
-  };
+  // 1. Calculate Balances dynamically based on accounts
+  const balances = {};
+  accounts.forEach(a => balances[a] = 0);
+
+  const capital = {};
+  partners.forEach(p => capital[p.name] = { contributed: 0, withdrawn: 0 });
 
   if (transactions && transactions.length > 0) {
     transactions.forEach(t => {
       const amt = Number(t.amount) || 0;
       
       if (t.type === 'THU') {
-        if (t.account === 'Hà') balanceHa += amt;
-        if (t.account === 'Luyến') balanceLuyen += amt;
-        if (t.account === 'Châu') balanceChau += amt;
-        if (t.account === 'Tiền mặt') balanceCash += amt;
+        if (balances[t.account] !== undefined) balances[t.account] += amt;
         if (t.category === 'Nhận vốn góp' && t.person && capital[t.person]) {
           capital[t.person].contributed += amt;
         }
       } else if (t.type === 'CHI') {
-        if (t.account === 'Hà') balanceHa -= amt;
-        if (t.account === 'Luyến') balanceLuyen -= amt;
-        if (t.account === 'Châu') balanceChau -= amt;
-        if (t.account === 'Tiền mặt') balanceCash -= amt;
+        if (balances[t.account] !== undefined) balances[t.account] -= amt;
         if (t.category === 'Rút vốn / Chia lợi nhuận' && t.person && capital[t.person]) {
           capital[t.person].withdrawn += amt;
         }
       } else if (t.type === 'CHUYEN') {
-        if (t.fromAccount === 'Hà') balanceHa -= amt;
-        if (t.fromAccount === 'Luyến') balanceLuyen -= amt;
-        if (t.fromAccount === 'Châu') balanceChau -= amt;
-        if (t.fromAccount === 'Tiền mặt') balanceCash -= amt;
-        if (t.toAccount === 'Hà') balanceHa += amt;
-        if (t.toAccount === 'Luyến') balanceLuyen += amt;
-        if (t.toAccount === 'Châu') balanceChau += amt;
-        if (t.toAccount === 'Tiền mặt') balanceCash += amt;
+        if (balances[t.fromAccount] !== undefined) balances[t.fromAccount] -= amt;
+        if (balances[t.toAccount] !== undefined) balances[t.toAccount] += amt;
       }
     });
   }
 
-  // Calculate profit share
-  const profitData = useMemo(() => calculateProfitAnalytics(orders, losses, ads), [orders, losses, ads]);
-  let totalPartnerShare = 0;
+  const totalFund = Object.values(balances).reduce((sum, b) => sum + b, 0);
+
+  // Calculate profit share using partners configuration
+  const profitData = useMemo(() => calculateProfitAnalytics(orders, losses, ads, partners), [orders, losses, ads, partners]);
+  
+  // Total profit pool generated across all months
+  let totalCashProfit = 0;
   profitData.forEach(row => {
     if (row.isTotal) {
-      totalPartnerShare += row.eachPartnerShare;
+      totalCashProfit += row.cashMonthProfit;
     }
   });
 
-  const capitalReport = ['Hà', 'Châu', 'Luyến'].map(p => {
-    const cap = capital[p];
-    const balance = cap.contributed + totalPartnerShare - cap.withdrawn;
+  const capitalReport = partners.map(p => {
+    const cap = capital[p.name];
+    // This partner's share of the total profit
+    const partnerProfitShare = totalCashProfit * (p.share / 100);
+    const balance = cap.contributed + partnerProfitShare - cap.withdrawn;
     return {
-      person: p,
+      person: p.name,
       contributed: cap.contributed,
-      profit: totalPartnerShare,
+      profit: partnerProfitShare,
       withdrawn: cap.withdrawn,
       balance
     };
@@ -125,6 +115,10 @@ export default function Treasury() {
     return [];
   };
 
+  // Colors for dynamic cards
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#14b8a6', '#8b5cf6', '#ef4444'];
+  const bgColors = ['#eff6ff', '#ecfdf5', '#fef3c7', '#ccfbf1', '#ede9fe', '#fef2f2'];
+
   return (
     <div className="animate-fade-in">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -137,59 +131,32 @@ export default function Treasury() {
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: '4px solid var(--color-primary)' }}>
-          <div style={{ background: 'var(--color-bg-hover)', padding: '1rem', borderRadius: '50%', color: 'var(--color-primary)' }}>
-            <Wallet size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>SỐ DƯ TK HÀ</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: balanceHa < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>
-              {formatCurrency(balanceHa)}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+        {accounts.map((acc, idx) => {
+          const color = colors[idx % colors.length];
+          const bg = bgColors[idx % bgColors.length];
+          return (
+            <div key={acc} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: `4px solid ${color}` }}>
+              <div style={{ background: bg, padding: '1rem', borderRadius: '50%', color: color }}>
+                <Wallet size={24} />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase' }}>{acc}</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: balances[acc] < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>
+                  {formatCurrency(balances[acc])}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: '4px solid #10b981' }}>
-          <div style={{ background: '#ecfdf5', padding: '1rem', borderRadius: '50%', color: '#10b981' }}>
-            <Wallet size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>SỐ DƯ TK LUYẾN</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: balanceLuyen < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>
-              {formatCurrency(balanceLuyen)}
-            </div>
-          </div>
-        </div>
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: '4px solid #f59e0b' }}>
-          <div style={{ background: '#fef3c7', padding: '1rem', borderRadius: '50%', color: '#f59e0b' }}>
-            <Wallet size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>SỐ DƯ TK CHÂU</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: balanceChau < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>
-              {formatCurrency(balanceChau)}
-            </div>
-          </div>
-        </div>
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: '4px solid #14b8a6' }}>
-          <div style={{ background: '#ccfbf1', padding: '1rem', borderRadius: '50%', color: '#14b8a6' }}>
-            <Wallet size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>TIỀN MẶT</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: balanceCash < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>
-              {formatCurrency(balanceCash)}
-            </div>
-          </div>
-        </div>
+          );
+        })}
         <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: '4px solid #6366f1' }}>
           <div style={{ background: '#e0e7ff', padding: '1rem', borderRadius: '50%', color: '#6366f1' }}>
             <Wallet size={24} />
           </div>
           <div>
             <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>TỔNG QUỸ CHUNG</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: (balanceHa + balanceLuyen + balanceChau + balanceCash) < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>
-              {formatCurrency(balanceHa + balanceLuyen + balanceChau + balanceCash)}
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: totalFund < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>
+              {formatCurrency(totalFund)}
             </div>
           </div>
         </div>
@@ -217,10 +184,7 @@ export default function Treasury() {
                 <div>
                   <label style={labelStyle}>Tài khoản</label>
                   <select value={account} onChange={e => setAccount(e.target.value)} style={inputStyle}>
-                    <option value="Hà">TK Hà</option>
-                    <option value="Luyến">TK Luyến</option>
-                    <option value="Châu">TK Châu</option>
-                    <option value="Tiền mặt">Tiền mặt</option>
+                    {accounts.map(a => <option key={a} value={a}>{a}</option>)}
                   </select>
                 </div>
                 <div>
@@ -233,9 +197,7 @@ export default function Treasury() {
                   <div>
                     <label style={labelStyle}>Thành viên</label>
                     <select value={person} onChange={e => setPerson(e.target.value)} style={inputStyle}>
-                      <option value="Hà">Hà</option>
-                      <option value="Châu">Châu</option>
-                      <option value="Luyến">Luyến</option>
+                      {partners.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                     </select>
                   </div>
                 )}
@@ -245,19 +207,13 @@ export default function Treasury() {
                 <div>
                   <label style={labelStyle}>Từ Tài Khoản</label>
                   <select value={fromAccount} onChange={e => setFromAccount(e.target.value)} style={inputStyle}>
-                    <option value="Hà">TK Hà</option>
-                    <option value="Luyến">TK Luyến</option>
-                    <option value="Châu">TK Châu</option>
-                    <option value="Tiền mặt">Tiền mặt</option>
+                    {accounts.map(a => <option key={a} value={a}>{a}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={labelStyle}>Đến Tài Khoản</label>
                   <select value={toAccount} onChange={e => setToAccount(e.target.value)} style={inputStyle}>
-                    <option value="Luyến">TK Luyến</option>
-                    <option value="Hà">TK Hà</option>
-                    <option value="Châu">TK Châu</option>
-                    <option value="Tiền mặt">Tiền mặt</option>
+                    {accounts.map(a => <option key={a} value={a}>{a}</option>)}
                   </select>
                 </div>
               </>
@@ -283,7 +239,7 @@ export default function Treasury() {
         <div className="card">
           <h3 style={{ marginBottom: '1rem' }}>Báo Cáo Vốn & Cổ Tức</h3>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-            Lợi nhuận được chia tích lũy từ tất cả các tháng (đã trừ phần quỹ chung của Shop).<br/>
+            Lợi nhuận được chia theo tỷ lệ cấu hình trong phần Cài Đặt.<br/>
             <strong>Tồn đọng (Nợ) = Vốn góp + Lãi lũy kế - Đã rút</strong>
           </p>
           <div className="table-responsive">

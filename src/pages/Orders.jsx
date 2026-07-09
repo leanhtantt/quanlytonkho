@@ -6,7 +6,7 @@ import * as XLSX from 'xlsx';
 const SHOPS = ['Chà Tiktok', 'Chà Shopee', 'Lyn WD', 'Lyn - Phụ kiện', 'Lyn Tiktok'];
 
 export default function Orders() {
-  const { products, orders, addOrder, updateOrder } = useAppStore();
+  const { products, orders, addOrder, updateOrder, defaultPackagingCost } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -22,7 +22,7 @@ export default function Orders() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [shop, setShop] = useState(SHOPS[0]);
   const [status, setStatus] = useState('Đang giao'); // Vẫn giữ để filter nhưng Hoàn hàng dùng item.isReturned
-  const [packagingFee, setPackagingFee] = useState(1000);
+  const [packagingFee, setPackagingFee] = useState(defaultPackagingCost);
   const [actualRevenue, setActualRevenue] = useState('');
   const [settlementDate, setSettlementDate] = useState('');
   const [items, setItems] = useState([]);
@@ -89,7 +89,7 @@ export default function Orders() {
     setDate(new Date().toISOString().split('T')[0]);
     setShop(SHOPS[0]);
     setStatus('Đang giao');
-    setPackagingFee(1000);
+    setPackagingFee(defaultPackagingCost);
     setActualRevenue('');
     setSettlementDate('');
   };
@@ -130,7 +130,7 @@ export default function Orders() {
     setDate(o.date);
     setShop(o.shop);
     setStatus(o.status);
-    setPackagingFee(o.packagingFee ?? 1000);
+    setPackagingFee(o.packagingFee ?? defaultPackagingCost);
     setActualRevenue(o.actualRevenue !== null && o.actualRevenue !== undefined ? o.actualRevenue : '');
     setSettlementDate(o.settlementDate || '');
     setItems(o.items.map(i => ({ ...i }))); // deep copy
@@ -257,7 +257,7 @@ export default function Orders() {
               date: dateStr,
               shop: importShop, // Gán Kênh Bán theo lựa chọn trên giao diện
               status: mappedStatus,
-              packagingFee: 1000, // Mặc định
+              packagingFee: defaultPackagingCost, // Mặc định từ cấu hình
               items: [],
               hasError: false
             };
@@ -501,6 +501,7 @@ export default function Orders() {
                 <th>Kênh Bán</th>
                 <th>Ngày Đặt</th>
                 <th>Doanh Thu Dự Kiến</th>
+                <th style={{ color: 'var(--color-primary)' }}>Phí Đóng gói</th>
                 <th style={{ color: 'var(--color-primary)' }}>Thực Tế (Nhận)</th>
                 <th style={{ color: 'var(--color-primary)' }}>Ngày Nhận</th>
                 <th>Tổng Lợi Nhuận Gộp</th>
@@ -534,6 +535,15 @@ export default function Orders() {
                       <td>{o.shop}</td>
                       <td>{o.date}</td>
                       <td style={{ fontWeight: 600 }}>{totalRevenue.toLocaleString()} đ</td>
+                      <td>
+                        <input 
+                          type="number"
+                          defaultValue={o.packagingFee ?? defaultPackagingCost}
+                          onBlur={(e) => updateOrder(o.id, { packagingFee: Number(e.target.value) || 0 })}
+                          style={{ ...inputStyle, padding: '0.25rem 0.5rem', width: '80px', height: '30px' }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
                       <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
                         {o.actualRevenue !== null && o.actualRevenue !== undefined ? o.actualRevenue.toLocaleString() + ' đ' : '-'}
                       </td>

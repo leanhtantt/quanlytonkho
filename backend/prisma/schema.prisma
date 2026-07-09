@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id                 String              @id @default(uuid())
+  sku                String              @unique
+  name               String
+  status             String              @default("active")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  purchaseItems      PurchaseItem[]
+  inventoryBatches   InventoryBatch[]
+  stockTransactions  StockTransaction[]
+  orderItems         OrderItem[]
+  losses             Loss[]
+}
+
+model PurchaseOrder {
+  id                 String              @id @default(uuid())
+  code               String              @unique
+  supplier           String?
+  receivedAt         DateTime
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  purchaseItems      PurchaseItem[]
+}
+
+model PurchaseItem {
+  id                 String              @id @default(uuid())
+  purchaseOrderId    String
+  productId          String
+  qty                Int
+  totalCost          Float
+  totalWeight        Float
+  createdAt          DateTime            @default(now())
+  purchaseOrder      PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id])
+  product            Product             @relation(fields: [productId], references: [id])
+  inventoryBatches   InventoryBatch[]
+}
+
+model InventoryBatch {
+  id                 String              @id @default(uuid())
+  productId          String
+  purchaseItemId     String?
+  receivedAt         DateTime
+  qtyInitial         Int
+  qtyRemaining       Int
+  unitCost           Float
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  product            Product             @relation(fields: [productId], references: [id])
+  purchaseItem       PurchaseItem?       @relation(fields: [purchaseItemId], references: [id])
+  stockTransactions  StockTransaction[]
+}
+
+model StockTransaction {
+  id                 String              @id @default(uuid())
+  productId          String
+  batchId            String
+  type               String              // "IN", "OUT", "LOSS", "RETURN"
+  qty                Int                 // positive or negative
+  unitCost           Float
+  referenceType      String              // "ORDER", "LOSS", "PURCHASE"
+  referenceId        String
+  createdAt          DateTime            @default(now())
+  product            Product             @relation(fields: [productId], references: [id])
+  batch              InventoryBatch      @relation(fields: [batchId], references: [id])
+}
+
+model Order {
+  id                 String              @id @default(uuid())
+  channel            String
+  externalCode       String              @unique
+  status             String
+  orderedAt          DateTime
+  expectedRevenue    Float
+  actualRevenue      Float?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  orderItems         OrderItem[]
+}
+
+model OrderItem {
+  id                 String              @id @default(uuid())
+  orderId            String
+  productId          String
+  qty                Int
+  sellingPrice       Float
+  returnStatus       String?
+  order              Order               @relation(fields: [orderId], references: [id])
+  product            Product             @relation(fields: [productId], references: [id])
+}
+
+model Loss {
+  id                 String              @id @default(uuid())
+  productId          String
+  qty                Int
+  reason             String
+  occurredAt         DateTime            @default(now())
+  product            Product             @relation(fields: [productId], references: [id])
+}
+
+model Reconciliation {
+  id                 String              @id @default(uuid())
+  channel            String
+  period             String
+  sourceFile         String
+  status             String
+  expectedAmount     Float
+  actualAmount       Float
+  createdAt          DateTime            @default(now())
+}
+
+model LedgerEntry {
+  id                 String              @id @default(uuid())
+  account            String
+  direction          String              // "DEBIT", "CREDIT"
+  amount             Float
+  referenceType      String
+  referenceId        String
+  createdAt          DateTime            @default(now())
+}

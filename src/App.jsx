@@ -7,10 +7,14 @@ import Purchases from './pages/Purchases';
 import Losses from './pages/Losses';
 import Profit from './pages/Profit';
 import Treasury from './pages/Treasury';
-import { Wallet } from 'lucide-react';
+import Settings from './pages/Settings';
+import Login from './pages/Login';
+import { useAuth } from './lib/AuthContext';
+import { Wallet, Settings as SettingsIcon, LogOut } from 'lucide-react';
 
 function Sidebar() {
   const location = useLocation();
+  const { logout, user } = useAuth();
 
   const menuItems = [
     { path: '/', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -20,6 +24,7 @@ function Sidebar() {
     { path: '/losses', name: 'Hao Hụt', icon: <ShieldAlert size={20} /> },
     { path: '/profit', name: 'Lợi Nhuận', icon: <TrendingUp size={20} /> },
     { path: '/treasury', name: 'Sổ Quỹ', icon: <Wallet size={20} /> },
+    { path: '/settings', name: 'Cài Đặt', icon: <SettingsIcon size={20} /> },
   ];
 
   return (
@@ -42,11 +47,23 @@ function Sidebar() {
           </Link>
         ))}
       </nav>
+      <div className="sidebar-footer">
+        <span className="sidebar-user-email" title={user?.email}>{user?.email}</span>
+        <button className="nav-item logout-btn" onClick={logout}>
+          <LogOut size={20} />
+          Đăng xuất
+        </button>
+      </div>
     </div>
   );
 }
 
 function App() {
+  const { user } = useAuth();
+
+  // ponytail: no auth = login page, no router needed for unauthenticated state
+  if (!user) return <Login />;
+
   return (
     <Router>
       <div className="app-container">
@@ -61,6 +78,7 @@ function App() {
               <Route path="/losses" element={<Losses />} />
               <Route path="/profit" element={<Profit />} />
               <Route path="/treasury" element={<Treasury />} />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </div>
         </div>
@@ -70,3 +88,4 @@ function App() {
 }
 
 export default App;
+

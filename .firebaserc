@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "tanle-dev"
+  },
+  "targets": {
+    "tanle-dev": {
+      "hosting": {
+        "lynstore": [
+          "tanle-dev-lynstore"
+        ]
+      }
+    }
+  }
+}

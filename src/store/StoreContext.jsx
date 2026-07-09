@@ -10,6 +10,14 @@ export function StoreProvider({ children }) {
   const [losses, setLosses] = useLocalStorage('bap-store.losses.v1', []);
   const [ads, setAds] = useLocalStorage('bap-store.monthlyAds.v1', []);
   const [transactions, setTransactions] = useLocalStorage('bap-store.transactions.v1', []);
+  const [accounts, setAccounts] = useLocalStorage('bap-store.accounts.v1', ['Hà', 'Luyến', 'Châu', 'Tiền mặt']);
+  const [partners, setPartners] = useLocalStorage('bap-store.partners.v1', [
+    { name: 'Quỹ Shop', share: 25 },
+    { name: 'Hà', share: 25 },
+    { name: 'Châu', share: 25 },
+    { name: 'Luyến', share: 25 }
+  ]);
+  const [defaultPackagingCost, setDefaultPackagingCost] = useLocalStorage('bap-store.packagingCost.v1', 1000);
 
   useEffect(() => {
     setProducts(prev => repairProductNames(prev));
@@ -53,7 +61,13 @@ export function StoreProvider({ children }) {
     addProduct,
     transactions,
     addTransaction,
-    deleteTransaction
+    deleteTransaction,
+    accounts,
+    setAccounts,
+    partners,
+    setPartners,
+    defaultPackagingCost,
+    setDefaultPackagingCost
   };
 
   return (

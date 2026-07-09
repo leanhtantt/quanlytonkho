@@ -1,4 +1,4 @@
-export function calculateProfitAnalytics(orders, losses, ads) {
+export function calculateProfitAnalytics(orders, losses, ads, partners = [], defaultPackagingCost = 1000) {
   const data = {};
   const globalLosses = {};
 
@@ -8,7 +8,8 @@ export function calculateProfitAnalytics(orders, losses, ads) {
       data[month][shop] = {
         totalOrders: 0, deliveredOrders: 0, returnedOrders: 0,
         actualRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
-        estimatedMatchingCost: 0, monthlyLossQty: 0, monthlyLossValue: 0, ads: 0
+        estimatedMatchingCost: 0, monthlyLossQty: 0, monthlyLossValue: 0, ads: 0,
+        packagingCost: 0, estimatedPackagingCost: 0
       };
     }
     return data[month][shop];
@@ -33,9 +34,11 @@ export function calculateProfitAnalytics(orders, losses, ads) {
     const hasActualRevenue = order.actualRevenue != null && order.actualRevenue !== '';
     const actualRevNum = hasActualRevenue ? Number(order.actualRevenue) : 0;
     const costNum = Number(order.totalCost) || 0;
+    const pkgCost = order.packagingFee !== undefined ? Number(order.packagingFee) : defaultPackagingCost;
 
     stats.actualRevenue += actualRevNum;
     stats.orderProductCost += costNum;
+    stats.packagingCost += pkgCost;
 
     // Cash month shifting
     let cashMonth;
@@ -51,6 +54,7 @@ export function calculateProfitAnalytics(orders, losses, ads) {
     if (hasActualRevenue) {
       cashStats.withdrawableRevenue += actualRevNum;
       cashStats.estimatedMatchingCost += costNum;
+      cashStats.estimatedPackagingCost += pkgCost;
     }
   }
 
@@ -88,6 +92,7 @@ export function calculateProfitAnalytics(orders, losses, ads) {
       totalOrders: 0, deliveredOrders: 0, returnedOrders: 0,
       actualRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
       estimatedMatchingCost: 0, monthlyLossQty: 0, monthlyLossValue: 0, ads: 0,
+      packagingCost: 0, estimatedPackagingCost: 0,
       isTotal: true
     };
 
@@ -97,11 +102,15 @@ export function calculateProfitAnalytics(orders, losses, ads) {
         month,
         shop,
         ...s,
-        orderMonthProfit: s.actualRevenue - s.orderProductCost - s.ads - s.monthlyLossValue,
-        cashMonthProfit: s.withdrawableRevenue - s.estimatedMatchingCost - s.ads - s.monthlyLossValue
+        orderMonthProfit: s.actualRevenue - s.orderProductCost - s.packagingCost - s.ads - s.monthlyLossValue,
+        cashMonthProfit: s.withdrawableRevenue - s.estimatedMatchingCost - s.estimatedPackagingCost - s.ads - s.monthlyLossValue
       };
-      row.shopCapitalShare = row.cashMonthProfit / 4;
-      row.eachPartnerShare = row.cashMonthProfit / 4;
+      
+      row.partnerShares = {};
+      partners.forEach(p => {
+        row.partnerShares[p.name] = row.cashMonthProfit * (p.share / 100);
+      });
+      
       results.push(row);
 
       totalStats.totalOrders += s.totalOrders;
@@ -114,16 +123,22 @@ export function calculateProfitAnalytics(orders, losses, ads) {
       totalStats.monthlyLossQty += s.monthlyLossQty;
       totalStats.monthlyLossValue += s.monthlyLossValue;
       totalStats.ads += s.ads;
+      totalStats.packagingCost += s.packagingCost;
+      totalStats.estimatedPackagingCost += s.estimatedPackagingCost;
     }
 
     const gLoss = globalLosses[month] || { qty: 0, value: 0 };
     totalStats.monthlyLossQty += gLoss.qty;
     totalStats.monthlyLossValue += gLoss.value;
 
-    totalStats.orderMonthProfit = totalStats.actualRevenue - totalStats.orderProductCost - totalStats.ads - totalStats.monthlyLossValue;
-    totalStats.cashMonthProfit = totalStats.withdrawableRevenue - totalStats.estimatedMatchingCost - totalStats.ads - totalStats.monthlyLossValue;
-    totalStats.shopCapitalShare = totalStats.cashMonthProfit / 4;
-    totalStats.eachPartnerShare = totalStats.cashMonthProfit / 4;
+    totalStats.orderMonthProfit = totalStats.actualRevenue - totalStats.orderProductCost - totalStats.packagingCost - totalStats.ads - totalStats.monthlyLossValue;
+    totalStats.cashMonthProfit = totalStats.withdrawableRevenue - totalStats.estimatedMatchingCost - totalStats.estimatedPackagingCost - totalStats.ads - totalStats.monthlyLossValue;
+    
+    totalStats.partnerShares = {};
+    partners.forEach(p => {
+      totalStats.partnerShares[p.name] = totalStats.cashMonthProfit * (p.share / 100);
+    });
+
     results.push(totalStats);
   }
 

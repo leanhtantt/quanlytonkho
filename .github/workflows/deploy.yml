@@ -1,0 +1,95 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: tanle-dev
+  GAR_LOCATION: asia-southeast1
+  SERVICE: bap-backend-api
+  REGION: asia-southeast1
+
+jobs:
+  # --- Deploy Frontend to Firebase Hosting ---
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    # Only run when frontend files change
+    if: >
+      contains(toJSON(github.event.commits.*.modified), 'src/') ||
+      contains(toJSON(github.event.commits.*.added), 'src/') ||
+      contains(toJSON(github.event.commits.*.modified), 'index.html') ||
+      contains(toJSON(github.event.commits.*.modified), 'package.json') ||
+      contains(toJSON(github.event.commits.*.modified), 'vite.config.js')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install & Build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_TANLE_DEV }}'
+          projectId: tanle-dev
+          target: lynstore
+          channelId: live
+
+  # --- Deploy Backend to Cloud Run ---
+  deploy-backend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    # Only run when backend files change
+    if: >
+      contains(toJSON(github.event.commits.*.modified), 'backend/') ||
+      contains(toJSON(github.event.commits.*.added), 'backend/') ||
+      contains(toJSON(github.event.commits.*.modified), '.github/workflows/deploy.yml')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Google Auth
+        id: auth
+        uses: 'google-github-actions/auth@v2'
+        with:
+          token_format: 'access_token'
+          workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
+          service_account: '${{ secrets.WIF_SERVICE_ACCOUNT }}'
+
+      - name: Docker Auth
+        id: docker-auth
+        uses: 'docker/login-action@v3'
+        with:
+          username: 'oauth2accesstoken'
+          password: '${{ steps.auth.outputs.access_token }}'
+          registry: '${{ env.GAR_LOCATION }}-docker.pkg.dev'
+
+      - name: Build and Push Container
+        run: |-
+          cd backend
+          docker build -t "${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/bap-repo/${{ env.SERVICE }}:${{ github.sha }}" .
+          docker push "${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/bap-repo/${{ env.SERVICE }}:${{ github.sha }}"
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/bap-repo/${{ env.SERVICE }}:${{ github.sha }}
+          env_vars: |
+            DATABASE_URL=${{ secrets.DATABASE_URL }}

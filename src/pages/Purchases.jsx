@@ -340,7 +340,10 @@ export default function Purchases() {
                   </td>
                 </tr>
               )}
-              {purchases.map(p => {
+              {[...purchases].sort((a, b) => {
+                if (a.date !== b.date) return new Date(b.date) - new Date(a.date); // ngày mới nhất lên trên
+                return String(b.id).localeCompare(String(a.id));
+              }).map(p => {
                 const totalVnd = p.items.reduce((sum, item) => sum + (item.qty * item.finalCostVnd), 0);
                 const totalQty = p.items.reduce((sum, item) => sum + item.qty, 0);
                 const isExpanded = expandedPurchaseId === p.id;

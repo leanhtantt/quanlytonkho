@@ -7,9 +7,11 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
     if (!data[month][shop]) {
       data[month][shop] = {
         totalOrders: 0, deliveredOrders: 0, returnedOrders: 0,
-        actualRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
+        expectedRevenue: 0, actualRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
         estimatedMatchingCost: 0, monthlyLossQty: 0, monthlyLossValue: 0, ads: 0,
-        packagingCost: 0, estimatedPackagingCost: 0
+        packagingCost: 0, estimatedPackagingCost: 0,
+        returnCost: 0, estimatedReturnCost: 0,
+        platformFee: 0, marketingFee: 0
       };
     }
     return data[month][shop];
@@ -35,10 +37,20 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
     const actualRevNum = hasActualRevenue ? Number(order.actualRevenue) : 0;
     const costNum = Number(order.totalCost) || 0;
     const pkgCost = order.packagingFee !== undefined ? Number(order.packagingFee) : defaultPackagingCost;
+    const retCost = order.returnFee !== undefined ? Number(order.returnFee) : 0;
+    const platFee = Number(order.platformFee) || 0;
+    const mktFee = Number(order.marketingFee) || 0;
+    
+    // Tính doanh thu dự kiến (giá ưu đãi * số lượng)
+    const expectedRev = order.items.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0), 0);
 
+    stats.expectedRevenue += expectedRev;
     stats.actualRevenue += actualRevNum;
     stats.orderProductCost += costNum;
     stats.packagingCost += pkgCost;
+    stats.returnCost += retCost;
+    stats.platformFee += platFee;
+    stats.marketingFee += mktFee;
 
     // Cash month shifting
     let cashMonth;
@@ -51,10 +63,13 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
     }
     
     const cashStats = getStats(cashMonth, shop);
-    if (hasActualRevenue) {
+    if (hasActualRevenue || (status === 'Hoàn hàng' && retCost > 0)) {
+      // Đối với đơn hoàn, khi xác nhận hoàn (hoặc có doanh thu thực tế = 0), ta ghi nhận phí hoàn vào dòng tiền tháng đối soát.
+      // Tuy nhiên nếu đơn chưa đối soát (chưa về hàng/chưa trừ tiền), cashMonth sẽ là dự kiến.
       cashStats.withdrawableRevenue += actualRevNum;
       cashStats.estimatedMatchingCost += costNum;
       cashStats.estimatedPackagingCost += pkgCost;
+      cashStats.estimatedReturnCost += retCost;
     }
   }
 
@@ -90,9 +105,11 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
       month,
       shop: 'Tổng tất cả',
       totalOrders: 0, deliveredOrders: 0, returnedOrders: 0,
-      actualRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
+      expectedRevenue: 0, actualRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
       estimatedMatchingCost: 0, monthlyLossQty: 0, monthlyLossValue: 0, ads: 0,
       packagingCost: 0, estimatedPackagingCost: 0,
+      returnCost: 0, estimatedReturnCost: 0,
+      platformFee: 0, marketingFee: 0,
       isTotal: true
     };
 
@@ -102,6 +119,7 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
         month,
         shop,
         ...s,
+        // Chú ý: KHÔNG trừ returnCost, platformFee, marketingFee ở đây vì actualRevenue của Shopee đã là con số NET bị trừ các loại phí này rồi.
         orderMonthProfit: s.actualRevenue - s.orderProductCost - s.packagingCost - s.ads - s.monthlyLossValue,
         cashMonthProfit: s.withdrawableRevenue - s.estimatedMatchingCost - s.estimatedPackagingCost - s.ads - s.monthlyLossValue
       };
@@ -125,6 +143,11 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
       totalStats.ads += s.ads;
       totalStats.packagingCost += s.packagingCost;
       totalStats.estimatedPackagingCost += s.estimatedPackagingCost;
+      totalStats.returnCost += s.returnCost;
+      totalStats.estimatedReturnCost += s.estimatedReturnCost;
+      totalStats.expectedRevenue += s.expectedRevenue;
+      totalStats.platformFee += s.platformFee;
+      totalStats.marketingFee += s.marketingFee;
     }
 
     const gLoss = globalLosses[month] || { qty: 0, value: 0 };

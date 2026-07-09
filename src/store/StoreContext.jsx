@@ -18,6 +18,7 @@ export function StoreProvider({ children }) {
     { name: 'Luyến', share: 25 }
   ]);
   const [defaultPackagingCost, setDefaultPackagingCost] = useLocalStorage('bap-store.packagingCost.v1', 1000);
+  const [defaultReturnFee, setDefaultReturnFee] = useLocalStorage('bap-store.returnFee.v1', 20000);
 
   useEffect(() => {
     setProducts(prev => repairProductNames(prev));
@@ -33,9 +34,21 @@ export function StoreProvider({ children }) {
   };
   const addLoss = (loss) => setLosses(prev => [...prev, loss]);
   const addProduct = (product) => {
-    setProducts(prev => prev.find(p => p.id === product.id) ? prev : [...prev, product]);
+    setProducts(prev => {
+      const existing = prev.find(p => p.id === product.id);
+      if (existing) {
+        if (existing.name !== product.name || (product.imageId && existing.imageId !== product.imageId)) {
+          return prev.map(p => p.id === product.id ? { ...p, name: product.name, imageId: product.imageId || p.imageId } : p);
+        }
+        return prev;
+      }
+      return [...prev, product];
+    });
   };
   const addTransaction = (txn) => setTransactions(prev => [...prev, txn]);
+  const updateTransaction = (txnId, updatedData) => {
+    setTransactions(prev => prev.map(t => t.id === txnId ? { ...t, ...updatedData } : t));
+  };
   const deleteTransaction = (txnId) => setTransactions(prev => prev.filter(t => t.id !== txnId));
 
   const derivedState = useMemo(() => buildDerivedStore({
@@ -61,13 +74,16 @@ export function StoreProvider({ children }) {
     addProduct,
     transactions,
     addTransaction,
+    updateTransaction,
     deleteTransaction,
     accounts,
     setAccounts,
     partners,
     setPartners,
     defaultPackagingCost,
-    setDefaultPackagingCost
+    setDefaultPackagingCost,
+    defaultReturnFee,
+    setDefaultReturnFee
   };
 
   return (

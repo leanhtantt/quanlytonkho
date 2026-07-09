@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { Search, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
+import ProductImage from '../components/ProductImage';
 
 export default function Products() {
   const { inventory } = useAppStore();
@@ -49,6 +50,7 @@ export default function Products() {
             <thead>
               <tr>
                 <th style={{ width: '40px' }}></th>
+                <th style={{ width: '60px' }}>Hình</th>
                 <th>Mã SP</th>
                 <th>Sản phẩm</th>
                 <th>Đã nhập</th>
@@ -70,6 +72,9 @@ export default function Products() {
                         {remainingBatches.length > 0 ? (
                           isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />
                         ) : null}
+                      </td>
+                      <td>
+                        <ProductImage imageId={product.imageId} size={40} />
                       </td>
                       <td style={{ fontWeight: 600, color: 'var(--color-text-muted)' }}>{product.id}</td>
                       <td style={{ fontWeight: 500 }}>{product.name}</td>
@@ -130,9 +135,10 @@ export default function Products() {
                 );
               })}
               
+              
               {filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
                     <PackageOpen size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
                     <p>Không tìm thấy sản phẩm nào.</p>
                   </td>

@@ -2,11 +2,12 @@ import React, { useState, useRef } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { Search, Plus, Save, X, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import ProductImage from '../components/ProductImage';
 
 const SHOPS = ['Chà Tiktok', 'Chà Shopee', 'Lyn WD', 'Lyn - Phụ kiện', 'Lyn Tiktok'];
 
 export default function Orders() {
-  const { products, orders, addOrder, updateOrder, defaultPackagingCost } = useAppStore();
+  const { products, orders, addOrder, updateOrder, defaultPackagingCost, defaultReturnFee } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -23,6 +24,9 @@ export default function Orders() {
   const [shop, setShop] = useState(SHOPS[0]);
   const [status, setStatus] = useState('Đang giao'); // Vẫn giữ để filter nhưng Hoàn hàng dùng item.isReturned
   const [packagingFee, setPackagingFee] = useState(defaultPackagingCost);
+  const [returnFee, setReturnFee] = useState(0);
+  const [platformFee, setPlatformFee] = useState(0);
+  const [marketingFee, setMarketingFee] = useState(0);
   const [actualRevenue, setActualRevenue] = useState('');
   const [settlementDate, setSettlementDate] = useState('');
   const [items, setItems] = useState([]);
@@ -90,6 +94,9 @@ export default function Orders() {
     setShop(SHOPS[0]);
     setStatus('Đang giao');
     setPackagingFee(defaultPackagingCost);
+    setReturnFee(0);
+    setPlatformFee(0);
+    setMarketingFee(0);
     setActualRevenue('');
     setSettlementDate('');
   };
@@ -109,6 +116,9 @@ export default function Orders() {
       shop,
       status, 
       packagingFee: Number(packagingFee) || 0,
+      returnFee: Number(returnFee) || 0,
+      platformFee: Number(platformFee) || 0,
+      marketingFee: Number(marketingFee) || 0,
       actualRevenue: actualRevenue !== '' ? Number(actualRevenue) : null,
       settlementDate: settlementDate !== '' ? settlementDate : null,
       items,
@@ -131,6 +141,9 @@ export default function Orders() {
     setShop(o.shop);
     setStatus(o.status);
     setPackagingFee(o.packagingFee ?? defaultPackagingCost);
+    setReturnFee(o.returnFee || 0);
+    setPlatformFee(o.platformFee || 0);
+    setMarketingFee(o.marketingFee || 0);
     setActualRevenue(o.actualRevenue !== null && o.actualRevenue !== undefined ? o.actualRevenue : '');
     setSettlementDate(o.settlementDate || '');
     setItems(o.items.map(i => ({ ...i }))); // deep copy
@@ -159,6 +172,10 @@ export default function Orders() {
           const idKey = keys.find(k => k.toLowerCase().includes('mã đơn') || k.toLowerCase().includes('order id') || k.toLowerCase() === 'id' || k.toLowerCase().includes('mã'));
           const revKey = keys.find(k => k.toLowerCase().includes('doanh thu') || k.toLowerCase().includes('thực tế') || k.toLowerCase().includes('thu về'));
           const dateKey = keys.find(k => k.toLowerCase().includes('ngày đối soát') || k.toLowerCase().includes('ngày thanh toán') || k.toLowerCase().includes('ngày hoàn thành'));
+          const returnFeeKey = keys.find(k => {
+            const kl = k.toLowerCase();
+            return kl.includes('phí hoàn') || kl.includes('phí trả hàng') || kl.includes('phí vận chuyển hoàn') || kl.includes('phí vận chuyển trả');
+          });
           
           if (idKey && revKey) {
             const rowId = row[idKey]?.toString().trim();
@@ -184,8 +201,19 @@ export default function Orders() {
             }
 
             if (rowId && !isNaN(rowRev)) {
-              if (orders.find(o => o.id === rowId)) {
-                updateOrder(rowId, { actualRevenue: rowRev, settlementDate: parsedDate });
+              const existingOrder = orders.find(o => o.id === rowId);
+              if (existingOrder) {
+                const updates = { actualRevenue: rowRev, settlementDate: parsedDate };
+                
+                // Cập nhật phí hoàn nếu trong file đối soát có cột này
+                if (returnFeeKey && row[returnFeeKey] !== undefined) {
+                  const feeStr = row[returnFeeKey].toString().replace(/,/g, '');
+                  if (!isNaN(Number(feeStr))) {
+                     updates.returnFee = Math.abs(Number(feeStr));
+                  }
+                }
+                
+                updateOrder(rowId, updates);
                 updateCount++;
               }
             }
@@ -251,6 +279,34 @@ export default function Orders() {
           // Cố gắng tìm cột Giá ưu đãi / Giá bán
           const price = Number(getVal(['giá ưu đãi', 'giá bán', 'giá gốc'])) || 0;
           
+          // Đọc phí hoàn trực tiếp từ file (nếu có)
+          const returnFeeRaw = getVal(['phí hoàn', 'phí trả hàng', 'phí vận chuyển hoàn', 'phí vận chuyển trả']);
+          let parsedReturnFee = 0;
+          if (returnFeeRaw !== undefined) {
+             const feeStr = returnFeeRaw.toString().replace(/,/g, '');
+             if (!isNaN(Number(feeStr))) parsedReturnFee = Math.abs(Number(feeStr));
+          } else if (mappedStatus === 'Hoàn hàng') {
+             parsedReturnFee = defaultReturnFee; // Fallback
+          }
+          
+          // Đọc phí sàn (phí dịch vụ, phí cố định, phí thanh toán, phí giao dịch...)
+          const parseFee = (keywords) => {
+            let total = 0;
+            keys.forEach(k => {
+              const kl = k.toLowerCase();
+              if (keywords.some(kw => kl.includes(kw))) {
+                const valStr = row[k]?.toString().replace(/,/g, '');
+                if (valStr && !isNaN(Number(valStr))) {
+                  total += Math.abs(Number(valStr));
+                }
+              }
+            });
+            return total;
+          };
+          
+          const parsedPlatformFee = parseFee(['phí dịch vụ', 'phí cố định', 'phí thanh toán', 'phí giao dịch', 'phí xử lý']);
+          const parsedMarketingFee = parseFee(['mã giảm giá của shop', 'shop trợ giá', 'khuyến mãi của shop']);
+          
           if (!orderMap[idStr]) {
             orderMap[idStr] = {
               id: idStr,
@@ -258,9 +314,16 @@ export default function Orders() {
               shop: importShop, // Gán Kênh Bán theo lựa chọn trên giao diện
               status: mappedStatus,
               packagingFee: defaultPackagingCost, // Mặc định từ cấu hình
+              returnFee: parsedReturnFee,
+              platformFee: parsedPlatformFee,
+              marketingFee: parsedMarketingFee,
               items: [],
               hasError: false
             };
+          } else {
+             // Cập nhật thêm nếu có nhiều dòng (Shopee hay tách ra nhiều dòng sản phẩm)
+             if (parsedPlatformFee > 0 && !orderMap[idStr].platformFee) orderMap[idStr].platformFee = parsedPlatformFee;
+             if (parsedMarketingFee > 0 && !orderMap[idStr].marketingFee) orderMap[idStr].marketingFee = parsedMarketingFee;
           }
           
           const productId = sku ? sku.toString().trim().toUpperCase() : '';
@@ -367,7 +430,10 @@ export default function Orders() {
             </div>
             <div>
               <label style={labelStyle}>Trạng thái (Cả đơn)</label>
-              <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle}>
+              <select value={status} onChange={e => {
+                setStatus(e.target.value);
+                if (e.target.value === 'Hoàn hàng' && returnFee === 0) setReturnFee(defaultReturnFee);
+              }} style={inputStyle}>
                 <option value="Đang giao">Đang giao</option>
                 <option value="Đã giao">Đã giao</option>
                 <option value="Hoàn hàng">Hoàn hàng toàn bộ</option>
@@ -376,6 +442,18 @@ export default function Orders() {
             <div>
               <label style={labelStyle}>Phí đóng gói (VNĐ)</label>
               <input type="number" step="1000" value={packagingFee} onChange={e => setPackagingFee(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Phí hoàn (VNĐ)</label>
+              <input type="number" step="1000" value={returnFee} onChange={e => setReturnFee(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Phí sàn (VNĐ) <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>(Tự động đọc)</span></label>
+              <input type="number" step="1000" value={platformFee} onChange={e => setPlatformFee(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Phí Marketing (VNĐ) <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>(Tự động đọc)</span></label>
+              <input type="number" step="1000" value={marketingFee} onChange={e => setMarketingFee(e.target.value)} style={inputStyle} />
             </div>
             <div>
               <label style={{...labelStyle, color: 'var(--color-primary)'}}>Ngày nhận tiền</label>
@@ -436,9 +514,19 @@ export default function Orders() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item, idx) => (
+                  {items.map((item, idx) => {
+                    const prod = products.find(p => p.id === item.productId);
+                    return (
                     <tr key={idx} style={{ opacity: item.isReturned ? 0.6 : 1 }}>
-                      <td><div style={{ fontWeight: 600 }}>{item.name}</div><div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.productId}</div></td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                          <ProductImage imageId={prod?.imageId} size={32} />
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{item.name}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.productId}</div>
+                          </div>
+                        </div>
+                      </td>
                       <td>{item.qty}</td>
                       <td>{item.sellingPrice.toLocaleString()} đ</td>
                       <td style={{ fontWeight: 700 }}>
@@ -452,7 +540,8 @@ export default function Orders() {
                         <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={() => handleRemoveItem(idx)}>Xoá</button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -502,6 +591,7 @@ export default function Orders() {
                 <th>Ngày Đặt</th>
                 <th>Doanh Thu Dự Kiến</th>
                 <th style={{ color: 'var(--color-primary)' }}>Phí Đóng gói</th>
+                <th style={{ color: 'var(--color-danger)' }}>Phí Hoàn</th>
                 <th style={{ color: 'var(--color-primary)' }}>Thực Tế (Nhận)</th>
                 <th style={{ color: 'var(--color-primary)' }}>Ngày Nhận</th>
                 <th>Tổng Lợi Nhuận Gộp</th>
@@ -540,7 +630,16 @@ export default function Orders() {
                           type="number"
                           defaultValue={o.packagingFee ?? defaultPackagingCost}
                           onBlur={(e) => updateOrder(o.id, { packagingFee: Number(e.target.value) || 0 })}
-                          style={{ ...inputStyle, padding: '0.25rem 0.5rem', width: '80px', height: '30px' }}
+                          style={{ ...inputStyle, padding: '0.25rem 0.5rem', width: '70px', height: '30px' }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
+                      <td>
+                        <input 
+                          type="number"
+                          defaultValue={o.returnFee || 0}
+                          onBlur={(e) => updateOrder(o.id, { returnFee: Number(e.target.value) || 0 })}
+                          style={{ ...inputStyle, padding: '0.25rem 0.5rem', width: '70px', height: '30px' }}
                           onClick={(e) => e.stopPropagation()}
                         />
                       </td>
@@ -566,8 +665,9 @@ export default function Orders() {
                           <div style={{ padding: '1rem 3rem', borderLeft: '4px solid var(--color-primary)' }}>
                             <div style={{ display: 'flex', gap: '2rem', marginBottom: '1rem' }}>
                               <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Trạng thái giao:</span> <span style={{ fontWeight: 600 }}>{o.status}</span></div>
-                              <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Chi phí đóng gói:</span> <span style={{ fontWeight: 600 }}>{(o.packagingFee || 0).toLocaleString()} đ</span></div>
-                              <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Tổng Giá Vốn (Đã gồm Đóng gói):</span> <span style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{(o.totalCost || 0).toLocaleString()} đ</span></div>
+                              <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Phí đóng gói:</span> <span style={{ fontWeight: 600 }}>{(o.packagingFee ?? defaultPackagingCost).toLocaleString()} đ</span></div>
+                              <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Phí hoàn:</span> <span style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{(o.returnFee || 0).toLocaleString()} đ</span></div>
+                              <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Tổng Giá Vốn (Gồm Đóng gói & Phí hoàn):</span> <span style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{(o.totalCost || 0).toLocaleString()} đ</span></div>
                             </div>
                             
                             <table style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
@@ -582,12 +682,18 @@ export default function Orders() {
                               </thead>
                               <tbody>
                                 {o.items.map((item, idx) => {
+                                  const prod = products.find(p => p.id === item.productId);
                                   const unitCost = item.qty > 0 && item.totalCostDeducted ? Math.round(item.totalCostDeducted / item.qty) : 0;
                                   return (
                                     <tr key={idx} style={{ opacity: item.isReturned ? 0.5 : 1 }}>
                                       <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
-                                        <div style={{ fontWeight: 500 }}>{item.name}</div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.productId}</div>
+                                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                          <ProductImage imageId={prod?.imageId} size={32} />
+                                          <div>
+                                            <div style={{ fontWeight: 500 }}>{item.name}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.productId}</div>
+                                          </div>
+                                        </div>
                                       </td>
                                       <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.qty}</td>
                                       <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>

@@ -3,11 +3,12 @@ import { useAppStore } from '../store/appStoreContext';
 import { Settings as SettingsIcon, Plus, Trash2, Save } from 'lucide-react';
 
 export default function Settings() {
-  const { accounts, setAccounts, partners, setPartners, defaultPackagingCost, setDefaultPackagingCost } = useAppStore();
+  const { accounts, setAccounts, partners, setPartners, defaultPackagingCost, setDefaultPackagingCost, defaultReturnFee, setDefaultReturnFee } = useAppStore();
 
   const [localAccounts, setLocalAccounts] = useState([...accounts]);
   const [localPartners, setLocalPartners] = useState(partners.map(p => ({...p})));
   const [localPkgCost, setLocalPkgCost] = useState(defaultPackagingCost);
+  const [localReturnFee, setLocalReturnFee] = useState(defaultReturnFee);
   const [newAccount, setNewAccount] = useState('');
 
   const handleAddAccount = () => {
@@ -57,6 +58,7 @@ export default function Settings() {
     setAccounts(localAccounts);
     setPartners(localPartners);
     setDefaultPackagingCost(Number(localPkgCost) || 0);
+    setDefaultReturnFee(Number(localReturnFee) || 0);
     alert('Đã lưu cấu hình thành công!');
   };
 
@@ -79,20 +81,33 @@ export default function Settings() {
           <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             Cấu Hình Chung
           </h3>
-          <div style={{ maxWidth: '400px' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Phí đóng gói mặc định / 1 Đơn hàng (VNĐ)
-            </label>
-            <input 
-              type="number" 
-              value={localPkgCost} 
-              onChange={e => setLocalPkgCost(e.target.value)} 
-              style={inputStyle}
-            />
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
-              Mức phí này sẽ được tự động áp dụng khi tải file Excel lên. Bạn có thể ghi đè cho từng đơn hàng cụ thể ở trang Xuất Bán.
-            </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', maxWidth: '600px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+                Phí đóng gói mặc định / 1 Đơn
+              </label>
+              <input 
+                type="number" 
+                value={localPkgCost} 
+                onChange={e => setLocalPkgCost(e.target.value)} 
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+                Phí hoàn đơn mặc định
+              </label>
+              <input 
+                type="number" 
+                value={localReturnFee} 
+                onChange={e => setLocalReturnFee(e.target.value)} 
+                style={inputStyle}
+              />
+            </div>
           </div>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
+            Mức phí này sẽ được tự động áp dụng khi tạo mới hoặc tải file Excel lên (Phí hoàn chỉ áp dụng cho đơn Hoàn). Bạn có thể ghi đè cho từng đơn cụ thể ở trang Xuất Bán.
+          </p>
         </div>
 
         {/* Accounts Management */}

@@ -1,37 +1,61 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { ShieldAlert, Plus, Save, X } from 'lucide-react';
+import ProductImage from '../components/ProductImage';
 
 export default function Losses() {
   const { inventory, losses, addLoss } = useAppStore();
   const [showForm, setShowForm] = useState(false);
 
-  // Form State
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedProductId, setSelectedProductId] = useState('');
-  const [qty, setQty] = useState(1);
   const [reason, setReason] = useState('Hàng hỏng do vận chuyển');
+  
+  // State cho việc thêm nhiều SP
+  const [items, setItems] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [qty, setQty] = useState(1);
+
+  const handleAddItem = () => {
+    const product = inventory.find(p => p.id === searchQuery);
+    if (!product || qty <= 0) {
+      alert('Vui lòng chọn đúng mã sản phẩm và nhập số lượng > 0');
+      return;
+    }
+    setItems(prev => [...prev, { product, qty: Number(qty) }]);
+    setSearchQuery('');
+    setQty(1);
+  };
+
+  const handleRemoveItem = (index) => {
+    setItems(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSaveLoss = () => {
-    const product = inventory.find(p => p.id === selectedProductId);
-    if (!product || qty <= 0) return;
+    if (items.length === 0) return;
     
-    const newLoss = {
-      id: `LOSS-${Date.now()}`,
-      date,
-      productId: product.id,
-      name: product.name,
-      qty: Number(qty),
-      reason,
-      // lossValue is calculated in StoreContext now!
-    };
+    // Tạo 1 ID chung cho phiếu này nếu cần gom nhóm, hoặc mỗi dòng 1 ID
+    const batchId = `LOSS-${Date.now()}`;
     
-    addLoss(newLoss);
+    items.forEach((item, index) => {
+      addLoss({
+        id: `${batchId}-${index}`,
+        date,
+        productId: item.product.id,
+        name: item.product.name,
+        qty: item.qty,
+        reason
+      });
+    });
+    
     setShowForm(false);
-    setSelectedProductId('');
+    setItems([]);
+    setSearchQuery('');
     setQty(1);
-    setReason('Hàng hỏng do vận chuyển');
+    setReason('Kiểm kho hao hụt');
   };
+
+  // Sắp xếp sản phẩm theo chữ cái và số tự nhiên
+  const sortedInventory = [...inventory].sort((a, b) => a.id.localeCompare(b.id, 'vi', { numeric: true, sensitivity: 'base' }));
 
   const getFifoEstimate = (productId, qtyToDeduct) => {
     const product = inventory.find(p => p.id === productId);
@@ -92,35 +116,73 @@ export default function Losses() {
           <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 300px' }}>
-                <label style={labelStyle}>Chọn Sản Phẩm</label>
-                <select value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)} style={inputStyle}>
-                  <option value="">-- Chọn mã SP --</option>
-                  {inventory.map(p => (
+                <label style={labelStyle}>Tìm Mã SP</label>
+                <input 
+                  type="text" 
+                  list="loss-products" 
+                  value={searchQuery} 
+                  onChange={e => setSearchQuery(e.target.value.toUpperCase())} 
+                  placeholder="Gõ mã SP để tìm kiếm..." 
+                  style={inputStyle} 
+                />
+                <datalist id="loss-products">
+                  {sortedInventory.map(p => (
                     <option key={p.id} value={p.id}>{p.id} - {p.name} (Tồn: {p.stock})</option>
                   ))}
-                </select>
+                </datalist>
               </div>
               <div style={{ width: '100px' }}>
                 <label style={labelStyle}>SL</label>
                 <input type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} style={inputStyle} />
               </div>
+              <button className="btn btn-outline" onClick={handleAddItem} style={{ height: '42px' }}>
+                <Plus size={16} /> Thêm
+              </button>
             </div>
             
-            {selectedProductId && (
-              <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'var(--color-danger-light)', borderRadius: 'var(--radius-md)' }}>
-                <p style={{ color: 'var(--color-danger)', fontWeight: 500 }}>
-                  <ShieldAlert size={16} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '0.5rem' }}/>
-                  Giá trị thiệt hại (Theo giá vốn FIFO): 
-                  <span style={{ fontWeight: 700, marginLeft: '0.5rem' }}>
-                    {getFifoEstimate(selectedProductId, qty).toLocaleString()} đ
-                  </span>
-                </p>
+            {items.length > 0 && (
+              <div style={{ marginTop: '1.5rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', backgroundColor: 'var(--color-bg-surface)' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                      <th style={{ width: '40px', padding: '0.5rem' }}></th>
+                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Mã SP</th>
+                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Tên SP</th>
+                      <th style={{ textAlign: 'center', padding: '0.5rem' }}>SL Hao Hụt</th>
+                      <th style={{ textAlign: 'right', padding: '0.5rem' }}>Ước tính Thiệt hại (FIFO)</th>
+                      <th style={{ padding: '0.5rem' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, index) => {
+                      const estimatedLoss = getFifoEstimate(item.product.id, item.qty);
+                      return (
+                        <tr key={index} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                          <td style={{ padding: '0.5rem' }}>
+                            <ProductImage imageId={item.product.imageId} size={32} />
+                          </td>
+                          <td style={{ padding: '0.5rem', fontWeight: 500 }}>{item.product.id}</td>
+                          <td style={{ padding: '0.5rem' }}>{item.product.name}</td>
+                          <td style={{ padding: '0.5rem', textAlign: 'center' }}>{item.qty}</td>
+                          <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--color-danger)', fontWeight: 500 }}>
+                            {estimatedLoss.toLocaleString()} đ
+                          </td>
+                          <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                            <button onClick={() => handleRemoveItem(index)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}>
+                              <X size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn btn-primary" onClick={handleSaveLoss} disabled={!selectedProductId}>
+            <button className="btn btn-primary" onClick={handleSaveLoss} disabled={items.length === 0}>
               <Save size={18} /> Lưu Phiếu
             </button>
           </div>

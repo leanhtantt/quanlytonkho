@@ -1,15 +1,12 @@
+import { useMemo } from 'react';
 import { Package, ShoppingCart, DollarSign, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAppStore } from '../store/appStoreContext';
+import { calculateProfitAnalytics } from '../domain/profitAnalytics';
 
-const data = [
-  { name: 'Mon', revenue: 4000, orders: 24 },
-  { name: 'Tue', revenue: 3000, orders: 13 },
-  { name: 'Wed', revenue: 2000, orders: 98 },
-  { name: 'Thu', revenue: 2780, orders: 39 },
-  { name: 'Fri', revenue: 1890, orders: 48 },
-  { name: 'Sat', revenue: 2390, orders: 38 },
-  { name: 'Sun', revenue: 3490, orders: 43 },
-];
+function formatCurrency(value) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
+}
 
 const StatCard = ({ title, value, icon: Icon, trend, trendValue, type }) => {
   return (
@@ -41,17 +38,39 @@ const StatCard = ({ title, value, icon: Icon, trend, trendValue, type }) => {
 };
 
 export default function Dashboard() {
+  const { inventory, orders, losses, ads, partners } = useAppStore();
+
+  const { chartData, totalRevenue, totalOrders } = useMemo(() => {
+    const profitData = calculateProfitAnalytics(orders, losses, ads, partners);
+    const chart = [];
+    let rev = 0;
+    let ord = 0;
+
+    profitData.forEach(row => {
+      if (row.isTotal) {
+        chart.push({
+          name: row.month,
+          revenue: row.actualRevenue,
+          orders: row.totalOrders
+        });
+        rev += row.actualRevenue;
+        ord += row.totalOrders;
+      }
+    });
+
+    return { chartData: chart, totalRevenue: rev, totalOrders: ord };
+  }, [orders, losses, ads, partners]);
+
+  const totalProducts = inventory.length;
+  const lowStockCount = inventory.filter(p => p.stock < 10).length;
+
   return (
     <div className="animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Overview of your store's performance</p>
+          <h1 className="page-title">Tổng quan Kinh doanh</h1>
+          <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Theo dõi hiệu quả bán hàng và tồn kho</p>
         </div>
-        <button className="btn btn-primary">
-          <ShoppingCart size={18} />
-          New Order
-        </button>
       </div>
 
       <div style={{ 
@@ -61,43 +80,43 @@ export default function Dashboard() {
         marginBottom: '2rem'
       }}>
         <StatCard 
-          title="Total Revenue" 
-          value="$24,562" 
+          title="Tổng Doanh thu" 
+          value={formatCurrency(totalRevenue)} 
           icon={DollarSign} 
-          trend="vs last month" 
-          trendValue="+12.5%" 
+          trend="Tất cả thời gian" 
+          trendValue="Thực thu" 
           type="increase"
         />
         <StatCard 
-          title="Total Orders" 
-          value="456" 
+          title="Tổng Đơn hàng" 
+          value={totalOrders} 
           icon={ShoppingCart} 
-          trend="vs last month" 
-          trendValue="+5.2%" 
+          trend="Tất cả thời gian" 
+          trendValue="Đơn" 
           type="increase"
         />
         <StatCard 
-          title="Total Products" 
-          value="1,240" 
+          title="Sản phẩm trong kho" 
+          value={totalProducts} 
           icon={Package} 
-          trend="In inventory" 
-          trendValue="0" 
+          trend="Mã hàng hóa" 
+          trendValue="Mã" 
           type="neutral"
         />
         <StatCard 
-          title="Low Stock" 
-          value="12" 
+          title="Sắp Hết Hàng" 
+          value={lowStockCount} 
           icon={AlertCircle} 
-          trend="Needs restock" 
-          trendValue="-2" 
+          trend="Tồn kho < 10" 
+          trendValue="Cảnh báo" 
           type="decrease"
         />
       </div>
 
       <div className="card" style={{ height: '400px', marginBottom: '2rem' }}>
-        <h3 style={{ marginBottom: '1.5rem', fontSize: '1.125rem' }}>Revenue & Orders Overview</h3>
+        <h3 style={{ marginBottom: '1.5rem', fontSize: '1.125rem' }}>Biểu đồ Doanh thu & Đơn hàng theo tháng</h3>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data}>
+          <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--color-text-muted)'}} />
             <YAxis yAxisId="left" orientation="left" stroke="var(--color-primary)" axisLine={false} tickLine={false} />
@@ -105,9 +124,10 @@ export default function Dashboard() {
             <Tooltip 
               contentStyle={{ backgroundColor: 'var(--color-bg-surface)', borderColor: 'var(--color-border)', borderRadius: 'var(--radius-md)' }}
               itemStyle={{ color: 'var(--color-text-base)' }}
+              formatter={(value, name) => [name === 'revenue' ? formatCurrency(value) : value, name === 'revenue' ? 'Doanh thu' : 'Đơn hàng']}
             />
-            <Bar yAxisId="left" dataKey="revenue" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-            <Bar yAxisId="right" dataKey="orders" fill="var(--color-success)" radius={[4, 4, 0, 0]} />
+            <Bar yAxisId="left" name="revenue" dataKey="revenue" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+            <Bar yAxisId="right" name="orders" dataKey="orders" fill="var(--color-success)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

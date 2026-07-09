@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { TrendingUp } from 'lucide-react';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
@@ -173,6 +174,56 @@ export default function Profit() {
           </table>
         </div>
       </div>
+
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <TrendingUp size={24} style={{ color: 'var(--color-primary)' }} />
+            Báo cáo Chi phí Ẩn
+          </h2>
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>*(Chỉ mang tính chất theo dõi để tối ưu, không trừ vào lợi nhuận)*</span>
+        </div>
+        
+        <div style={{ overflowX: 'auto' }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th>Tháng</th>
+                <th>Kênh Bán</th>
+                <th>Doanh thu Gốc</th>
+                <th style={{ color: 'var(--color-danger)' }}>Phí Sàn</th>
+                <th style={{ color: 'var(--color-danger)' }}>Phí Khuyến Mãi</th>
+                <th style={{ color: 'var(--color-danger)' }}>Phí Hoàn Hàng</th>
+                <th style={{ color: 'var(--color-danger)' }}>Tỉ lệ Hút máu (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((row, i) => {
+                const totalHidden = row.platformFee + row.marketingFee + row.returnCost;
+                const ratio = row.expectedRevenue > 0 ? (totalHidden / row.expectedRevenue * 100).toFixed(1) : 0;
+                
+                return (
+                  <tr key={i} style={row.isTotal ? { fontWeight: 'bold', background: 'var(--color-bg-secondary)' } : {}}>
+                    <td>{row.month}</td>
+                    <td>{row.shop}</td>
+                    <td style={{ color: 'var(--color-primary)' }}>{formatCurrency(row.expectedRevenue)}</td>
+                    <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.platformFee)}</td>
+                    <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.marketingFee)}</td>
+                    <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.returnCost)}</td>
+                    <td style={{ color: 'var(--color-danger)', fontWeight: 'bold' }}>{ratio}%</td>
+                  </tr>
+                );
+              })}
+              {data.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   );
 }

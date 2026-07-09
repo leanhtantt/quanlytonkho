@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Plus, Save, X } from 'lucide-react';
+import { Plus, Save, X, ImagePlus } from 'lucide-react';
+import { processAndCompressImage } from '../domain/imageProcessor';
+import { saveImage } from '../domain/imageDb';
+import ProductImage from '../components/ProductImage';
 
 export default function Purchases() {
-  const { purchases, addPurchase, updatePurchase, addProduct } = useAppStore();
+  const { purchases, addPurchase, updatePurchase, addProduct, products } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [expandedPurchaseId, setExpandedPurchaseId] = useState(null);
   const [editingPurchaseId, setEditingPurchaseId] = useState(null);
@@ -22,7 +25,8 @@ export default function Purchases() {
   const [items, setItems] = useState([]);
   
   // New Item State
-  const [newItem, setNewItem] = useState({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0 });
+  const [newItem, setNewItem] = useState({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0, imageId: null });
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleAddItem = () => {
     if (!newItem.id || !newItem.name || newItem.qty <= 0) return;
@@ -34,8 +38,31 @@ export default function Purchases() {
       totalWeightKg: Number(newItem.totalWeightKg) 
     }]);
     
-    addProduct({ id: newItem.id.toUpperCase(), name: newItem.name });
-    setNewItem({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0 });
+    addProduct({ id: newItem.id.toUpperCase(), name: newItem.name, imageId: newItem.imageId });
+    setNewItem({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0, imageId: null });
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    try {
+      setIsUploading(true);
+      const dataUrl = await processAndCompressImage(file);
+      const imgId = `img-${Date.now()}`;
+      await saveImage(imgId, dataUrl);
+      
+      setNewItem({ ...newItem, imageId: imgId });
+      // Tự động update nếu mã SP đã được điền
+      if (newItem.id && newItem.name) {
+        addProduct({ id: newItem.id.toUpperCase(), name: newItem.name, imageId: imgId });
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi khi xử lý hình ảnh');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleRemoveItem = (index) => {
@@ -215,9 +242,26 @@ export default function Purchases() {
           <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
             <h4 style={{ marginBottom: '1rem' }}>Thêm Sản Phẩm (Nhập Tổng VNĐ)</h4>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <ProductImage imageId={newItem.imageId} size={42} />
+                <label style={{ cursor: 'pointer', marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <ImagePlus size={14} /> Tải ảnh
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} disabled={isUploading} />
+                </label>
+              </div>
               <div style={{ flex: '1 1 120px' }}>
                 <label style={labelStyle}>Mã SP</label>
-                <input type="text" placeholder="VD: SP01" value={newItem.id} onChange={e => setNewItem({...newItem, id: e.target.value.toUpperCase()})} style={inputStyle} />
+                <input 
+                  type="text" 
+                  placeholder="VD: SP01" 
+                  value={newItem.id} 
+                  onChange={e => {
+                    const newId = e.target.value.toUpperCase();
+                    const existingProd = products.find(p => p.id === newId);
+                    setNewItem({...newItem, id: newId, name: existingProd ? existingProd.name : newItem.name, imageId: existingProd ? existingProd.imageId : newItem.imageId});
+                  }} 
+                  style={inputStyle} 
+                />
               </div>
               <div style={{ flex: '2 1 180px' }}>
                 <label style={labelStyle}>Tên SP</label>
@@ -253,10 +297,20 @@ export default function Purchases() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item, idx) => (
-                    <tr key={idx}>
-                      <td><div style={{ fontWeight: 600 }}>{item.name}</div><div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.id}</div></td>
-                      <td>{item.qty}</td>
+                  {items.map((item, idx) => {
+                    const prod = products.find(p => p.id === item.id);
+                    return (
+                      <tr key={idx}>
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                            <ProductImage imageId={prod?.imageId} size={32} />
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{item.name}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.id}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>{item.qty}</td>
                       <td>{item.totalVndPrice.toLocaleString()} đ</td>
                       <td>{item.totalWeightKg} kg</td>
                       <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
@@ -267,7 +321,8 @@ export default function Purchases() {
                         <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={() => handleRemoveItem(idx)}>Xoá</button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -350,18 +405,26 @@ export default function Purchases() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {p.items.map((item, idx) => (
-                                  <tr key={idx}>
-                                    <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
-                                      <div style={{ fontWeight: 500 }}>{item.name}</div>
-                                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.productId}</div>
-                                    </td>
-                                    <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.qty}</td>
-                                    <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.totalVndPrice ? item.totalVndPrice.toLocaleString() + ' đ' : '-'}</td>
-                                    <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.weightKg} kg</td>
-                                    <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'var(--color-primary)' }}>{item.finalCostVnd.toLocaleString()} đ</td>
-                                  </tr>
-                                ))}
+                                {p.items.map((item, idx) => {
+                                  const prod = products.find(p => p.id === item.productId);
+                                  return (
+                                    <tr key={idx}>
+                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
+                                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                          <ProductImage imageId={prod?.imageId} size={32} />
+                                          <div>
+                                            <div style={{ fontWeight: 500 }}>{item.name}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.productId}</div>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.qty}</td>
+                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.totalVndPrice ? item.totalVndPrice.toLocaleString() + ' đ' : '-'}</td>
+                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.weightKg} kg</td>
+                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'var(--color-primary)' }}>{item.finalCostVnd.toLocaleString()} đ</td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>

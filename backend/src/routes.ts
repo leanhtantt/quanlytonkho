@@ -124,6 +124,8 @@ apiRouter.post('/purchases', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const data = parsed.data;
+    const dbProducts = await prisma.product.findMany();
+
     const po = await createPurchaseOrder({
       code: data.id,
       supplier: data.orderName,
@@ -134,12 +136,15 @@ apiRouter.post('/purchases', async (req, res) => {
       purchaseFee: data.purchasingFee,
       domesticShippingFee: data.domesticShipping,
       internationalShippingFee: data.totalIntlShipping,
-      items: data.items.map(it => ({
-        productId: it.productId,
-        qty: it.qty,
-        totalCost: it.totalVndPrice,
-        totalWeight: it.weightKg * it.qty
-      }))
+      items: data.items.map(it => {
+        const prod = dbProducts.find(p => p.sku === it.productId || p.id === it.productId);
+        return {
+          productId: prod ? prod.id : it.productId,
+          qty: it.qty,
+          totalCost: it.totalVndPrice,
+          totalWeight: it.weightKg * it.qty
+        };
+      })
     });
 
     const fullPo = await prisma.purchaseOrder.findUnique({
@@ -214,15 +219,19 @@ apiRouter.post('/orders', async (req, res) => {
         }
       });
 
+      const dbProducts = await tx.product.findMany();
       let totalCogs = 0;
       for (const item of items) {
-        const fifoResult = await deductStockFIFO(item.productId, item.qty, 'ORDER', createdOrder.id, tx);
+        const prod = dbProducts.find(p => p.sku === item.productId || p.id === item.productId);
+        const resolvedProductId = prod ? prod.id : item.productId;
+
+        const fifoResult = await deductStockFIFO(resolvedProductId, item.qty, 'ORDER', createdOrder.id, tx);
         totalCogs += fifoResult.totalCogs;
 
         await tx.orderItem.create({
           data: {
             orderId: createdOrder.id,
-            productId: item.productId,
+            productId: resolvedProductId,
             qty: item.qty,
             sellingPrice: item.sellingPrice
           }
@@ -270,7 +279,11 @@ apiRouter.post('/losses', async (req, res) => {
   const parsed = lossSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const result = await recordLoss(req.body.productId, req.body.qty, req.body.reason);
+    const dbProducts = await prisma.product.findMany();
+    const prod = dbProducts.find(p => p.sku === req.body.productId || p.id === req.body.productId);
+    const resolvedProductId = prod ? prod.id : req.body.productId;
+
+    const result = await recordLoss(resolvedProductId, req.body.qty, req.body.reason);
     res.json(result);
   } catch (error: any) {
     res.status(400).json({ error: error.message });

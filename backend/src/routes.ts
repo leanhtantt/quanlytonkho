@@ -91,7 +91,7 @@ apiRouter.get('/purchases', async (req, res) => {
       ...pi,
       qty: pi.qty,
       totalVndPrice: Number(pi.totalCost),
-      weightKg: pi.qty > 0 ? Number(pi.totalWeight) / pi.qty : 0,
+      weightKg: pi.qty > 0 ? Number((Number(pi.totalWeight) / pi.qty).toFixed(3)) : 0,
       finalCostVnd: pi.inventoryBatches[0] ? Number(pi.inventoryBatches[0].unitCost) : 0
     }))
   }));

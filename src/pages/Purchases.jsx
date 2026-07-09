@@ -35,7 +35,8 @@ export default function Purchases() {
       name: newItem.name,
       qty: Number(newItem.qty), 
       totalVndPrice: Number(newItem.totalVndPrice), 
-      totalWeightKg: Number(newItem.totalWeightKg) 
+      totalWeightKg: Number(newItem.totalWeightKg),
+      imageId: newItem.imageId
     }]);
     
     addProduct({ id: newItem.id.toUpperCase(), name: newItem.name, imageId: newItem.imageId });
@@ -49,13 +50,11 @@ export default function Purchases() {
     try {
       setIsUploading(true);
       const dataUrl = await processAndCompressImage(file);
-      const imgId = `img-${Date.now()}`;
-      await saveImage(imgId, dataUrl);
       
-      setNewItem({ ...newItem, imageId: imgId });
+      setNewItem({ ...newItem, imageId: dataUrl });
       // Tự động update nếu mã SP đã được điền
       if (newItem.id && newItem.name) {
-        addProduct({ id: newItem.id.toUpperCase(), name: newItem.name, imageId: imgId });
+        addProduct({ id: newItem.id.toUpperCase(), name: newItem.name, imageId: dataUrl });
       }
     } catch (err) {
       console.error(err);
@@ -122,7 +121,7 @@ export default function Purchases() {
         name: item.name,
         qty: item.qty,
         totalVndPrice: item.totalVndPrice, // Lưu lại tổng gốc
-        weightKg: item.totalWeightKg / item.qty, // Cân nặng đơn vị
+        weightKg: Number((item.totalWeightKg / item.qty).toFixed(3)), // Cân nặng đơn vị
         finalCostVnd: calculateCost(item)
       }))
     };
@@ -303,7 +302,7 @@ export default function Purchases() {
                       <tr key={idx}>
                         <td>
                           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                            <ProductImage imageId={prod?.imageId} size={32} />
+                            <ProductImage imageId={prod?.imageId || item.imageId} size={32} />
                             <div>
                               <div style={{ fontWeight: 600 }}>{item.name}</div>
                               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.id}</div>
@@ -420,7 +419,7 @@ export default function Purchases() {
                                       </td>
                                       <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.qty}</td>
                                       <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.totalVndPrice ? item.totalVndPrice.toLocaleString() + ' đ' : '-'}</td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.weightKg} kg</td>
+                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{Number(item.weightKg).toFixed(3)} kg</td>
                                       <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'var(--color-primary)' }}>{item.finalCostVnd.toLocaleString()} đ</td>
                                     </tr>
                                   );

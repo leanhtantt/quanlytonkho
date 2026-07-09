@@ -8,9 +8,13 @@ export default function ProductImage({ imageId, alt, size = 40, style = {} }) {
   useEffect(() => {
     let isMounted = true;
     if (imageId) {
-      getImage(imageId).then(dataUrl => {
-        if (isMounted && dataUrl) setSrc(dataUrl);
-      }).catch(err => console.error("Lỗi tải hình:", err));
+      if (imageId.startsWith('data:image/')) {
+        if (isMounted) setSrc(imageId);
+      } else {
+        getImage(imageId).then(dataUrl => {
+          if (isMounted && dataUrl) setSrc(dataUrl);
+        }).catch(err => console.error("Lỗi tải hình:", err));
+      }
     }
     return () => { isMounted = false; };
   }, [imageId]);

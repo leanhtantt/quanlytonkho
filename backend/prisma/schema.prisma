@@ -11,6 +11,7 @@ model Product {
   sku                String              @unique
   name               String
   status             String              @default("active")
+  imageId            String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   purchaseItems      PurchaseItem[]
@@ -26,6 +27,11 @@ model PurchaseOrder {
   supplier           String?
   receivedAt         DateTime
   notes              String?
+  totalDiscount      Decimal             @db.Decimal(15, 2) @default(0)
+  totalCompensation  Decimal             @db.Decimal(15, 2) @default(0)
+  purchaseFee        Decimal             @db.Decimal(15, 2) @default(0)
+  domesticShipping   Decimal             @db.Decimal(15, 2) @default(0)
+  intlShipping       Decimal             @db.Decimal(15, 2) @default(0)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   purchaseItems      PurchaseItem[]

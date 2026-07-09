@@ -76,7 +76,7 @@ export default function Products() {
                       <td>
                         <ProductImage imageId={product.imageId} size={40} />
                       </td>
-                      <td style={{ fontWeight: 600, color: 'var(--color-text-muted)' }}>{product.id}</td>
+                      <td style={{ fontWeight: 600, color: 'var(--color-text-muted)' }}>{product.sku || product.id}</td>
                       <td style={{ fontWeight: 500 }}>{product.name}</td>
                       <td style={{ color: 'var(--color-success)' }}>{product.totalImported}</td>
                       <td style={{ color: 'var(--color-primary)' }}>{product.totalSold}</td>

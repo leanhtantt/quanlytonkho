@@ -32,6 +32,11 @@ export async function createPurchaseOrder(input: PurchaseInput) {
         supplier: input.supplier,
         receivedAt: input.receivedAt,
         notes: input.notes,
+        totalDiscount: input.totalDiscount,
+        totalCompensation: input.totalCompensation,
+        purchaseFee: input.purchaseFee,
+        domesticShipping: input.domesticShippingFee,
+        intlShipping: input.internationalShippingFee,
       }
     });
 

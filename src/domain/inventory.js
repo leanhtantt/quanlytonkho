@@ -37,6 +37,7 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
         const product = products.find(p => p.id === item.productId);
         inv[item.productId] = {
           id: item.productId,
+          sku: product?.sku || item.productId,
           name: item.name || product?.name || item.productId,
           totalImported: 0,
           totalSold: 0,

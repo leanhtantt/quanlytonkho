@@ -691,7 +691,7 @@ export default function Orders() {
                                           <ProductImage imageId={prod?.imageId} size={32} />
                                           <div>
                                             <div style={{ fontWeight: 500 }}>{item.name}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.productId}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{prod?.sku || item.productId}</div>
                                           </div>
                                         </div>
                                       </td>

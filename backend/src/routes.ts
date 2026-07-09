@@ -12,6 +12,7 @@ const productSchema = z.object({
   sku: z.string().min(1),
   name: z.string().min(1),
   status: z.string().optional().default('active'),
+  imageId: z.string().optional().nullable(),
 });
 
 const purchaseSchema = z.object({
@@ -66,15 +67,35 @@ apiRouter.post('/products', async (req, res) => {
 apiRouter.put('/products/:id', async (req, res) => {
   const product = await prisma.product.update({
     where: { id: req.params.id },
-    data: req.body
+    data: { sku: req.body.sku, name: req.body.name, status: req.body.status, imageId: req.body.imageId }
   });
   res.json(product);
 });
 
 // --- Purchases ---
 apiRouter.get('/purchases', async (req, res) => {
-  const purchases = await prisma.purchaseOrder.findMany({ include: { purchaseItems: true } });
-  res.json(purchases);
+  const purchases = await prisma.purchaseOrder.findMany({ 
+    include: { purchaseItems: { include: { inventoryBatches: true } } } 
+  });
+  const mapped = purchases.map(p => ({
+    ...p,
+    id: p.code,
+    date: p.receivedAt.toISOString().split('T')[0],
+    purchasingFee: Number(p.purchaseFee),
+    domesticShipping: Number(p.domesticShipping),
+    intlShipping: Number(p.intlShipping),
+    discountVnd: Number(p.totalDiscount),
+    compensationVnd: Number(p.totalCompensation),
+    totalIntlShipping: Number(p.intlShipping),
+    items: p.purchaseItems.map(pi => ({
+      ...pi,
+      qty: pi.qty,
+      totalVndPrice: Number(pi.totalCost),
+      weightKg: pi.qty > 0 ? Number(pi.totalWeight) / pi.qty : 0,
+      finalCostVnd: pi.inventoryBatches[0] ? Number(pi.inventoryBatches[0].unitCost) : 0
+    }))
+  }));
+  res.json(mapped);
 });
 
 apiRouter.post('/purchases', async (req, res) => {
@@ -99,7 +120,16 @@ apiRouter.put('/purchases/:id', async (req, res) => {
 // --- Orders ---
 apiRouter.get('/orders', async (req, res) => {
   const orders = await prisma.order.findMany({ include: { orderItems: true } });
-  res.json(orders);
+  const mapped = orders.map(o => ({
+    ...o,
+    id: o.externalCode,
+    date: o.orderedAt.toISOString().split('T')[0],
+    items: o.orderItems.map(oi => ({
+      ...oi,
+      qty: oi.qty
+    }))
+  }));
+  res.json(mapped);
 });
 
 apiRouter.post('/orders', async (req, res) => {
@@ -161,8 +191,14 @@ apiRouter.put('/orders/:id', async (req, res) => {
 
 // --- Losses ---
 apiRouter.get('/losses', async (req, res) => {
-  const losses = await prisma.loss.findMany();
-  res.json(losses);
+  const losses = await prisma.loss.findMany({ include: { product: true } });
+  const mapped = losses.map(l => ({
+    ...l,
+    name: l.product?.name,
+    sku: l.product?.sku,
+    date: l.occurredAt
+  }));
+  res.json(mapped);
 });
 
 apiRouter.post('/losses', async (req, res) => {

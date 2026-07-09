@@ -161,7 +161,7 @@ export default function Losses() {
                           <td style={{ padding: '0.5rem' }}>
                             <ProductImage imageId={item.product.imageId} size={32} />
                           </td>
-                          <td style={{ padding: '0.5rem', fontWeight: 500 }}>{item.product.id}</td>
+                          <td style={{ padding: '0.5rem', fontWeight: 500 }}>{item.product.sku || item.product.id}</td>
                           <td style={{ padding: '0.5rem' }}>{item.product.name}</td>
                           <td style={{ padding: '0.5rem', textAlign: 'center' }}>{item.qty}</td>
                           <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--color-danger)', fontWeight: 500 }}>
@@ -215,7 +215,7 @@ export default function Losses() {
                 <tr key={l.id}>
                   <td style={{ fontWeight: 600 }}>{l.id}</td>
                   <td>{l.date}</td>
-                  <td><div style={{ fontWeight: 500 }}>{l.name}</div><div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{l.productId}</div></td>
+                  <td><div style={{ fontWeight: 500 }}>{l.name}</div><div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{l.sku || l.productId}</div></td>
                   <td>{l.qty}</td>
                   <td>{l.reason}</td>
                   <td style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{l.totalCostDeducted?.toLocaleString() || 0} đ</td>

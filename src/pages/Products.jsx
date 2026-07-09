@@ -8,6 +8,7 @@ import { processAndCompressImage } from '../domain/imageProcessor';
 export default function Products() {
   const { inventory, updateProduct } = useAppStore();
   const [search, setSearch] = useState('');
+  const [filterStock, setFilterStock] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
 
@@ -26,10 +27,22 @@ export default function Products() {
     }
   };
 
-  const filteredProducts = inventory.filter(p => 
-    p.name.toLowerCase().includes(search.toLowerCase()) || 
-    p.id.toLowerCase().includes(search.toLowerCase())
+  let filteredProducts = inventory.filter(p => 
+    (p.name || '').toLowerCase().includes(search.toLowerCase()) || 
+    (p.id || '').toLowerCase().includes(search.toLowerCase())
   );
+
+  filteredProducts = filteredProducts.filter(p => {
+    if (filterStock === 'all') return true;
+    const threshold = p.id.includes('LX') ? 50 : 10;
+    if (filterStock === 'low') return p.stock > 0 && p.stock <= threshold;
+    if (filterStock === 'out') return p.stock <= 0;
+    return true;
+  });
+
+  filteredProducts.sort((a, b) => {
+    return (a.id || '').localeCompare(b.id || '', undefined, { numeric: true, sensitivity: 'base' });
+  });
 
   return (
     <div className="animate-fade-in">
@@ -42,23 +55,41 @@ export default function Products() {
 
       <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
         <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)' }}>
-          <div style={{ position: 'relative', width: '300px' }}>
-            <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm mã hoặc tên SP..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+          <div style={{ display: 'flex', gap: '1rem', width: '100%', maxWidth: '500px' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+              <input 
+                type="text" 
+                placeholder="Tìm kiếm mã hoặc tên SP..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem 0.75rem 2.5rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-border)',
+                  backgroundColor: 'var(--color-bg-base)',
+                  color: 'var(--color-text-base)',
+                  outline: 'none',
+                }}
+              />
+            </div>
+            <select 
+              value={filterStock}
+              onChange={(e) => setFilterStock(e.target.value)}
               style={{
-                width: '100%',
-                padding: '0.75rem 1rem 0.75rem 2.5rem',
+                padding: '0.75rem 1rem',
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--color-border)',
                 backgroundColor: 'var(--color-bg-base)',
                 color: 'var(--color-text-base)',
                 outline: 'none',
               }}
-            />
+            >
+              <option value="all">Tất cả sản phẩm</option>
+              <option value="low">Sắp hết hàng</option>
+              <option value="out">Đã hết hàng</option>
+            </select>
           </div>
         </div>
 

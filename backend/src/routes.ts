@@ -58,18 +58,31 @@ apiRouter.get('/products', async (req, res) => {
 });
 
 apiRouter.post('/products', async (req, res) => {
-  const parsed = productSchema.safeParse(req.body);
+  const body = { ...req.body };
+  if (body.id && !body.sku) body.sku = body.id;
+  
+  const parsed = productSchema.safeParse(body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const product = await prisma.product.create({ data: parsed.data });
   res.json(product);
 });
 
 apiRouter.put('/products/:id', async (req, res) => {
-  const product = await prisma.product.update({
-    where: { id: req.params.id },
-    data: { sku: req.body.sku, name: req.body.name, status: req.body.status, imageId: req.body.imageId }
-  });
-  res.json(product);
+  try {
+    let product = await prisma.product.findUnique({ where: { sku: req.params.id } });
+    if (!product) {
+      product = await prisma.product.findUnique({ where: { id: req.params.id } });
+    }
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    const updated = await prisma.product.update({
+      where: { id: product.id },
+      data: { sku: req.body.sku, name: req.body.name, status: req.body.status, imageId: req.body.imageId }
+    });
+    res.json(updated);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 // --- Purchases ---

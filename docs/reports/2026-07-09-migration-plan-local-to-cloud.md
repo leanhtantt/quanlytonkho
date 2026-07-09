@@ -362,17 +362,17 @@ Hoặc set trong GitHub Actions workflow.
 
 ### Giai đoạn 1 — Local (làm ngay)
 
-- [ ] **1.1** PostgreSQL local hoạt động (hoặc giữ Prisma Postgres)
-- [ ] **1.2** Sửa `Float → Decimal` trong schema.prisma
-- [ ] **1.3** Chạy `prisma migrate dev --name init`
-- [ ] **1.4** Sửa bug financeService (truyền `tx` vào deductStockFIFO)
-- [ ] **1.5** Thêm CRUD endpoints còn thiếu (purchases, orders, losses, inventory, dashboard, settings, treasury)
-- [ ] **1.6** Thêm models: AppSettings, TreasuryTransaction, MonthlyAdExpense
-- [ ] **1.7** Chuyển StoreContext từ localStorage → API calls
-- [ ] **1.8** Thêm Zod validation cho tất cả endpoints
-- [ ] **1.9** CORS giới hạn origin
-- [ ] **1.10** Test local với dữ liệu thật
-- [ ] **1.11** `npm run build` + `npm run lint` pass
+- [x] **1.1** PostgreSQL local hoạt động (hoặc giữ Prisma Postgres)
+- [x] **1.2** Sửa `Float → Decimal` trong schema.prisma
+- [x] **1.3** Chạy `prisma migrate dev --name init`
+- [x] **1.4** Sửa bug financeService (truyền `tx` vào deductStockFIFO)
+- [x] **1.5** Thêm CRUD endpoints còn thiếu (purchases, orders, losses, inventory, dashboard, settings, treasury)
+- [x] **1.6** Thêm models: AppSettings, TreasuryTransaction, MonthlyAdExpense
+- [x] **1.7** Chuyển StoreContext từ localStorage → API calls
+- [x] **1.8** Thêm Zod validation cho tất cả endpoints
+- [x] **1.9** CORS giới hạn origin
+- [x] **1.10** Test local với dữ liệu thật
+- [x] **1.11** `npm run build` + `npm run lint` pass
 
 ### Giai đoạn 2 — Deploy (khi ổn định)
 

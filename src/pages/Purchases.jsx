@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { Plus, Save, X } from 'lucide-react';
-import ProductImage from '../components/ProductImage';
 
 export default function Purchases() {
   const { purchases, addPurchase, updatePurchase, addProduct, products } = useAppStore();
@@ -23,7 +22,7 @@ export default function Purchases() {
   const [items, setItems] = useState([]);
   
   // New Item State
-  const [newItem, setNewItem] = useState({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0, imageId: null });
+  const [newItem, setNewItem] = useState({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0 });
 
   const handleAddItem = () => {
     if (!newItem.id || !newItem.name || newItem.qty <= 0) return;
@@ -32,12 +31,11 @@ export default function Purchases() {
       name: newItem.name,
       qty: Number(newItem.qty), 
       totalVndPrice: Number(newItem.totalVndPrice), 
-      totalWeightKg: Number(newItem.totalWeightKg),
-      imageId: newItem.imageId
+      totalWeightKg: Number(newItem.totalWeightKg)
     }]);
     
-    addProduct({ id: newItem.id.toUpperCase(), name: newItem.name, imageId: newItem.imageId });
-    setNewItem({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0, imageId: null });
+    addProduct({ id: newItem.id.toUpperCase(), name: newItem.name });
+    setNewItem({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0 });
   };
 
 
@@ -219,9 +217,6 @@ export default function Purchases() {
           <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
             <h4 style={{ marginBottom: '1rem' }}>Thêm Sản Phẩm (Nhập Tổng VNĐ)</h4>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: '0.25rem' }}>
-                <ProductImage imageId={newItem.imageId} size={42} />
-              </div>
               <div style={{ flex: '1 1 120px' }}>
                 <label style={labelStyle}>Mã SP</label>
                 <input 
@@ -231,7 +226,7 @@ export default function Purchases() {
                   onChange={e => {
                     const newId = e.target.value.toUpperCase();
                     const existingProd = products.find(p => p.id === newId);
-                    setNewItem({...newItem, id: newId, name: existingProd ? existingProd.name : newItem.name, imageId: existingProd ? existingProd.imageId : newItem.imageId});
+                    setNewItem({...newItem, id: newId, name: existingProd ? existingProd.name : newItem.name});
                   }} 
                   style={inputStyle} 
                 />
@@ -271,12 +266,10 @@ export default function Purchases() {
                 </thead>
                 <tbody>
                   {items.map((item, idx) => {
-                    const prod = products.find(p => p.id === item.id);
                     return (
                       <tr key={idx}>
                         <td>
                           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                            <ProductImage imageId={prod?.imageId || item.imageId} size={32} />
                             <div>
                               <div style={{ fontWeight: 600 }}>{item.name}</div>
                               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.id}</div>
@@ -384,7 +377,6 @@ export default function Purchases() {
                                     <tr key={idx}>
                                       <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
                                         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                          <ProductImage imageId={prod?.imageId} size={32} />
                                           <div>
                                             <div style={{ fontWeight: 500 }}>{item.name}</div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{prod?.sku || item.productId}</div>

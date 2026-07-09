@@ -31,14 +31,28 @@ export function calculateSuggestedPrice(cost) {
 export function buildDerivedStore({ products, purchases, orders, losses }) {
   const inv = {};
 
+  products.forEach(p => {
+    inv[p.id] = {
+      id: p.id,
+      sku: p.sku || p.id,
+      name: p.name || p.id,
+      imageId: p.imageId || null,
+      totalImported: 0,
+      totalSold: 0,
+      totalLost: 0,
+      stock: 0,
+      batches: []
+    };
+  });
+
   purchases.forEach((purchase) => {
     purchase.items.forEach((item) => {
       if (!inv[item.productId]) {
-        const product = products.find(p => p.id === item.productId);
         inv[item.productId] = {
           id: item.productId,
-          sku: product?.sku || item.productId,
-          name: item.name || product?.name || item.productId,
+          sku: item.productId,
+          name: item.name || item.productId,
+          imageId: null,
           totalImported: 0,
           totalSold: 0,
           totalLost: 0,

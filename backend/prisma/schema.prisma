@@ -87,6 +87,11 @@ model Order {
   orderedAt          DateTime
   expectedRevenue    Decimal             @db.Decimal(15, 2)
   actualRevenue      Decimal?            @db.Decimal(15, 2)
+  packagingFee       Decimal             @db.Decimal(15, 2) @default(0)
+  returnFee          Decimal             @db.Decimal(15, 2) @default(0)
+  platformFee        Decimal             @db.Decimal(15, 2) @default(0)
+  marketingFee       Decimal             @db.Decimal(15, 2) @default(0)
+  settlementDate     DateTime?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   orderItems         OrderItem[]
@@ -98,6 +103,7 @@ model OrderItem {
   productId          String
   qty                Int
   sellingPrice       Decimal             @db.Decimal(15, 2)
+  isReturned         Boolean             @default(false)
   returnStatus       String?
   order              Order               @relation(fields: [orderId], references: [id])
   product            Product             @relation(fields: [productId], references: [id])

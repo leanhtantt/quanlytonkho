@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { prisma } from './prismaClient';
 import { z } from 'zod';
 import { createPurchaseOrder, deletePurchaseOrder, replacePurchaseOrder } from './services/procurementService';
-import { deductStockFIFO } from './services/inventoryService';
 import { recordLoss } from './services/financeService';
+import { createOrder, replaceOrder, OrderInput } from './services/orderService';
 
 export const apiRouter = Router();
 
@@ -36,13 +36,22 @@ const purchaseSchema = z.object({
 });
 
 const orderSchema = z.object({
-  channel: z.string(),
-  externalCode: z.string(),
-  orderedAt: z.string().or(z.date()),
+  id: z.string(),
+  date: z.string().or(z.date()),
+  shop: z.string(),
+  status: z.string().optional().default('Đang giao'),
+  packagingFee: z.number().nonnegative().optional().default(0),
+  returnFee: z.number().nonnegative().optional().default(0),
+  platformFee: z.number().nonnegative().optional().default(0),
+  marketingFee: z.number().nonnegative().optional().default(0),
+  actualRevenue: z.number().nullable().optional(),
+  settlementDate: z.string().nullable().optional(),
   items: z.array(z.object({
     productId: z.string(),
+    name: z.string().optional(),
     qty: z.number().positive(),
     sellingPrice: z.number().nonnegative(),
+    isReturned: z.boolean().optional().default(false),
   })).min(1),
 });
 
@@ -224,15 +233,84 @@ apiRouter.delete('/purchases/:id', async (req, res) => {
 });
 
 // --- Orders ---
+// Turn the frontend order payload into the shape orderService expects,
+// resolving each item's SKU/code to the real Product UUID.
+function buildOrderInput(data: any, dbProducts: any[]): OrderInput {
+  return {
+    externalCode: data.id,
+    channel: data.shop,
+    orderedAt: new Date(data.date),
+    status: data.status || 'Đang giao',
+    packagingFee: data.packagingFee || 0,
+    returnFee: data.returnFee || 0,
+    platformFee: data.platformFee || 0,
+    marketingFee: data.marketingFee || 0,
+    actualRevenue: (data.actualRevenue === null || data.actualRevenue === undefined || data.actualRevenue === '')
+      ? null : Number(data.actualRevenue),
+    settlementDate: data.settlementDate ? new Date(data.settlementDate) : null,
+    items: data.items.map((it: any) => {
+      const prod = dbProducts.find(p => p.sku === it.productId || p.id === it.productId);
+      return {
+        productId: prod ? prod.id : it.productId,
+        qty: it.qty,
+        sellingPrice: it.sellingPrice,
+        isReturned: it.isReturned || false,
+      };
+    })
+  };
+}
+
+// Map a DB order (with items + products) to the shape the frontend expects.
+async function loadMappedOrder(orderId: string) {
+  const o = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { orderItems: { include: { product: true } } }
+  });
+  if (!o) return null;
+  return {
+    ...o,
+    id: o.externalCode,
+    shop: o.channel,
+    date: o.orderedAt.toISOString().split('T')[0],
+    settlementDate: o.settlementDate ? o.settlementDate.toISOString().split('T')[0] : null,
+    expectedRevenue: Number(o.expectedRevenue),
+    actualRevenue: o.actualRevenue === null ? null : Number(o.actualRevenue),
+    packagingFee: Number(o.packagingFee),
+    returnFee: Number(o.returnFee),
+    platformFee: Number(o.platformFee),
+    marketingFee: Number(o.marketingFee),
+    items: o.orderItems.map(oi => ({
+      productId: oi.productId,
+      name: oi.product?.name || oi.productId,
+      qty: oi.qty,
+      sellingPrice: Number(oi.sellingPrice),
+      isReturned: oi.isReturned,
+    }))
+  };
+}
+
 apiRouter.get('/orders', async (req, res) => {
-  const orders = await prisma.order.findMany({ include: { orderItems: true } });
+  const orders = await prisma.order.findMany({
+    include: { orderItems: { include: { product: true } } }
+  });
   const mapped = orders.map(o => ({
     ...o,
     id: o.externalCode,
+    shop: o.channel,
     date: o.orderedAt.toISOString().split('T')[0],
+    settlementDate: o.settlementDate ? o.settlementDate.toISOString().split('T')[0] : null,
+    expectedRevenue: Number(o.expectedRevenue),
+    actualRevenue: o.actualRevenue === null ? null : Number(o.actualRevenue),
+    packagingFee: Number(o.packagingFee),
+    returnFee: Number(o.returnFee),
+    platformFee: Number(o.platformFee),
+    marketingFee: Number(o.marketingFee),
     items: o.orderItems.map(oi => ({
-      ...oi,
-      qty: oi.qty
+      productId: oi.productId,
+      name: oi.product?.name || oi.productId,
+      qty: oi.qty,
+      sellingPrice: Number(oi.sellingPrice),
+      isReturned: oi.isReturned,
     }))
   }));
   res.json(mapped);
@@ -241,51 +319,11 @@ apiRouter.get('/orders', async (req, res) => {
 apiRouter.post('/orders', async (req, res) => {
   const parsed = orderSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  
   try {
-    const { channel, externalCode, orderedAt, items } = req.body;
-    const order = await prisma.$transaction(async (tx) => {
-      const createdOrder = await tx.order.create({
-        data: {
-          channel,
-          externalCode,
-          orderedAt: new Date(orderedAt),
-          status: 'SHIPPING',
-          expectedRevenue: items.reduce((sum: number, it: any) => sum + it.qty * it.sellingPrice, 0)
-        }
-      });
-
-      const dbProducts = await tx.product.findMany();
-      let totalCogs = 0;
-      for (const item of items) {
-        const prod = dbProducts.find(p => p.sku === item.productId || p.id === item.productId);
-        const resolvedProductId = prod ? prod.id : item.productId;
-
-        const fifoResult = await deductStockFIFO(resolvedProductId, item.qty, 'ORDER', createdOrder.id, tx);
-        totalCogs += fifoResult.totalCogs;
-
-        await tx.orderItem.create({
-          data: {
-            orderId: createdOrder.id,
-            productId: resolvedProductId,
-            qty: item.qty,
-            sellingPrice: item.sellingPrice
-          }
-        });
-      }
-
-      await tx.ledgerEntry.create({
-        data: {
-          account: 'COGS',
-          direction: 'DEBIT',
-          amount: totalCogs,
-          referenceType: 'ORDER',
-          referenceId: createdOrder.id
-        }
-      });
-      return createdOrder;
-    });
-    res.json(order);
+    const dbProducts = await prisma.product.findMany();
+    const order = await createOrder(buildOrderInput(parsed.data, dbProducts));
+    const mapped = await loadMappedOrder(order.id);
+    res.json(mapped);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
@@ -298,31 +336,35 @@ apiRouter.put('/orders/:id', async (req, res) => {
     if (!existing) return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
 
     const b = req.body || {};
-    // Only write fields that actually exist as columns on Order.
-    const data: any = {};
-    if (b.status !== undefined) data.status = b.status;
-    if (b.channel !== undefined) data.channel = b.channel;
-    else if (b.shop !== undefined) data.channel = b.shop; // frontend calls the channel "shop"
-    if (b.date !== undefined) data.orderedAt = new Date(b.date);
-    if (b.actualRevenue !== undefined) {
-      data.actualRevenue = (b.actualRevenue === null || b.actualRevenue === '') ? null : Number(b.actualRevenue);
+
+    if (Array.isArray(b.items) && b.items.length > 0) {
+      // Full edit from the order form: reverse the old order and rewrite it.
+      const body = { ...b, id: b.id || req.params.id };
+      const parsed = orderSchema.safeParse(body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+      const dbProducts = await prisma.product.findMany();
+      await replaceOrder(existing.id, buildOrderInput(parsed.data, dbProducts));
+    } else {
+      // Partial inline update (e.g. reconciliation, editing a single fee): only touch columns.
+      const data: any = {};
+      if (b.status !== undefined) data.status = b.status;
+      if (b.shop !== undefined) data.channel = b.shop;
+      if (b.date !== undefined) data.orderedAt = new Date(b.date);
+      if (b.packagingFee !== undefined) data.packagingFee = Number(b.packagingFee) || 0;
+      if (b.returnFee !== undefined) data.returnFee = Number(b.returnFee) || 0;
+      if (b.platformFee !== undefined) data.platformFee = Number(b.platformFee) || 0;
+      if (b.marketingFee !== undefined) data.marketingFee = Number(b.marketingFee) || 0;
+      if (b.settlementDate !== undefined) {
+        data.settlementDate = b.settlementDate ? new Date(b.settlementDate) : null;
+      }
+      if (b.actualRevenue !== undefined) {
+        data.actualRevenue = (b.actualRevenue === null || b.actualRevenue === '') ? null : Number(b.actualRevenue);
+      }
+      await prisma.order.update({ where: { id: existing.id }, data });
     }
 
-    await prisma.order.update({ where: { id: existing.id }, data });
-
-    const withItems = await prisma.order.findUnique({
-      where: { id: existing.id },
-      include: { orderItems: true }
-    });
-    const mapped = {
-      ...withItems,
-      id: withItems!.externalCode,
-      date: withItems!.orderedAt.toISOString().split('T')[0],
-      items: withItems!.orderItems.map(oi => ({ ...oi, qty: oi.qty }))
-    };
-    // Preserve any frontend-only fields the caller sent (e.g. packagingFee) for this session;
-    // canonical DB fields override. NOTE: those extra fields are not persisted yet (no columns).
-    res.json({ ...b, ...mapped, items: b.items ?? mapped.items });
+    const mapped = await loadMappedOrder(existing.id);
+    res.json(mapped);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

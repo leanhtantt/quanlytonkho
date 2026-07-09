@@ -1,6 +1,14 @@
 import { prisma } from '../prismaClient';
 
-export async function deductStockFIFO(productId: string, requestedQty: number, referenceType: string, referenceId: string, providedTx?: any) {
+export async function deductStockFIFO(
+  productId: string,
+  requestedQty: number,
+  referenceType: string,
+  referenceId: string,
+  providedTx?: any,
+  options: { strict?: boolean } = {}
+) {
+  const strict = options.strict !== false; // default true
   const run = async (tx: any) => {
     // 1. Get available batches ordered by receivedAt (FIFO)
     // We use queryRaw for row-level locking (SELECT FOR UPDATE)
@@ -48,13 +56,13 @@ export async function deductStockFIFO(productId: string, requestedQty: number, r
       deductions.push({ batchId: batch.id, qty: deductQty, unitCost: batch.unitCost });
     }
 
-    if (remainingToDeduct > 0) {
+    if (remainingToDeduct > 0 && strict) {
       throw new Error(`Not enough stock for product ${productId}. Missing ${remainingToDeduct} items.`);
     }
 
     return {
       success: true,
-      deductedQty: requestedQty,
+      deductedQty: requestedQty - remainingToDeduct,
       totalCogs,
       deductions
     };

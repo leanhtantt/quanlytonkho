@@ -13,7 +13,7 @@ export async function recordLoss(productId: string, qty: number, reason: string)
     });
 
     // 2. Deduct from Inventory using FIFO
-    const fifoResult = await deductStockFIFO(productId, qty, 'LOSS', loss.id);
+    const fifoResult = await deductStockFIFO(productId, qty, 'LOSS', loss.id, tx);
 
     // 3. Record in Ledger as expense
     await tx.ledgerEntry.create({

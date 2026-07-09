@@ -26,6 +26,26 @@ async function authFetch(path, options = {}) {
 export const api = {
   getProducts: () => authFetch('/api/products'),
   createProduct: (data) => authFetch('/api/products', { method: 'POST', body: JSON.stringify(data) }),
+  updateProduct: (id, data) => authFetch(`/api/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  
+  getPurchases: () => authFetch('/api/purchases'),
   createPurchase: (data) => authFetch('/api/purchases', { method: 'POST', body: JSON.stringify(data) }),
+  updatePurchase: (id, data) => authFetch(`/api/purchases/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  
+  getOrders: () => authFetch('/api/orders'),
   createOrder: (data) => authFetch('/api/orders', { method: 'POST', body: JSON.stringify(data) }),
+  updateOrder: (id, data) => authFetch(`/api/orders/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  
+  getLosses: () => authFetch('/api/losses'),
+  createLoss: (data) => authFetch('/api/losses', { method: 'POST', body: JSON.stringify(data) }),
+  
+  getInventory: () => authFetch('/api/inventory'),
+  
+  getSettings: () => authFetch('/api/settings'),
+  updateSettings: (data) => authFetch('/api/settings', { method: 'PUT', body: JSON.stringify(data) }),
+  
+  getTransactions: () => authFetch('/api/treasury/transactions'),
+  createTransaction: (data) => authFetch('/api/treasury/transactions', { method: 'POST', body: JSON.stringify(data) }),
+  updateTransaction: (id, data) => authFetch(`/api/treasury/transactions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTransaction: (id) => authFetch(`/api/treasury/transactions/${id}`, { method: 'DELETE' }),
 };

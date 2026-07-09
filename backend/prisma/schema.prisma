@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Product {
@@ -37,8 +36,8 @@ model PurchaseItem {
   purchaseOrderId    String
   productId          String
   qty                Int
-  totalCost          Float
-  totalWeight        Float
+  totalCost          Decimal             @db.Decimal(15, 2)
+  totalWeight        Decimal             @db.Decimal(10, 3)
   createdAt          DateTime            @default(now())
   purchaseOrder      PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id])
   product            Product             @relation(fields: [productId], references: [id])
@@ -52,7 +51,7 @@ model InventoryBatch {
   receivedAt         DateTime
   qtyInitial         Int
   qtyRemaining       Int
-  unitCost           Float
+  unitCost           Decimal             @db.Decimal(15, 2)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   product            Product             @relation(fields: [productId], references: [id])
@@ -66,7 +65,7 @@ model StockTransaction {
   batchId            String
   type               String              // "IN", "OUT", "LOSS", "RETURN"
   qty                Int                 // positive or negative
-  unitCost           Float
+  unitCost           Decimal             @db.Decimal(15, 2)
   referenceType      String              // "ORDER", "LOSS", "PURCHASE"
   referenceId        String
   createdAt          DateTime            @default(now())
@@ -80,8 +79,8 @@ model Order {
   externalCode       String              @unique
   status             String
   orderedAt          DateTime
-  expectedRevenue    Float
-  actualRevenue      Float?
+  expectedRevenue    Decimal             @db.Decimal(15, 2)
+  actualRevenue      Decimal?            @db.Decimal(15, 2)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   orderItems         OrderItem[]
@@ -92,7 +91,7 @@ model OrderItem {
   orderId            String
   productId          String
   qty                Int
-  sellingPrice       Float
+  sellingPrice       Decimal             @db.Decimal(15, 2)
   returnStatus       String?
   order              Order               @relation(fields: [orderId], references: [id])
   product            Product             @relation(fields: [productId], references: [id])
@@ -113,8 +112,8 @@ model Reconciliation {
   period             String
   sourceFile         String
   status             String
-  expectedAmount     Float
-  actualAmount       Float
+  expectedAmount     Decimal             @db.Decimal(15, 2)
+  actualAmount       Decimal             @db.Decimal(15, 2)
   createdAt          DateTime            @default(now())
 }
 
@@ -122,8 +121,36 @@ model LedgerEntry {
   id                 String              @id @default(uuid())
   account            String
   direction          String              // "DEBIT", "CREDIT"
-  amount             Float
+  amount             Decimal             @db.Decimal(15, 2)
   referenceType      String
   referenceId        String
   createdAt          DateTime            @default(now())
+}
+
+model AppSettings {
+  id                 String   @id @default("default")
+  partners           Json     // [{ name, share }]
+  accounts           Json     // ["Hà", "Luyến", ...]
+  packagingCost      Decimal  @db.Decimal(15, 2) @default(1000)
+  returnFee          Decimal  @db.Decimal(15, 2) @default(20000)
+  updatedAt          DateTime @updatedAt
+}
+
+model TreasuryTransaction {
+  id          String   @id @default(uuid())
+  date        DateTime
+  type        String   // "capital_in", "capital_out", "expense", "revenue"
+  account     String
+  amount      Decimal  @db.Decimal(15, 2)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MonthlyAdExpense {
+  id          String   @id @default(uuid())
+  month       String   // "2026-07"
+  channel     String
+  amount      Decimal  @db.Decimal(15, 2)
+  createdAt   DateTime @default(now())
 }

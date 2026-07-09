@@ -1,7 +1,7 @@
 import { prisma } from '../prismaClient';
 
-export async function deductStockFIFO(productId: string, requestedQty: number, referenceType: string, referenceId: string) {
-  return await prisma.$transaction(async (tx) => {
+export async function deductStockFIFO(productId: string, requestedQty: number, referenceType: string, referenceId: string, providedTx?: any) {
+  const run = async (tx: any) => {
     // 1. Get available batches ordered by receivedAt (FIFO)
     // We use queryRaw for row-level locking (SELECT FOR UPDATE)
     const availableBatches = await tx.$queryRaw<
@@ -58,5 +58,7 @@ export async function deductStockFIFO(productId: string, requestedQty: number, r
       totalCogs,
       deductions
     };
-  });
+  };
+
+  return providedTx ? run(providedTx) : prisma.$transaction(run);
 }

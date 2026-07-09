@@ -1,16 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, applicationDefault } from 'firebase-admin/app';
+import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
 
 // Initialize Firebase Admin (requires GOOGLE_APPLICATION_CREDENTIALS in env)
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
+if (!getApps().length) {
+  initializeApp({
+    credential: applicationDefault(),
   });
 }
 
 // Extend Express Request type to include the decoded token
 export interface AuthRequest extends Request {
-  user?: admin.auth.DecodedIdToken;
+  user?: DecodedIdToken;
 }
 
 export const requireAuth = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -23,7 +24,7 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
   const idToken = authHeader.split('Bearer ')[1];
 
   try {
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await getAuth().verifyIdToken(idToken);
     req.user = decodedToken;
     next();
   } catch (error) {

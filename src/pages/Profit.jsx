@@ -175,7 +175,7 @@ export default function Profit() {
         </div>
       </div>
 
-      <div style={cardStyle}>
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <TrendingUp size={24} style={{ color: 'var(--color-primary)' }} />
@@ -184,8 +184,8 @@ export default function Profit() {
           <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>*(Chỉ mang tính chất theo dõi để tối ưu, không trừ vào lợi nhuận)*</span>
         </div>
         
-        <div style={{ overflowX: 'auto' }}>
-          <table style={tableStyle}>
+        <div className="table-responsive">
+          <table className="table">
             <thead>
               <tr>
                 <th>Tháng</th>

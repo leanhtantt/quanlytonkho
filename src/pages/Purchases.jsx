@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Plus, Save, X, ImagePlus } from 'lucide-react';
-import { processAndCompressImage } from '../domain/imageProcessor';
-import { saveImage } from '../domain/imageDb';
+import { Plus, Save, X } from 'lucide-react';
 import ProductImage from '../components/ProductImage';
 
 export default function Purchases() {
@@ -26,7 +24,6 @@ export default function Purchases() {
   
   // New Item State
   const [newItem, setNewItem] = useState({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0, imageId: null });
-  const [isUploading, setIsUploading] = useState(false);
 
   const handleAddItem = () => {
     if (!newItem.id || !newItem.name || newItem.qty <= 0) return;
@@ -43,26 +40,7 @@ export default function Purchases() {
     setNewItem({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0, imageId: null });
   };
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    try {
-      setIsUploading(true);
-      const dataUrl = await processAndCompressImage(file);
-      
-      setNewItem({ ...newItem, imageId: dataUrl });
-      // Tự động update nếu mã SP đã được điền
-      if (newItem.id && newItem.name) {
-        addProduct({ id: newItem.id.toUpperCase(), name: newItem.name, imageId: dataUrl });
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Lỗi khi xử lý hình ảnh');
-    } finally {
-      setIsUploading(false);
-    }
-  };
+
 
   const handleRemoveItem = (index) => {
     const newItems = [...items];
@@ -241,12 +219,8 @@ export default function Purchases() {
           <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
             <h4 style={{ marginBottom: '1rem' }}>Thêm Sản Phẩm (Nhập Tổng VNĐ)</h4>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: '0.25rem' }}>
                 <ProductImage imageId={newItem.imageId} size={42} />
-                <label style={{ cursor: 'pointer', marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <ImagePlus size={14} /> Tải ảnh
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} disabled={isUploading} />
-                </label>
               </div>
               <div style={{ flex: '1 1 120px' }}>
                 <label style={labelStyle}>Mã SP</label>

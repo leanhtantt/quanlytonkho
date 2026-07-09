@@ -3,11 +3,28 @@ import { useAppStore } from '../store/appStoreContext';
 import { Search, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
 import ProductImage from '../components/ProductImage';
+import { processAndCompressImage } from '../domain/imageProcessor';
 
 export default function Products() {
-  const { inventory } = useAppStore();
+  const { inventory, updateProduct } = useAppStore();
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const [uploadingId, setUploadingId] = useState(null);
+
+  const handleImageUpload = async (productId, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      setUploadingId(productId);
+      const dataUrl = await processAndCompressImage(file);
+      await updateProduct(productId, { imageId: dataUrl });
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi khi tải ảnh');
+    } finally {
+      setUploadingId(null);
+    }
+  };
 
   const filteredProducts = inventory.filter(p => 
     p.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -73,8 +90,11 @@ export default function Products() {
                           isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />
                         ) : null}
                       </td>
-                      <td>
-                        <ProductImage imageId={product.imageId} size={40} />
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <label style={{ cursor: uploadingId === product.id ? 'wait' : 'pointer', position: 'relative', display: 'inline-block', margin: 0 }} title="Bấm để tải ảnh lên">
+                          <ProductImage imageId={product.imageId} size={40} style={{ opacity: uploadingId === product.id ? 0.5 : 1 }} />
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImageUpload(product.id, e)} disabled={uploadingId === product.id} />
+                        </label>
                       </td>
                       <td style={{ fontWeight: 600, color: 'var(--color-text-muted)' }}>{product.sku || product.id}</td>
                       <td style={{ fontWeight: 500 }}>{product.name}</td>

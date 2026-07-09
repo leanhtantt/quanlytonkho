@@ -100,6 +100,10 @@ export function StoreProvider({ children }) {
       return [...prev, created];
     });
   };
+  const updateProduct = async (productId, updatedData) => {
+    const updated = await api.updateProduct(productId, updatedData);
+    setProducts(prev => prev.map(p => p.id === productId ? updated : p));
+  };
   const addTransaction = async (txn) => {
     const created = await api.createTransaction(txn);
     setTransactions(prev => [...prev, created]);
@@ -134,6 +138,7 @@ export function StoreProvider({ children }) {
     updateOrder,
     addLoss,
     addProduct,
+    updateProduct,
     transactions,
     addTransaction,
     updateTransaction,

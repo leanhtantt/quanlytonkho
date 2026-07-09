@@ -74,6 +74,16 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
     });
   });
 
+  // FIFO ("nhập trước xuất trước"): consume batches in order of their receive date,
+  // regardless of the order the purchases happened to be entered/loaded in.
+  // Tie-break by purchaseId so the result is deterministic for same-day batches.
+  Object.values(inv).forEach((inventoryItem) => {
+    inventoryItem.batches.sort((a, b) => {
+      if (a.date !== b.date) return new Date(a.date) - new Date(b.date);
+      return String(a.purchaseId).localeCompare(String(b.purchaseId));
+    });
+  });
+
   const timelineEvents = [
     ...orders.map((order) => ({ type: 'order', date: order.date, id: order.id, data: order })),
     ...losses.map((loss) => ({ type: 'loss', date: loss.date, id: loss.id, data: loss }))

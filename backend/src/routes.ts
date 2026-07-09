@@ -16,14 +16,22 @@ const productSchema = z.object({
 });
 
 const purchaseSchema = z.object({
-  supplier: z.string().optional(),
-  receivedAt: z.string().or(z.date()),
+  id: z.string(),
+  orderName: z.string().optional(),
+  date: z.string().or(z.date()),
   notes: z.string().optional(),
+  purchasingFee: z.number().nonnegative().optional().default(0),
+  domesticShipping: z.number().nonnegative().optional().default(0),
+  discountVnd: z.number().nonnegative().optional().default(0),
+  compensationVnd: z.number().nonnegative().optional().default(0),
+  totalIntlShipping: z.number().nonnegative().optional().default(0),
   items: z.array(z.object({
     productId: z.string(),
+    name: z.string().optional(),
     qty: z.number().positive(),
-    totalCost: z.number().nonnegative(),
-    totalWeight: z.number().nonnegative().optional().default(0),
+    totalVndPrice: z.number().nonnegative(),
+    weightKg: z.number().nonnegative().optional().default(0),
+    finalCostVnd: z.number().nonnegative().optional().default(0),
   })).min(1),
 });
 
@@ -115,8 +123,52 @@ apiRouter.post('/purchases', async (req, res) => {
   const parsed = purchaseSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const po = await createPurchaseOrder(req.body);
-    res.json(po);
+    const data = parsed.data;
+    const po = await createPurchaseOrder({
+      code: data.id,
+      supplier: data.orderName,
+      receivedAt: new Date(data.date),
+      notes: data.notes,
+      totalDiscount: data.discountVnd,
+      totalCompensation: data.compensationVnd,
+      purchaseFee: data.purchasingFee,
+      domesticShippingFee: data.domesticShipping,
+      internationalShippingFee: data.totalIntlShipping,
+      items: data.items.map(it => ({
+        productId: it.productId,
+        qty: it.qty,
+        totalCost: it.totalVndPrice,
+        totalWeight: it.weightKg * it.qty
+      }))
+    });
+
+    const fullPo = await prisma.purchaseOrder.findUnique({
+      where: { id: po.id },
+      include: { purchaseItems: { include: { inventoryBatches: true } } }
+    });
+
+    if (!fullPo) return res.status(500).json({ error: "Failed to load created PO" });
+
+    const mapped = {
+      ...fullPo,
+      id: fullPo.code,
+      date: fullPo.receivedAt.toISOString().split('T')[0],
+      purchasingFee: Number(fullPo.purchaseFee),
+      domesticShipping: Number(fullPo.domesticShipping),
+      intlShipping: Number(fullPo.intlShipping),
+      discountVnd: Number(fullPo.totalDiscount),
+      compensationVnd: Number(fullPo.totalCompensation),
+      totalIntlShipping: Number(fullPo.intlShipping),
+      items: fullPo.purchaseItems.map(pi => ({
+        ...pi,
+        name: data.items.find(i => i.productId === pi.productId)?.name || pi.productId,
+        qty: pi.qty,
+        totalVndPrice: Number(pi.totalCost),
+        weightKg: pi.qty > 0 ? Number((Number(pi.totalWeight) / pi.qty).toFixed(3)) : 0,
+        finalCostVnd: pi.inventoryBatches[0] ? Number(pi.inventoryBatches[0].unitCost) : 0
+      }))
+    };
+    res.json(mapped);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

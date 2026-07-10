@@ -141,6 +141,20 @@ async function deletePurchaseOrderTx(tx: any, poId: string) {
   return productIds;
 }
 
+async function cleanupUnusedProductsTx(tx: any, productIds: string[]) {
+  for (const pid of productIds) {
+    const hasPoItem = await tx.purchaseItem.findFirst({ where: { productId: pid } });
+    const hasOrderItem = await tx.orderItem.findFirst({ where: { productId: pid } });
+    const hasLoss = await tx.loss.findFirst({ where: { productId: pid } });
+    const hasBatch = await tx.inventoryBatch.findFirst({ where: { productId: pid } });
+    const hasTx = await tx.stockTransaction.findFirst({ where: { productId: pid } });
+    
+    if (!hasPoItem && !hasOrderItem && !hasLoss && !hasBatch && !hasTx) {
+      await tx.product.delete({ where: { id: pid } });
+    }
+  }
+}
+
 export async function createPurchaseOrder(input: PurchaseInput) {
   return await prisma.$transaction((tx) => createPurchaseOrderTx(tx, input));
 }
@@ -148,26 +162,16 @@ export async function createPurchaseOrder(input: PurchaseInput) {
 export async function deletePurchaseOrder(poId: string) {
   return await prisma.$transaction(async (tx) => {
     const productIds = await deletePurchaseOrderTx(tx, poId);
-
-    // Clean up unused products
-    for (const pid of productIds) {
-      const hasPoItem = await tx.purchaseItem.findFirst({ where: { productId: pid } });
-      const hasOrderItem = await tx.orderItem.findFirst({ where: { productId: pid } });
-      const hasLoss = await tx.loss.findFirst({ where: { productId: pid } });
-      const hasBatch = await tx.inventoryBatch.findFirst({ where: { productId: pid } });
-      const hasTx = await tx.stockTransaction.findFirst({ where: { productId: pid } });
-      
-      if (!hasPoItem && !hasOrderItem && !hasLoss && !hasBatch && !hasTx) {
-        await tx.product.delete({ where: { id: pid } });
-      }
-    }
+    await cleanupUnusedProductsTx(tx, productIds);
   });
 }
 
 // Edit = reverse the old purchase order and recreate it with the same code, in one transaction.
 export async function replacePurchaseOrder(poId: string, input: PurchaseInput) {
   return await prisma.$transaction(async (tx) => {
-    await deletePurchaseOrderTx(tx, poId);
-    return await createPurchaseOrderTx(tx, input);
+    const productIds = await deletePurchaseOrderTx(tx, poId);
+    const po = await createPurchaseOrderTx(tx, input);
+    await cleanupUnusedProductsTx(tx, productIds);
+    return po;
   });
 }

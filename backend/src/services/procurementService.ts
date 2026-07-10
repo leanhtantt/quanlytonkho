@@ -131,8 +131,14 @@ async function deletePurchaseOrderTx(tx: any, poId: string) {
     await tx.stockTransaction.deleteMany({ where: { batchId: { in: batchIds } } });
     await tx.inventoryBatch.deleteMany({ where: { id: { in: batchIds } } });
   }
+  
+  // Extract productIds before deleting the items
+  const productIds = Array.from(new Set(po.purchaseItems.map(p => p.productId)));
+
   await tx.purchaseItem.deleteMany({ where: { purchaseOrderId: po.id } });
   await tx.purchaseOrder.delete({ where: { id: po.id } });
+
+  return productIds;
 }
 
 export async function createPurchaseOrder(input: PurchaseInput) {
@@ -140,7 +146,22 @@ export async function createPurchaseOrder(input: PurchaseInput) {
 }
 
 export async function deletePurchaseOrder(poId: string) {
-  return await prisma.$transaction((tx) => deletePurchaseOrderTx(tx, poId));
+  return await prisma.$transaction(async (tx) => {
+    const productIds = await deletePurchaseOrderTx(tx, poId);
+
+    // Clean up unused products
+    for (const pid of productIds) {
+      const hasPoItem = await tx.purchaseItem.findFirst({ where: { productId: pid } });
+      const hasOrderItem = await tx.orderItem.findFirst({ where: { productId: pid } });
+      const hasLoss = await tx.loss.findFirst({ where: { productId: pid } });
+      const hasBatch = await tx.inventoryBatch.findFirst({ where: { productId: pid } });
+      const hasTx = await tx.stockTransaction.findFirst({ where: { productId: pid } });
+      
+      if (!hasPoItem && !hasOrderItem && !hasLoss && !hasBatch && !hasTx) {
+        await tx.product.delete({ where: { id: pid } });
+      }
+    }
+  });
 }
 
 // Edit = reverse the old purchase order and recreate it with the same code, in one transaction.

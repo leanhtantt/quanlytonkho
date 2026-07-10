@@ -60,7 +60,7 @@ async function createPurchaseOrderTx(tx: any, input: PurchaseInput) {
       + allocatedDomesticShipping
       + allocatedInternationalShipping;
 
-    const unitCost = finalTotalCost / item.qty;
+    const unitCost = Math.round(finalTotalCost / item.qty);
 
     // 4. Create Purchase Item
     const pItem = await tx.purchaseItem.create({

@@ -344,7 +344,9 @@ export default function Purchases() {
                 if (a.date !== b.date) return new Date(b.date) - new Date(a.date); // ngày mới nhất lên trên
                 return String(b.id).localeCompare(String(a.id));
               }).map(p => {
-                const totalVnd = p.items.reduce((sum, item) => sum + (item.qty * item.finalCostVnd), 0);
+                const totalVnd = p.items.reduce((sum, item) => sum + (item.totalVndPrice || 0), 0) 
+                                - (p.discountVnd || 0) - (p.compensationVnd || 0) 
+                                + (p.purchasingFee || 0) + (p.domesticShipping || 0) + (p.totalIntlShipping || 0);
                 const totalQty = p.items.reduce((sum, item) => sum + item.qty, 0);
                 const isExpanded = expandedPurchaseId === p.id;
 

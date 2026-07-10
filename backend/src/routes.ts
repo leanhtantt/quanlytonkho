@@ -132,7 +132,7 @@ apiRouter.get('/purchases', async (req, res) => {
       qty: pi.qty,
       totalVndPrice: Number(pi.totalCost),
       weightKg: pi.qty > 0 ? Number((Number(pi.totalWeight) / pi.qty).toFixed(3)) : 0,
-      finalCostVnd: pi.inventoryBatches[0] ? Number(pi.inventoryBatches[0].unitCost) : 0
+      finalCostVnd: pi.inventoryBatches[0] ? Math.round(Number(pi.inventoryBatches[0].unitCost)) : 0
     }))
   }));
   res.json(mapped);
@@ -189,7 +189,7 @@ async function loadMappedPurchase(poId: string, data?: any) {
       qty: pi.qty,
       totalVndPrice: Number(pi.totalCost),
       weightKg: pi.qty > 0 ? Number((Number(pi.totalWeight) / pi.qty).toFixed(3)) : 0,
-      finalCostVnd: pi.inventoryBatches[0] ? Number(pi.inventoryBatches[0].unitCost) : 0
+      finalCostVnd: pi.inventoryBatches[0] ? Math.round(Number(pi.inventoryBatches[0].unitCost)) : 0
     }))
   };
 }

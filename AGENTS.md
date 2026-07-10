@@ -28,3 +28,8 @@ Khi thay doi UI co tac dong nguoi dung, chay app that bang `npm run dev` va kiem
 - `docs/Memory.md`: nhat ky quyet dinh va bai hoc.
 - `docs/reports/`: audit va de xuat kien truc.
 
+
+
+- Cùng 1 l?i sau 2 l?n không s?a du?c, t? d?ng m? chrome dev tool (chrome-devtools-mcp) d? ki?m tra log và s?a.
+
+- N?u fix l?i ho?c s?a code mà c?n restart l?i dev server (web ho?c api) thì ph?i nh?c user.

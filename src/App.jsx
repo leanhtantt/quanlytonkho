@@ -64,7 +64,7 @@ function App() {
   const { loading } = useAppStore();
 
   // ponytail: no auth = login page, no router needed for unauthenticated state
-  if (!user) return <Login />;
+  // if (!user) return <Login />;
   
   if (loading) {
     return (

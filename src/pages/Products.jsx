@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Search, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, X, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
 import ProductImage from '../components/ProductImage';
 import { processAndCompressImage } from '../domain/imageProcessor';
@@ -27,11 +27,13 @@ export default function Products() {
     }
   };
 
-  let filteredProducts = inventory.filter(p => 
-    (p.name || '').toLowerCase().includes(search.toLowerCase()) || 
-    (p.sku || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.id || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const normalizedSearch = search.trim().toLocaleLowerCase('vi');
+  let filteredProducts = inventory.filter(p => {
+    if (!normalizedSearch) return true;
+    const displayedSku = String(p.sku || p.id || '').toLocaleLowerCase('vi');
+    const productName = String(p.name || '').toLocaleLowerCase('vi');
+    return displayedSku.includes(normalizedSearch) || productName.includes(normalizedSearch);
+  });
 
   filteredProducts = filteredProducts.filter(p => {
     if (filterStock === 'all') return true;
@@ -62,42 +64,66 @@ export default function Products() {
       </div>
 
       <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-        <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)' }}>
-          <div style={{ display: 'flex', gap: '1rem', width: '100%', maxWidth: '500px' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
+        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-subtle)' }}>
+          <div style={{ display: 'flex', gap: '1rem', width: '100%', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 320px', maxWidth: '560px' }}>
+              <label htmlFor="inventory-sku-search" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-base)' }}>
+                Tìm sản phẩm theo mã SKU
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Search aria-hidden="true" size={19} style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-primary)', pointerEvents: 'none' }} />
               <input 
+                id="inventory-sku-search"
                 type="text" 
-                placeholder="Tìm kiếm mã hoặc tên SP..." 
+                placeholder="Nhập mã SKU, ví dụ: LX01..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                autoComplete="off"
                 style={{
                   width: '100%',
-                  padding: '0.75rem 1rem 0.75rem 2.5rem',
+                  padding: '0.8rem 2.75rem 0.8rem 2.6rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-base)',
+                  backgroundColor: 'var(--color-bg-surface)',
                   color: 'var(--color-text-base)',
-                  outline: 'none',
                 }}
               />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    aria-label="Xóa nội dung tìm kiếm"
+                    title="Xóa tìm kiếm"
+                    style={{
+                      position: 'absolute', right: '0.55rem', top: '50%', transform: 'translateY(-50%)',
+                      width: '2rem', height: '2rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      border: 'none', borderRadius: 'var(--radius-sm)', backgroundColor: 'transparent',
+                      color: 'var(--color-text-muted)', cursor: 'pointer'
+                    }}
+                  >
+                    <X size={18} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              <div aria-live="polite" style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                {normalizedSearch ? `Tìm thấy ${filteredProducts.length} sản phẩm phù hợp` : `${filteredProducts.length} sản phẩm trong kho`}
+              </div>
             </div>
-            <select 
-              value={filterStock}
-              onChange={(e) => setFilterStock(e.target.value)}
-              style={{
-                padding: '0.75rem 1rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--color-border)',
-                backgroundColor: 'var(--color-bg-base)',
-                color: 'var(--color-text-base)',
-                outline: 'none',
-              }}
-            >
-              <option value="all">Tất cả sản phẩm</option>
-              <option value="low">Sắp hết hàng</option>
-              <option value="out">Đã hết hàng</option>
-            </select>
+            <div style={{ flex: '0 1 210px' }}>
+              <label htmlFor="inventory-stock-filter" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-base)' }}>
+                Trạng thái tồn kho
+              </label>
+              <select
+                id="inventory-stock-filter"
+                value={filterStock}
+                onChange={(e) => setFilterStock(e.target.value)}
+                style={{ width: '100%', padding: '0.8rem 1rem', backgroundColor: 'var(--color-bg-surface)' }}
+              >
+                <option value="all">Tất cả sản phẩm</option>
+                <option value="low">Sắp hết hàng</option>
+                <option value="out">Đã hết hàng</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -117,6 +143,17 @@ export default function Products() {
               </tr>
             </thead>
             <tbody>
+              {filteredProducts.length === 0 && (
+                <tr>
+                  <td colSpan={9} style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+                    <PackageOpen size={36} aria-hidden="true" style={{ color: 'var(--color-text-muted)', marginBottom: '0.75rem' }} />
+                    <div style={{ fontWeight: 600, color: 'var(--color-text-base)' }}>Không tìm thấy sản phẩm phù hợp</div>
+                    <div style={{ marginTop: '0.35rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+                      Kiểm tra lại mã SKU hoặc chọn trạng thái tồn kho khác.
+                    </div>
+                  </td>
+                </tr>
+              )}
               {filteredProducts.map(product => {
                 const isExpanded = expandedId === product.id;
                 const remainingBatches = product.batches.filter(b => b.qtyRemaining > 0);

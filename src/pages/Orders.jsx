@@ -6,6 +6,44 @@ import ProductImage from '../components/ProductImage';
 
 const SHOPS = ['Chà Tiktok', 'Chà Shopee', 'Lyn WD', 'Lyn - Phụ kiện', 'Lyn Tiktok'];
 
+const normalizeExcelText = (value) => String(value ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/g, 'd')
+  .replace(/Đ/g, 'D')
+  .trim()
+  .toLowerCase();
+
+const parseExcelNumber = (value) => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const normalized = String(value ?? '').replace(/[^0-9.-]/g, '');
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseExcelDate = (value) => {
+  if (value === null || value === undefined || value === '') return undefined;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().split('T')[0];
+  if (typeof value === 'number' || /^\d+(\.\d+)?$/.test(String(value).trim())) {
+    const date = new Date(Math.round((Number(value) - 25569) * 86400 * 1000));
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString().split('T')[0];
+  }
+
+  const text = String(value).trim();
+  const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, '0')}-${iso[3].padStart(2, '0')}`;
+  const vn = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
+  if (!vn) return undefined;
+  const year = vn[3].length === 2 ? `20${vn[3]}` : vn[3];
+  return `${year}-${vn[2].padStart(2, '0')}-${vn[1].padStart(2, '0')}`;
+};
+
+const findHeaderIndex = (headers, aliases) => headers.findIndex((header) => {
+  const normalized = normalizeExcelText(header);
+  return aliases.some(alias => normalized === alias || normalized.includes(alias));
+});
+
 export default function Orders() {
   const { products, orders, addOrder, updateOrder, deleteOrder, defaultPackagingCost, defaultReturnFee } = useAppStore();
   const [showForm, setShowForm] = useState(false);
@@ -226,75 +264,81 @@ export default function Orders() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const bstr = evt.target.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
+        const wsname = wb.SheetNames.find(name => normalizeExcelText(name) === 'doanh thu') || wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
-        
-        let updateCount = 0;
-        data.forEach(row => {
-          // Tìm cột mã đơn (case-insensitive keys)
-          const keys = Object.keys(row);
-          const idKey = keys.find(k => k.toLowerCase().includes('mã đơn') || k.toLowerCase().includes('order id') || k.toLowerCase() === 'id' || k.toLowerCase().includes('mã'));
-          const revKey = keys.find(k => k.toLowerCase().includes('doanh thu') || k.toLowerCase().includes('thực tế') || k.toLowerCase().includes('thu về'));
-          const dateKey = keys.find(k => k.toLowerCase().includes('ngày đối soát') || k.toLowerCase().includes('ngày thanh toán') || k.toLowerCase().includes('ngày hoàn thành'));
-          const returnFeeKey = keys.find(k => {
-            const kl = k.toLowerCase();
-            return kl.includes('phí hoàn') || kl.includes('phí trả hàng') || kl.includes('phí vận chuyển hoàn') || kl.includes('phí vận chuyển trả');
-          });
-          
-          if (idKey && revKey) {
-            const rowId = row[idKey]?.toString().trim();
-            const rowRev = Number(row[revKey]);
-            const rowDate = dateKey && row[dateKey] ? row[dateKey].toString().trim() : undefined;
-            
-            let parsedDate = undefined;
-            if (rowDate) {
-              if (!isNaN(Number(rowDate))) {
-                const jsDate = new Date(Math.round((rowDate - 25569) * 86400 * 1000));
-                parsedDate = jsDate.toISOString().split('T')[0];
-              } else if (rowDate.includes('/')) {
-                const parts = rowDate.split(/[\s/:-]+/);
-                if (parts.length >= 3) {
-                  const day = parts[0].padStart(2, '0');
-                  const month = parts[1].padStart(2, '0');
-                  const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
-                  parsedDate = `${year}-${month}-${day}`;
-                }
-              } else {
-                parsedDate = rowDate.substring(0, 10);
-              }
-            }
-
-            if (rowId && !isNaN(rowRev)) {
-              const existingOrder = orders.find(o => o.id === rowId);
-              if (existingOrder) {
-                const updates = { actualRevenue: rowRev, settlementDate: parsedDate };
-                
-                // Cập nhật phí hoàn nếu trong file đối soát có cột này
-                if (returnFeeKey && row[returnFeeKey] !== undefined) {
-                  const feeStr = row[returnFeeKey].toString().replace(/,/g, '');
-                  if (!isNaN(Number(feeStr))) {
-                     updates.returnFee = Math.abs(Number(feeStr));
-                  }
-                }
-                
-                updateOrder(rowId, updates);
-                updateCount++;
-              }
-            }
-          }
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+        const headerRow = rows.slice(0, 15).findIndex(row => {
+          const normalized = row.map(normalizeExcelText);
+          return normalized.includes('ma don hang') && normalized.some(value =>
+            value === 'tong tien da thanh toan' || value.includes('doanh thu') || value.includes('thuc te') || value.includes('thu ve')
+          );
         });
-        
-        alert(`✅ Đã đối soát tự động và cập nhật doanh thu thực tế cho ${updateCount} đơn hàng!`);
+        if (headerRow < 0) throw new Error('Không tìm thấy dòng tiêu đề có Mã đơn hàng và doanh thu.');
+
+        const headers = rows[headerRow];
+        const idIndex = findHeaderIndex(headers, ['ma don hang', 'ma don', 'order id']);
+        const revenueIndex = findHeaderIndex(headers, ['tong tien da thanh toan', 'doanh thu', 'thuc te', 'thu ve']);
+        const dateIndex = findHeaderIndex(headers, ['ngay hoan thanh thanh toan', 'ngay doi soat', 'ngay thanh toan', 'ngay hoan thanh']);
+        const typeIndex = findHeaderIndex(headers, ['don hang / san pham', 'order / sku', 'loai', 'type']);
+        const returnFeeIndex = findHeaderIndex(headers, ['phi hoan', 'phi tra hang', 'phi van chuyen hoan', 'phi van chuyen tra']);
+        if (idIndex < 0 || revenueIndex < 0) throw new Error('Thiếu cột Mã đơn hàng hoặc Tổng tiền đã thanh toán.');
+
+        const orderById = new Map(orders.map(order => [normalizeExcelText(order.id), order]));
+        const updatesByOrderId = new Map();
+        let notFoundCount = 0;
+        let skipCount = 0;
+        let invalidCount = 0;
+
+        rows.slice(headerRow + 1).forEach(row => {
+          if (typeIndex >= 0 && normalizeExcelText(row[typeIndex]) !== 'order') {
+            skipCount++;
+            return;
+          }
+
+          const importedId = String(row[idIndex] ?? '').trim().replace(/^'/, '');
+          const actualRevenue = parseExcelNumber(row[revenueIndex]);
+          if (!importedId || actualRevenue === null) {
+            invalidCount++;
+            return;
+          }
+
+          const existingOrder = orderById.get(normalizeExcelText(importedId));
+          if (!existingOrder) {
+            notFoundCount++;
+            return;
+          }
+
+          const updates = { actualRevenue };
+          const settlementDate = dateIndex >= 0 ? parseExcelDate(row[dateIndex]) : undefined;
+          if (settlementDate) updates.settlementDate = settlementDate;
+          if (returnFeeIndex >= 0) {
+            const returnFee = parseExcelNumber(row[returnFeeIndex]);
+            if (returnFee !== null) updates.returnFee = Math.abs(returnFee);
+          }
+          updatesByOrderId.set(existingOrder.id, updates);
+        });
+
+        for (const [id, updates] of updatesByOrderId) await updateOrder(id, updates);
+
+        alert(
+          `Hoàn tất đối soát!\n` +
+          `- Cập nhật Thực tế (Nhận): ${updatesByOrderId.size} đơn\n` +
+          `- Không tìm thấy mã đơn: ${notFoundCount} đơn\n` +
+          `- Bỏ qua dòng sản phẩm: ${skipCount} dòng\n` +
+          `- Dòng thiếu/sai dữ liệu: ${invalidCount} dòng`
+        );
       } catch (err) {
         console.error(err);
-        alert('❌ Có lỗi xảy ra khi đọc file Excel. Đảm bảo file có cột chứa "Mã Đơn" và "Doanh Thu".');
+        alert(`❌ Không thể đối soát file Excel: ${err.message}`);
+      } finally {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = null;
+        }
       }
-      e.target.value = null; // reset file input
     };
     reader.readAsBinaryString(file);
   };

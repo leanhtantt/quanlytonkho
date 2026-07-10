@@ -41,14 +41,14 @@ export default function Products() {
   });
 
   filteredProducts.sort((a, b) => {
-    const nameA = a.name || '';
-    const nameB = b.name || '';
-    if (nameA === nameB) {
-      const codeA = a.sku || a.id || '';
-      const codeB = b.sku || b.id || '';
-      return codeA.localeCompare(codeB, 'vi', { numeric: true, sensitivity: 'base' });
+    const codeA = a.sku || a.id || '';
+    const codeB = b.sku || b.id || '';
+    if (codeA === codeB) {
+      const nameA = a.name || '';
+      const nameB = b.name || '';
+      return nameA.localeCompare(nameB, 'vi', { sensitivity: 'base' });
     }
-    return nameA.localeCompare(nameB, 'vi', { sensitivity: 'base' });
+    return codeA.localeCompare(codeB, 'vi', { numeric: true, sensitivity: 'base' });
   });
 
   return (

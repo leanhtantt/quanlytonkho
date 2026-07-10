@@ -13,6 +13,8 @@ import { useAuth } from './lib/AuthContext';
 import { Wallet, Settings as SettingsIcon, LogOut } from 'lucide-react';
 import { useAppStore } from './store/appStoreContext';
 
+import HealthStatus from './components/HealthStatus';
+
 function Sidebar() {
   const location = useLocation();
   const { logout, user } = useAuth();
@@ -49,6 +51,9 @@ function Sidebar() {
         ))}
       </nav>
       <div className="sidebar-footer">
+        <div style={{ marginBottom: '12px', padding: '0 16px' }}>
+          <HealthStatus />
+        </div>
         <span className="sidebar-user-email" title={user?.email}>{user?.email}</span>
         <button className="nav-item logout-btn" onClick={logout}>
           <LogOut size={20} />
@@ -58,6 +63,7 @@ function Sidebar() {
     </div>
   );
 }
+
 
 function App() {
   const { user } = useAuth();

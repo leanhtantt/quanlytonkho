@@ -38,6 +38,15 @@ export const api = {
   createOrder: (data) => authFetch('/api/orders', { method: 'POST', body: JSON.stringify(data) }),
   updateOrder: (id, data) => authFetch(`/api/orders/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteOrder: (id) => authFetch(`/api/orders/${id}`, { method: 'DELETE' }),
+  checkHealth: async () => {
+    try {
+      const res = await fetch(`${API_BASE}/health`);
+      if (!res.ok) throw new Error('API Server is down');
+      return await res.json();
+    } catch (e) {
+      return { status: 'error', api: false, db: false };
+    }
+  },
   
   getLosses: () => authFetch('/api/losses'),
   createLoss: (data) => authFetch('/api/losses', { method: 'POST', body: JSON.stringify(data) }),

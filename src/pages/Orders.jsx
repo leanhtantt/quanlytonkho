@@ -160,7 +160,13 @@ export default function Orders() {
     setMarketingFee(o.marketingFee || 0);
     setActualRevenue(o.actualRevenue !== null && o.actualRevenue !== undefined ? o.actualRevenue : '');
     setSettlementDate(o.settlementDate || '');
-    setItems(o.items.map(i => ({ ...i }))); // deep copy
+    // Deep copy, and re-resolve each item's product so the code (SKU) always shows
+    // correctly in the edit form even if the item's stored id/sku drifted.
+    setItems(o.items.map(i => {
+      const prod = products.find(p => p.id === i.productId)
+        || products.find(p => (p.sku || '').toUpperCase() === String(i.sku || '').toUpperCase());
+      return { ...i, productId: prod?.id || i.productId, sku: prod?.sku || i.sku || i.productId };
+    }));
     
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });

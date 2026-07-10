@@ -29,6 +29,7 @@ export default function Products() {
 
   let filteredProducts = inventory.filter(p => 
     (p.name || '').toLowerCase().includes(search.toLowerCase()) || 
+    (p.sku || '').toLowerCase().includes(search.toLowerCase()) ||
     (p.id || '').toLowerCase().includes(search.toLowerCase())
   );
 

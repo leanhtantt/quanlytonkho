@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Search, X, Trash2, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, X, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
 import ProductImage from '../components/ProductImage';
 import { processAndCompressImage } from '../domain/imageProcessor';
@@ -45,13 +45,15 @@ export default function Products() {
     }
   };
 
-  const showImagePreview = (product, target) => {
+  const showImagePreview = (product, event) => {
     if (!product.imageId) return;
-    const rect = target.getBoundingClientRect();
-    const previewSize = 240;
-    const gap = 12;
-    const left = Math.min(rect.right + gap, window.innerWidth - previewSize - gap);
-    const top = Math.max(gap, Math.min(rect.top, window.innerHeight - previewSize - gap));
+    const previewSize = 336;
+    const gap = 10;
+    const preferredLeft = event.clientX + gap;
+    const left = preferredLeft + previewSize <= window.innerWidth - gap
+      ? preferredLeft
+      : Math.max(gap, event.clientX - previewSize - gap);
+    const top = Math.max(gap, Math.min(event.clientY - 24, window.innerHeight - previewSize - gap));
     setImagePreview({ imageId: product.imageId, name: product.name, left, top });
   };
 
@@ -197,9 +199,13 @@ export default function Products() {
                       <td onClick={(e) => e.stopPropagation()}>
                         <div
                           style={{ position: 'relative', display: 'inline-block' }}
-                          onMouseEnter={(e) => showImagePreview(product, e.currentTarget)}
+                          onMouseEnter={(e) => showImagePreview(product, e)}
+                          onMouseMove={(e) => showImagePreview(product, e)}
                           onMouseLeave={() => setImagePreview(null)}
-                          onFocus={(e) => showImagePreview(product, e.currentTarget)}
+                          onFocus={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            showImagePreview(product, { clientX: rect.right, clientY: rect.top + 20 });
+                          }}
                           onBlur={(e) => {
                             if (!e.currentTarget.contains(e.relatedTarget)) setImagePreview(null);
                           }}
@@ -221,13 +227,13 @@ export default function Products() {
                               title="Xóa hình"
                               disabled={uploadingId === product.id}
                               style={{
-                                position: 'absolute', right: '-6px', bottom: '-6px', width: '20px', height: '20px',
+                                position: 'absolute', right: '-4px', top: '-4px', width: '16px', height: '16px',
                                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-                                border: '2px solid var(--color-bg-surface)', borderRadius: '50%',
-                                backgroundColor: 'var(--color-danger)', color: 'var(--color-on-primary)', cursor: 'pointer'
+                                border: '1px solid var(--color-border)', borderRadius: '50%', boxShadow: 'var(--shadow-sm)',
+                                backgroundColor: 'var(--color-bg-surface)', color: 'var(--color-danger)', cursor: 'pointer'
                               }}
                             >
-                              <Trash2 size={11} aria-hidden="true" />
+                              <X size={10} strokeWidth={2.5} aria-hidden="true" />
                             </button>
                           )}
                         </div>
@@ -315,7 +321,7 @@ export default function Products() {
             backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)', pointerEvents: 'none'
           }}
         >
-          <ProductImage imageId={imagePreview.imageId} alt={imagePreview.name} size={224} />
+          <ProductImage imageId={imagePreview.imageId} alt={imagePreview.name} size={320} />
         </div>
       )}
     </div>

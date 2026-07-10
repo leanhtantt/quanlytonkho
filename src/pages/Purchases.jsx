@@ -103,7 +103,7 @@ export default function Purchases() {
     };
     
     if (editingPurchaseId) {
-      updatePurchase(editingPurchaseId, purchaseData);
+      updatePurchase(editingPurchaseId, { id: purchaseId || editingPurchaseId, ...purchaseData });
     } else {
       addPurchase({ id: purchaseId || `PO-${Date.now()}`, ...purchaseData });
     }
@@ -192,7 +192,7 @@ export default function Purchases() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
             <div>
               <label style={labelStyle}>Mã Lô Hàng / Mã Tracking</label>
-              <input type="text" placeholder="Để trống sẽ tự tạo" className="form-input" value={purchaseId} onChange={e => setPurchaseId(e.target.value)} disabled={!!editingPurchaseId} style={inputStyle} />
+              <input type="text" placeholder="Để trống sẽ tự tạo" className="form-input" value={purchaseId} onChange={e => setPurchaseId(e.target.value)} style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Tên/Ghi chú đơn hàng</label>

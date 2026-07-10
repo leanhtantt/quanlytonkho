@@ -49,11 +49,11 @@ export default function Purchases() {
   const handleEditItem = (index) => {
     const itemToEdit = items[index];
     setNewItem({
-      id: itemToEdit.id,
-      name: itemToEdit.name,
-      qty: itemToEdit.qty,
-      totalVndPrice: itemToEdit.totalVndPrice,
-      totalWeightKg: itemToEdit.totalWeightKg
+      id: itemToEdit.id || '',
+      name: itemToEdit.name || '',
+      qty: itemToEdit.qty || 1,
+      totalVndPrice: itemToEdit.totalVndPrice || 0,
+      totalWeightKg: itemToEdit.totalWeightKg || 0
     });
     handleRemoveItem(index);
   };
@@ -137,9 +137,9 @@ export default function Purchases() {
 
   const handleEditPurchase = (p) => {
     setEditingPurchaseId(p.id);
-    setPurchaseId(p.id);
-    setOrderName(p.orderName);
-    setDate(p.date);
+    setPurchaseId(p.id || '');
+    setOrderName(p.orderName || p.supplier || '');
+    setDate(p.date || new Date().toISOString().split('T')[0]);
     setNotes(p.notes || '');
     setPurchasingFee(p.purchasingFee || 0);
     setDomesticShipping(p.domesticShipping || 0);
@@ -151,11 +151,11 @@ export default function Purchases() {
     setItems(p.items.map(item => {
       const prod = products.find(prod => prod.id === item.productId || prod.sku === item.productId);
       return {
-        id: prod?.sku || item.sku || item.productId,
+        id: prod?.sku || item.sku || item.productId || '',
         name: prod?.name || item.name || 'Sản phẩm không xác định',
-        qty: item.qty,
+        qty: item.qty || 1,
         totalVndPrice: item.totalVndPrice || 0,
-        totalWeightKg: item.weightKg * item.qty
+        totalWeightKg: (item.weightKg * item.qty) || 0
       };
     }));
     

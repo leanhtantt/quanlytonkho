@@ -18,7 +18,8 @@ async function authFetch(path, options = {}) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `HTTP ${res.status}`);
+    const errorMsg = typeof body.error === 'object' ? JSON.stringify(body.error) : (body.error || `HTTP ${res.status}`);
+    throw new Error(errorMsg);
   }
   return res.json();
 }

@@ -289,11 +289,27 @@ export default function Orders() {
           if (statusText.toLowerCase().includes('đã giao') || statusText.toLowerCase().includes('hoàn thành')) mappedStatus = 'Đã giao';
           if (statusText.toLowerCase().includes('trả hàng') || statusText.toLowerCase().includes('hoàn tiền')) mappedStatus = 'Hoàn hàng';
           
-          const dateRaw = getVal(['ngày đặt hàng', 'ngày đặt', 'thời gian']) || new Date().toISOString();
-          const dateStr = dateRaw.toString().split(' ')[0]; // Lấy phần YYYY-MM-DD
+          const dateRaw = getVal(['ngày đặt hàng', 'ngày đặt', 'thời gian']);
+          let dateStr = new Date().toISOString().split('T')[0];
+          if (dateRaw) {
+            if (!isNaN(Number(dateRaw))) {
+              const jsDate = new Date(Math.round((Number(dateRaw) - 25569) * 86400 * 1000));
+              dateStr = jsDate.toISOString().split('T')[0];
+            } else if (dateRaw.toString().includes('/')) {
+              const parts = dateRaw.toString().split(/[\s/:-]+/);
+              if (parts.length >= 3) {
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+                dateStr = `${year}-${month}-${day}`;
+              }
+            } else {
+              dateStr = dateRaw.toString().split(' ')[0];
+            }
+          }
           
           const sku = getVal(['sku phân loại hàng', 'sku sản phẩm', 'mã sku', 'mã sp']) || '';
-          const name = getVal(['tên sản phẩm', 'sản phẩm']) || 'Sản phẩm không tên';
+          const name = (getVal(['tên sản phẩm', 'sản phẩm']) || 'Sản phẩm không tên').toString();
           const qty = Number(getVal(['số lượng', 'qty'])) || 1;
           
           // Cố gắng tìm cột Giá ưu đãi / Giá bán

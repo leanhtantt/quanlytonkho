@@ -83,8 +83,10 @@ export function StoreProvider({ children }) {
     try {
       const created = await api.createOrder(order);
       setOrders(prev => [...prev, created]);
+      return created;
     } catch (err) {
       console.error('Tạo đơn thất bại', order?.id, err);
+      throw err;
     }
   };
   const updateOrder = async (orderId, updatedData) => {

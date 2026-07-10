@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { Search, Plus, Save, X, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -39,7 +39,20 @@ export default function Orders() {
   const [isReturned, setIsReturned] = useState(false);
   
   const [importShop, setImportShop] = useState(SHOPS[0]);
-  
+  const [importFixOrderId, setImportFixOrderId] = useState(null); // Đang sửa đơn nào từ danh sách "Đơn cần xử lý"
+
+  // Đơn import bị lỗi (SKU không khớp hoặc lưu thất bại), giữ lại để người dùng sửa nhanh.
+  const [importIssues, setImportIssues] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('orderImportIssues') || '[]');
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    localStorage.setItem('orderImportIssues', JSON.stringify(importIssues));
+  }, [importIssues]);
+
   const fileInputRef = useRef(null); // Cho Đối soát Doanh thu
   const importInputRef = useRef(null); // Cho Import Đơn Hàng mới
 
@@ -97,6 +110,7 @@ export default function Orders() {
   const closeForm = () => {
     setShowForm(false);
     setEditingOrderId(null);
+    setImportFixOrderId(null);
     setItems([]);
     setOrderId('');
     setDate(new Date().toISOString().split('T')[0]);
@@ -110,6 +124,32 @@ export default function Orders() {
     setSettlementDate('');
   };
 
+  // Mở form tạo đơn, điền sẵn dữ liệu từ một đơn import bị lỗi để sửa nhanh.
+  const handleFixImportIssue = (issue) => {
+    setEditingOrderId(null);
+    setImportFixOrderId(issue.id);
+    setOrderId(issue.id);
+    setDate(issue.date);
+    setShop(issue.shop);
+    setStatus(issue.status || 'Đang giao');
+    setPackagingFee(issue.packagingFee ?? defaultPackagingCost);
+    setReturnFee(issue.returnFee || 0);
+    setPlatformFee(issue.platformFee || 0);
+    setMarketingFee(issue.marketingFee || 0);
+    setActualRevenue('');
+    setSettlementDate('');
+    setItems(issue.items.map(it => ({
+      productId: it.productId,
+      sku: it.productId,
+      name: it.name,
+      qty: it.qty,
+      sellingPrice: it.sellingPrice,
+      isReturned: it.isReturned
+    })));
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSaveOrder = () => {
     if (items.length === 0 || !orderId) return;
 
@@ -119,11 +159,11 @@ export default function Orders() {
       alert(`Lỗi: Các mã SP sau không có trong kho: ${invalidItems.map(i => i.productId).join(', ')}. Vui lòng chọn lại mã đúng!`);
       return;
     }
-    
+
     const orderData = {
       date,
       shop,
-      status, 
+      status,
       packagingFee: Number(packagingFee) || 0,
       returnFee: Number(returnFee) || 0,
       platformFee: Number(platformFee) || 0,
@@ -133,13 +173,22 @@ export default function Orders() {
       items,
       hasError: false // Đã sửa xong thì clear lỗi
     };
-    
+
     if (editingOrderId) {
       updateOrder(editingOrderId, orderData);
     } else {
-      addOrder({ id: orderId, ...orderData });
+      const resolvedIssueId = importFixOrderId;
+      addOrder({ id: orderId, ...orderData })
+        .then(() => {
+          if (resolvedIssueId) {
+            setImportIssues(prev => prev.filter(i => i.id !== resolvedIssueId));
+          }
+        })
+        .catch(err => {
+          alert('Tạo đơn không thành công: ' + err.message);
+        });
     }
-    
+
     closeForm();
   };
 
@@ -255,7 +304,7 @@ export default function Orders() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const bstr = evt.target.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
@@ -308,7 +357,8 @@ export default function Orders() {
             }
           }
           
-          const sku = getVal(['sku phân loại hàng', 'sku sản phẩm', 'mã sku', 'mã sp']) || '';
+          // Ưu tiên SKU phân loại hàng (variant) rồi mới tới SKU sản phẩm - không dựa vào thứ tự cột trong file.
+          const sku = (getVal(['sku phân loại hàng']) || getVal(['sku sản phẩm']) || getVal(['mã sku', 'mã sp']) || '').toString();
           const name = (getVal(['tên sản phẩm', 'sản phẩm']) || 'Sản phẩm không tên').toString();
           const qty = Number(getVal(['số lượng', 'qty'])) || 1;
           
@@ -321,9 +371,9 @@ export default function Orders() {
           if (returnFeeRaw !== undefined) {
              const feeStr = returnFeeRaw.toString().replace(/,/g, '');
              if (!isNaN(Number(feeStr))) parsedReturnFee = Math.abs(Number(feeStr));
-          } else if (mappedStatus === 'Hoàn hàng') {
-             parsedReturnFee = defaultReturnFee; // Fallback
-          }
+            } else if (mappedStatus === 'Hoàn hàng') {
+              parsedReturnFee = Number(defaultReturnFee) || 0; // Fallback
+            }
           
           // Đọc phí sàn (phí dịch vụ, phí cố định, phí thanh toán, phí giao dịch...)
           const parseFee = (keywords) => {
@@ -349,7 +399,7 @@ export default function Orders() {
               date: dateStr,
               shop: importShop, // Gán Kênh Bán theo lựa chọn trên giao diện
               status: mappedStatus,
-              packagingFee: defaultPackagingCost, // Mặc định từ cấu hình
+              packagingFee: Number(defaultPackagingCost) || 0,
               returnFee: parsedReturnFee,
               platformFee: parsedPlatformFee,
               marketingFee: parsedMarketingFee,
@@ -362,8 +412,11 @@ export default function Orders() {
              if (parsedMarketingFee > 0 && !orderMap[idStr].marketingFee) orderMap[idStr].marketingFee = parsedMarketingFee;
           }
           
-          const productId = sku ? sku.toString().trim().toUpperCase() : '';
-          
+          const rawSku = sku ? sku.trim().toUpperCase() : '';
+          // Resolve về SKU/UUID sản phẩm thật trong kho, giống luồng nhập tay (handleAddItem).
+          const prod = rawSku ? products.find(p => (p.sku || '').toUpperCase() === rawSku || p.id === rawSku) : null;
+          const productId = prod ? prod.id : rawSku;
+
           orderMap[idStr].items.push({
             productId: productId,
             name: name,
@@ -371,25 +424,49 @@ export default function Orders() {
             sellingPrice: price,
             isReturned: mappedStatus === 'Hoàn hàng'
           });
-          
-          // Đánh dấu lỗi nếu SKU rỗng hoặc SKU không tồn tại trong kho
-          if (!productId || !products.find(p => p.id === productId)) {
+
+          // Đánh dấu lỗi nếu SKU rỗng hoặc SKU không khớp với sản phẩm nào trong kho
+          if (!rawSku || !prod) {
             orderMap[idStr].hasError = true;
           }
         });
         
-        let newOrderCount = 0;
-        let errorOrderCount = 0;
-        
-        Object.values(orderMap).forEach(orderData => {
-          if (orderData.items.length > 0) {
-            if (orderData.hasError) errorOrderCount++;
-            addOrder(orderData);
-            newOrderCount++;
+        let successCount = 0;
+        const newIssues = [];
+
+        for (const orderData of Object.values(orderMap)) {
+          if (orderData.items.length === 0) continue;
+
+          if (orderData.hasError) {
+            // Không gọi API cho đơn chắc chắn sẽ bị từ chối - đưa thẳng vào danh sách cần xử lý.
+            const badItems = orderData.items.filter(it => !products.find(p => p.id === it.productId));
+            newIssues.push({
+              ...orderData,
+              reason: `Mã SP không khớp sản phẩm trong kho: ${badItems.map(it => `${it.name} (${it.productId || 'trống'})`).join(', ')}`
+            });
+            continue;
           }
-        });
-        
-        alert(`✅ Đã nhập ${newOrderCount} đơn hàng mới. (Trong đó có ${errorOrderCount} đơn bị lỗi mã SP, vui lòng tìm các dòng màu đỏ để Sửa lại).`);
+
+          try {
+            await addOrder(orderData);
+            successCount++;
+          } catch (err) {
+            newIssues.push({ ...orderData, reason: err.message || 'Lỗi không xác định' });
+          }
+        }
+
+        if (newIssues.length > 0) {
+          setImportIssues(prev => {
+            const prevFiltered = prev.filter(p => !newIssues.find(n => n.id === p.id));
+            return [...prevFiltered, ...newIssues];
+          });
+        }
+
+        let msg = `✅ Đã nhập thành công ${successCount} đơn hàng.`;
+        if (newIssues.length > 0) {
+          msg += `\n⚠️ ${newIssues.length} đơn cần xử lý (mã SP không khớp hoặc lưu thất bại). Xem danh sách "Đơn cần xử lý" bên dưới để sửa nhanh.`;
+        }
+        alert(msg);
       } catch (err) {
         console.error(err);
         alert('❌ Có lỗi xảy ra khi đọc file Excel. Đảm bảo đây là file xuất chuẩn từ sàn.');
@@ -445,7 +522,7 @@ export default function Orders() {
       {showForm && (
         <div className="card animate-fade-in" style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-            <h3>{editingOrderId ? `Sửa Đơn Hàng: ${editingOrderId}` : 'Tạo Đơn Hàng Mới'}</h3>
+            <h3>{editingOrderId ? `Sửa Đơn Hàng: ${editingOrderId}` : importFixOrderId ? `Xử Lý Đơn Lỗi Import: ${importFixOrderId}` : 'Tạo Đơn Hàng Mới'}</h3>
             <button className="btn btn-outline" onClick={closeForm}><X size={16} /> Hủy</button>
           </div>
           
@@ -587,6 +664,52 @@ export default function Orders() {
             <button className="btn btn-primary" onClick={handleSaveOrder} disabled={items.length === 0 || !orderId}>
               <Save size={18} /> Lưu Đơn Hàng
             </button>
+          </div>
+        </div>
+      )}
+
+      {importIssues.length > 0 && !showForm && (
+        <div className="card" style={{ padding: 0, marginBottom: '2rem', border: '1px solid var(--color-danger)' }}>
+          <div style={{ padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)' }}>
+            <h3 style={{ color: 'var(--color-danger)', margin: 0 }}>⚠️ {importIssues.length} đơn cần xử lý từ lần import gần nhất</h3>
+            <button
+              className="btn btn-outline"
+              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+              onClick={() => { if (window.confirm('Xóa toàn bộ danh sách đơn cần xử lý?')) setImportIssues([]); }}
+            >
+              Xóa danh sách
+            </button>
+          </div>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mã đơn</th>
+                  <th>Ngày</th>
+                  <th>Lý do</th>
+                  <th style={{ width: '140px', textAlign: 'center' }}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {importIssues.map(issue => (
+                  <tr key={issue.id}>
+                    <td style={{ fontWeight: 600 }}>{issue.id}</td>
+                    <td>{issue.date}</td>
+                    <td style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{issue.reason}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleFixImportIssue(issue)}>Sửa</button>
+                      <button
+                        className="btn btn-outline"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}
+                        onClick={() => setImportIssues(prev => prev.filter(i => i.id !== issue.id))}
+                      >
+                        Bỏ qua
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

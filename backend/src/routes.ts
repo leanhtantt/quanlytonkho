@@ -249,6 +249,22 @@ apiRouter.delete('/purchases/:id', async (req, res) => {
 // Turn the frontend order payload into the shape orderService expects,
 // resolving each item's SKU/code to the real Product UUID.
 function buildOrderInput(data: any, dbProducts: any[]): OrderInput {
+  const unresolved: string[] = [];
+  const items = data.items.map((it: any) => {
+    // Match by SKU or internal id, case-insensitively (see note in buildPurchaseInput).
+    const key = String(it.productId).toUpperCase();
+    const prod = dbProducts.find(p => (p.sku && p.sku.toUpperCase() === key) || p.id.toUpperCase() === key);
+    if (!prod) unresolved.push(it.productId || '(trống)');
+    return {
+      productId: prod ? prod.id : it.productId,
+      qty: it.qty,
+      sellingPrice: it.sellingPrice,
+      isReturned: it.isReturned || false,
+    };
+  });
+  if (unresolved.length > 0) {
+    throw new Error(`Không tìm thấy sản phẩm với mã SKU: ${[...new Set(unresolved)].join(', ')}. Vui lòng tạo sản phẩm này trước khi tạo đơn.`);
+  }
   return {
     externalCode: data.id,
     channel: data.shop,
@@ -261,17 +277,7 @@ function buildOrderInput(data: any, dbProducts: any[]): OrderInput {
     actualRevenue: (data.actualRevenue === null || data.actualRevenue === undefined || data.actualRevenue === '')
       ? null : Number(data.actualRevenue),
     settlementDate: data.settlementDate ? new Date(data.settlementDate) : null,
-    items: data.items.map((it: any) => {
-      // Match by SKU or internal id, case-insensitively (see note in buildPurchaseInput).
-      const key = String(it.productId).toUpperCase();
-      const prod = dbProducts.find(p => (p.sku && p.sku.toUpperCase() === key) || p.id.toUpperCase() === key);
-      return {
-        productId: prod ? prod.id : it.productId,
-        qty: it.qty,
-        sellingPrice: it.sellingPrice,
-        isReturned: it.isReturned || false,
-      };
-    })
+    items
   };
 }
 

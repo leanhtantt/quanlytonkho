@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Search, X, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, X, Trash2, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
 import ProductImage from '../components/ProductImage';
 import { processAndCompressImage } from '../domain/imageProcessor';
@@ -11,6 +11,7 @@ export default function Products() {
   const [filterStock, setFilterStock] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const handleImageUpload = async (productId, e) => {
     const file = e.target.files[0];
@@ -25,6 +26,33 @@ export default function Products() {
     } finally {
       setUploadingId(null);
     }
+  };
+
+  const handleRemoveImage = async (product, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!product.imageId || !window.confirm(`Xóa hình của sản phẩm "${product.sku || product.id}"?`)) return;
+
+    try {
+      setUploadingId(product.id);
+      setImagePreview(null);
+      await updateProduct(product.id, { imageId: null });
+    } catch (err) {
+      console.error(err);
+      alert('Không thể xóa hình sản phẩm');
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const showImagePreview = (product, target) => {
+    if (!product.imageId) return;
+    const rect = target.getBoundingClientRect();
+    const previewSize = 240;
+    const gap = 12;
+    const left = Math.min(rect.right + gap, window.innerWidth - previewSize - gap);
+    const top = Math.max(gap, Math.min(rect.top, window.innerHeight - previewSize - gap));
+    setImagePreview({ imageId: product.imageId, name: product.name, left, top });
   };
 
   const normalizedSearch = search.trim().toLocaleLowerCase('vi');
@@ -167,10 +195,42 @@ export default function Products() {
                         ) : null}
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <label style={{ cursor: uploadingId === product.id ? 'wait' : 'pointer', position: 'relative', display: 'inline-block', margin: 0 }} title="Bấm để tải ảnh lên">
-                          <ProductImage imageId={product.imageId} size={40} style={{ opacity: uploadingId === product.id ? 0.5 : 1 }} />
-                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImageUpload(product.id, e)} disabled={uploadingId === product.id} />
-                        </label>
+                        <div
+                          style={{ position: 'relative', display: 'inline-block' }}
+                          onMouseEnter={(e) => showImagePreview(product, e.currentTarget)}
+                          onMouseLeave={() => setImagePreview(null)}
+                          onFocus={(e) => showImagePreview(product, e.currentTarget)}
+                          onBlur={(e) => {
+                            if (!e.currentTarget.contains(e.relatedTarget)) setImagePreview(null);
+                          }}
+                        >
+                          <label
+                            tabIndex={0}
+                            style={{ cursor: uploadingId === product.id ? 'wait' : 'pointer', display: 'block', margin: 0 }}
+                            title="Bấm để tải ảnh mới"
+                            aria-label={`Tải ảnh cho sản phẩm ${product.sku || product.id}`}
+                          >
+                            <ProductImage imageId={product.imageId} alt={product.name} size={40} style={{ opacity: uploadingId === product.id ? 0.5 : 1 }} />
+                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImageUpload(product.id, e)} disabled={uploadingId === product.id} />
+                          </label>
+                          {product.imageId && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleRemoveImage(product, e)}
+                              aria-label={`Xóa hình của ${product.sku || product.id}`}
+                              title="Xóa hình"
+                              disabled={uploadingId === product.id}
+                              style={{
+                                position: 'absolute', right: '-6px', bottom: '-6px', width: '20px', height: '20px',
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                                border: '2px solid var(--color-bg-surface)', borderRadius: '50%',
+                                backgroundColor: 'var(--color-danger)', color: 'var(--color-on-primary)', cursor: 'pointer'
+                              }}
+                            >
+                              <Trash2 size={11} aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td style={{ fontWeight: 600, color: 'var(--color-text-muted)' }}>{product.sku || product.id}</td>
                       <td style={{ fontWeight: 500 }}>{product.name}</td>
@@ -244,6 +304,20 @@ export default function Products() {
           </table>
         </div>
       </div>
+
+      {imagePreview && (
+        <div
+          role="img"
+          aria-label={`Ảnh phóng to: ${imagePreview.name}`}
+          style={{
+            position: 'fixed', left: imagePreview.left, top: imagePreview.top, zIndex: 1000,
+            padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)',
+            backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)', pointerEvents: 'none'
+          }}
+        >
+          <ProductImage imageId={imagePreview.imageId} alt={imagePreview.name} size={224} />
+        </div>
+      )}
     </div>
   );
 }

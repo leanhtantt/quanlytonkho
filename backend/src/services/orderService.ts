@@ -117,3 +117,11 @@ export async function replaceOrder(orderId: string, input: OrderInput) {
     });
   });
 }
+
+// Delete an order: give its stock back to inventory, then remove the order and its items.
+export async function deleteOrder(orderId: string) {
+  return await prisma.$transaction(async (tx) => {
+    await reverseOrderItems(tx, orderId);
+    await tx.order.delete({ where: { id: orderId } });
+  });
+}

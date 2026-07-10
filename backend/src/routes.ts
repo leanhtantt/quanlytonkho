@@ -3,7 +3,7 @@ import { prisma } from './prismaClient';
 import { z } from 'zod';
 import { createPurchaseOrder, deletePurchaseOrder, replacePurchaseOrder } from './services/procurementService';
 import { recordLoss } from './services/financeService';
-import { createOrder, replaceOrder, OrderInput } from './services/orderService';
+import { createOrder, replaceOrder, deleteOrder, OrderInput } from './services/orderService';
 
 export const apiRouter = Router();
 
@@ -281,6 +281,7 @@ async function loadMappedOrder(orderId: string) {
     marketingFee: Number(o.marketingFee),
     items: o.orderItems.map(oi => ({
       productId: oi.productId,
+      sku: oi.product?.sku || oi.productId,
       name: oi.product?.name || oi.productId,
       qty: oi.qty,
       sellingPrice: Number(oi.sellingPrice),
@@ -307,6 +308,7 @@ apiRouter.get('/orders', async (req, res) => {
     marketingFee: Number(o.marketingFee),
     items: o.orderItems.map(oi => ({
       productId: oi.productId,
+      sku: oi.product?.sku || oi.productId,
       name: oi.product?.name || oi.productId,
       qty: oi.qty,
       sellingPrice: Number(oi.sellingPrice),
@@ -365,6 +367,19 @@ apiRouter.put('/orders/:id', async (req, res) => {
 
     const mapped = await loadMappedOrder(existing.id);
     res.json(mapped);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+apiRouter.delete('/orders/:id', async (req, res) => {
+  try {
+    // The frontend id is the order's externalCode; resolve it to the real UUID.
+    const existing = await prisma.order.findUnique({ where: { externalCode: req.params.id } });
+    if (!existing) return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
+
+    await deleteOrder(existing.id);
+    res.json({ success: true });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

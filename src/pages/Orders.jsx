@@ -7,7 +7,7 @@ import ProductImage from '../components/ProductImage';
 const SHOPS = ['Chà Tiktok', 'Chà Shopee', 'Lyn WD', 'Lyn - Phụ kiện', 'Lyn Tiktok'];
 
 export default function Orders() {
-  const { products, orders, addOrder, updateOrder, defaultPackagingCost, defaultReturnFee } = useAppStore();
+  const { products, orders, addOrder, updateOrder, deleteOrder, defaultPackagingCost, defaultReturnFee } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -62,6 +62,7 @@ export default function Orders() {
 
     setItems([...items, {
       productId: prod ? prod.id : selectedProductId.toUpperCase(),
+      sku: prod ? (prod.sku || prod.id) : selectedProductId.toUpperCase(),
       name: selectedProductName,
       qty: Number(qty),
       sellingPrice: Number(sellingPrice),
@@ -84,7 +85,8 @@ export default function Orders() {
   const handleEditItem = (index) => {
     const item = items[index];
     const prod = products.find(p => p.id === item.productId);
-    setSelectedProductId(prod ? (prod.sku || prod.id) : item.productId);
+    // Prefer the SKU carried on the item; only fall back to a lookup / raw id.
+    setSelectedProductId(item.sku || (prod ? (prod.sku || prod.id) : item.productId));
     setSelectedProductName(item.name);
     setQty(item.qty);
     setSellingPrice(item.sellingPrice);
@@ -139,6 +141,11 @@ export default function Orders() {
     }
     
     closeForm();
+  };
+
+  const handleDeleteOrder = async (o) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa đơn "${o.id}"? Tồn kho đã xuất của đơn này sẽ được hoàn lại.`)) return;
+    await deleteOrder(o.id);
   };
 
   const handleEditOrder = (o) => {
@@ -530,7 +537,7 @@ export default function Orders() {
                           <ProductImage imageId={prod?.imageId} size={32} />
                           <div>
                             <div style={{ fontWeight: 600 }}>{prod?.name || item.name || 'Sản phẩm không xác định'}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{prod?.sku || item.productId}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.sku || prod?.sku || item.productId}</div>
                           </div>
                         </div>
                       </td>
@@ -660,8 +667,11 @@ export default function Orders() {
                         {profit.toLocaleString()} đ
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} onClick={(e) => { e.stopPropagation(); handleEditOrder(o); }}>
+                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={(e) => { e.stopPropagation(); handleEditOrder(o); }}>
                           Sửa
+                        </button>
+                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={(e) => { e.stopPropagation(); handleDeleteOrder(o); }}>
+                          Xóa
                         </button>
                       </td>
                     </tr>
@@ -698,7 +708,7 @@ export default function Orders() {
                                           <ProductImage imageId={prod?.imageId} size={32} />
                                           <div>
                                             <div style={{ fontWeight: 500 }}>{prod?.name || item.name || 'Sản phẩm không xác định'}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{prod?.sku || item.productId}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.sku || prod?.sku || item.productId}</div>
                                           </div>
                                         </div>
                                       </td>

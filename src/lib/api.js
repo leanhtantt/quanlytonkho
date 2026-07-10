@@ -36,6 +36,7 @@ export const api = {
   getOrders: () => authFetch('/api/orders'),
   createOrder: (data) => authFetch('/api/orders', { method: 'POST', body: JSON.stringify(data) }),
   updateOrder: (id, data) => authFetch(`/api/orders/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteOrder: (id) => authFetch(`/api/orders/${id}`, { method: 'DELETE' }),
   
   getLosses: () => authFetch('/api/losses'),
   createLoss: (data) => authFetch('/api/losses', { method: 'POST', body: JSON.stringify(data) }),

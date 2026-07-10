@@ -80,12 +80,30 @@ export function StoreProvider({ children }) {
     setPurchases(prev => prev.filter(p => p.id !== purchaseId));
   };
   const addOrder = async (order) => {
-    const created = await api.createOrder(order);
-    setOrders(prev => [...prev, created]);
+    try {
+      const created = await api.createOrder(order);
+      setOrders(prev => [...prev, created]);
+    } catch (err) {
+      console.error('Tạo đơn thất bại', order?.id, err);
+    }
   };
   const updateOrder = async (orderId, updatedData) => {
-    const updated = await api.updateOrder(orderId, updatedData);
-    setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
+    try {
+      const updated = await api.updateOrder(orderId, updatedData);
+      setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
+    } catch (err) {
+      console.error(err);
+      alert('Cập nhật đơn không thành công: ' + err.message);
+    }
+  };
+  const deleteOrder = async (orderId) => {
+    try {
+      await api.deleteOrder(orderId);
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+    } catch (err) {
+      console.error(err);
+      alert('Xóa đơn không thành công: ' + err.message);
+    }
   };
   const addLoss = async (loss) => {
     const created = await api.createLoss(loss);
@@ -141,6 +159,7 @@ export function StoreProvider({ children }) {
     deletePurchase,
     addOrder,
     updateOrder,
+    deleteOrder,
     addLoss,
     addProduct,
     updateProduct,

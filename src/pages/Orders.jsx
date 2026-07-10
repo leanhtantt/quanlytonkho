@@ -164,6 +164,7 @@ export default function Orders() {
 
   // Mở form tạo đơn, điền sẵn dữ liệu từ một đơn import bị lỗi để sửa nhanh.
   const handleFixImportIssue = (issue) => {
+    const existingOrder = orders.find(order => order.id === issue.id);
     setEditingOrderId(null);
     setImportFixOrderId(issue.id);
     setOrderId(issue.id);
@@ -174,8 +175,8 @@ export default function Orders() {
     setReturnFee(issue.returnFee || 0);
     setPlatformFee(issue.platformFee || 0);
     setMarketingFee(issue.marketingFee || 0);
-    setActualRevenue('');
-    setSettlementDate('');
+    setActualRevenue(existingOrder?.actualRevenue !== null && existingOrder?.actualRevenue !== undefined ? existingOrder.actualRevenue : '');
+    setSettlementDate(existingOrder?.settlementDate || '');
     setItems(issue.items.map(it => ({
       productId: it.productId,
       sku: it.productId,
@@ -188,7 +189,7 @@ export default function Orders() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSaveOrder = () => {
+  const handleSaveOrder = async () => {
     if (items.length === 0 || !orderId) return;
 
     // Validate manual save: ensure all products exist in inventory
@@ -212,22 +213,24 @@ export default function Orders() {
       hasError: false // Đã sửa xong thì clear lỗi
     };
 
-    if (editingOrderId) {
-      updateOrder(editingOrderId, orderData);
-    } else {
-      const resolvedIssueId = importFixOrderId;
-      addOrder({ id: orderId, ...orderData })
-        .then(() => {
-          if (resolvedIssueId) {
-            setImportIssues(prev => prev.filter(i => i.id !== resolvedIssueId));
-          }
-        })
-        .catch(err => {
-          alert('Tạo đơn không thành công: ' + err.message);
-        });
-    }
+    const existingOrder = orders.find(order => order.id === orderId);
+    const targetOrderId = editingOrderId || existingOrder?.id;
 
-    closeForm();
+    try {
+      if (targetOrderId) {
+        const updated = await updateOrder(targetOrderId, orderData);
+        if (!updated) return;
+      } else {
+        await addOrder({ id: orderId, ...orderData });
+      }
+
+      if (importFixOrderId) {
+        setImportIssues(prev => prev.filter(issue => issue.id !== importFixOrderId));
+      }
+      closeForm();
+    } catch (err) {
+      alert(`${targetOrderId ? 'Cập nhật' : 'Tạo'} đơn không thành công: ${err.message}`);
+    }
   };
 
   const handleDeleteOrder = async (o) => {
@@ -361,19 +364,18 @@ export default function Orders() {
         data.forEach(row => {
           const keys = Object.keys(row);
           const getVal = (keywords) => {
-            const k = keys.find(key => keywords.some(kw => key.toLowerCase().includes(kw)));
-            return k ? row[k] : undefined;
+            for (const keyword of keywords) {
+              const normalizedKeyword = normalizeExcelText(keyword);
+              const key = keys.find(candidate => normalizeExcelText(candidate).includes(normalizedKeyword));
+              if (key) return row[key];
+            }
+            return undefined;
           };
           
           const rowId = getVal(['mã đơn hàng', 'mã đơn', 'order id']);
           if (!rowId) return; 
           
           const idStr = rowId.toString().trim();
-          
-          // Bỏ qua nếu đơn hàng đã tồn tại
-          if (orders.find(o => o.id === idStr)) {
-            return;
-          }
           
           const statusText = getVal(['trạng thái đơn hàng', 'trạng thái', 'status']) || '';
           if (statusText.toLowerCase().includes('hủy')) return; // Bỏ qua đơn huỷ
@@ -406,8 +408,9 @@ export default function Orders() {
           const name = (getVal(['tên sản phẩm', 'sản phẩm']) || 'Sản phẩm không tên').toString();
           const qty = Number(getVal(['số lượng', 'qty'])) || 1;
           
-          // Cố gắng tìm cột Giá ưu đãi / Giá bán
-          const price = Number(getVal(['giá ưu đãi', 'giá bán', 'giá gốc'])) || 0;
+          // Shopee đặt cột Giá gốc trước Giá ưu đãi; luôn ưu tiên Giá ưu đãi theo tên cột.
+          const priceRaw = getVal(['giá ưu đãi', 'giá bán', 'giá gốc']);
+          const price = parseExcelNumber(priceRaw) ?? 0;
           
           // Đọc phí hoàn trực tiếp từ file (nếu có)
           const returnFeeRaw = getVal(['phí hoàn', 'phí trả hàng', 'phí vận chuyển hoàn', 'phí vận chuyển trả']);
@@ -476,6 +479,7 @@ export default function Orders() {
         });
         
         let successCount = 0;
+        let updatedCount = 0;
         const newIssues = [];
 
         for (const orderData of Object.values(orderMap)) {
@@ -492,8 +496,19 @@ export default function Orders() {
           }
 
           try {
-            await addOrder(orderData);
-            successCount++;
+            const existingOrder = orders.find(order => order.id === orderData.id);
+            if (existingOrder) {
+              const updated = await updateOrder(orderData.id, {
+                ...orderData,
+                actualRevenue: existingOrder.actualRevenue ?? null,
+                settlementDate: existingOrder.settlementDate ?? null,
+              });
+              if (!updated) throw new Error('Cập nhật giá bán thất bại');
+              updatedCount++;
+            } else {
+              await addOrder(orderData);
+              successCount++;
+            }
           } catch (err) {
             newIssues.push({ ...orderData, reason: err.message || 'Lỗi không xác định' });
           }
@@ -506,7 +521,7 @@ export default function Orders() {
           });
         }
 
-        let msg = `✅ Đã nhập thành công ${successCount} đơn hàng.`;
+        let msg = `✅ Đã thêm ${successCount} đơn mới và cập nhật giá bán cho ${updatedCount} đơn trùng mã.`;
         if (newIssues.length > 0) {
           msg += `\n⚠️ ${newIssues.length} đơn cần xử lý (mã SP không khớp hoặc lưu thất bại). Xem danh sách "Đơn cần xử lý" bên dưới để sửa nhanh.`;
         }
@@ -792,7 +807,7 @@ export default function Orders() {
                 <th>Mã Đơn</th>
                 <th>Kênh Bán</th>
                 <th>Ngày Đặt</th>
-                <th>Doanh Thu Dự Kiến</th>
+                <th>Tổng Giá Bán</th>
                 <th style={{ color: 'var(--color-primary)' }}>Phí Đóng gói</th>
                 <th style={{ color: 'var(--color-danger)' }}>Phí Hoàn</th>
                 <th style={{ color: 'var(--color-primary)' }}>Thực Tế (Nhận)</th>
@@ -804,7 +819,7 @@ export default function Orders() {
             <tbody>
               {filteredOrders.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+                  <td colSpan={11} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
                     Không tìm thấy đơn hàng nào phù hợp bộ lọc.
                   </td>
                 </tr>
@@ -867,7 +882,7 @@ export default function Orders() {
                     
                     {isExpanded && (
                       <tr>
-                        <td colSpan={8} style={{ padding: 0, backgroundColor: 'var(--color-bg-base)' }}>
+                        <td colSpan={11} style={{ padding: 0, backgroundColor: 'var(--color-bg-base)' }}>
                           <div style={{ padding: '1rem 3rem', borderLeft: '4px solid var(--color-primary)' }}>
                             <div style={{ display: 'flex', gap: '2rem', marginBottom: '1rem' }}>
                               <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Trạng thái giao:</span> <span style={{ fontWeight: 600 }}>{o.status}</span></div>
@@ -881,6 +896,8 @@ export default function Orders() {
                                 <tr>
                                   <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Sản phẩm</th>
                                   <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>SL</th>
+                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Giá Bán (1c)</th>
+                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Tổng Giá Bán</th>
                                   <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>T.Thái Bán</th>
                                   <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Giá Vốn Đơn Vị (1c)</th>
                                   <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Tổng Vốn Dòng Này</th>
@@ -902,6 +919,12 @@ export default function Orders() {
                                         </div>
                                       </td>
                                       <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.qty}</td>
+                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'var(--color-primary)' }}>
+                                        {(Number(item.sellingPrice) || 0).toLocaleString()} đ
+                                      </td>
+                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'var(--color-primary)' }}>
+                                        {item.isReturned ? '0 đ' : `${((Number(item.sellingPrice) || 0) * item.qty).toLocaleString()} đ`}
+                                      </td>
                                       <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
                                         {item.isReturned ? <span className="badge badge-danger">Hoàn trả</span> : <span className="badge badge-success">Đã bán</span>}
                                       </td>

@@ -93,9 +93,11 @@ export function StoreProvider({ children }) {
     try {
       const updated = await api.updateOrder(orderId, updatedData);
       setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
+      return updated;
     } catch (err) {
       console.error(err);
       alert('Cập nhật đơn không thành công: ' + err.message);
+      return null;
     }
   };
   const deleteOrder = async (orderId) => {

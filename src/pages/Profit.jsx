@@ -126,7 +126,6 @@ export default function Profit() {
                 <th>Đã giao</th>
                 <th>Hoàn</th>
                 <th>Doanh thu (Thực)</th>
-                <th>Doanh thu (+15d)</th>
                 <th>Vốn (Thực)</th>
                 <th>Vốn (+15d)</th>
                 <th>SL Hao hụt</th>
@@ -149,7 +148,6 @@ export default function Profit() {
                   <td>{row.deliveredOrders}</td>
                   <td>{row.returnedOrders}</td>
                   <td style={{ color: 'var(--color-success)' }}>{formatCurrency(row.actualRevenue)}</td>
-                  <td style={{ color: 'var(--color-success)' }}>{formatCurrency(row.withdrawableRevenue)}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.orderProductCost)}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.estimatedMatchingCost)}</td>
                   <td>{row.monthlyLossQty}</td>
@@ -167,7 +165,7 @@ export default function Profit() {
               ))}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={15 + partners.length} style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
+                  <td colSpan={14 + partners.length} style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
                 </tr>
               )}
             </tbody>

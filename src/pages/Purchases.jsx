@@ -179,9 +179,14 @@ export default function Purchases() {
 
       {showForm && (
         <div className="card animate-fade-in" style={{ marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h3>{editingPurchaseId ? `Sửa Phiếu Nhập: ${editingPurchaseId}` : 'Tạo Lô Nhập Hàng Mới'}</h3>
-            <button className="btn btn-outline" onClick={closeForm}><X size={16} /> Hủy</button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn btn-primary" onClick={handleSavePurchase} disabled={items.length === 0}>
+                <Save size={18} /> Lưu Phiếu Nhập
+              </button>
+              <button className="btn btn-outline" onClick={closeForm}><X size={16} /> Hủy</button>
+            </div>
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
@@ -306,11 +311,6 @@ export default function Purchases() {
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn btn-primary" onClick={handleSavePurchase} disabled={items.length === 0}>
-              <Save size={18} /> Lưu Phiếu Nhập
-            </button>
-          </div>
         </div>
       )}
 

@@ -142,7 +142,10 @@ function buildPurchaseInput(data: any, dbProducts: any[]) {
     domesticShippingFee: data.domesticShipping,
     internationalShippingFee: data.totalIntlShipping,
     items: data.items.map((it: any) => {
-      const prod = dbProducts.find(p => p.sku === it.productId || p.id === it.productId);
+      // Match by SKU or internal id, case-insensitively (the frontend may
+      // upper-case the value, which would corrupt a lower-case UUID).
+      const key = String(it.productId).toUpperCase();
+      const prod = dbProducts.find(p => (p.sku && p.sku.toUpperCase() === key) || p.id.toUpperCase() === key);
       return {
         productId: prod ? prod.id : it.productId,
         qty: it.qty,
@@ -249,7 +252,9 @@ function buildOrderInput(data: any, dbProducts: any[]): OrderInput {
       ? null : Number(data.actualRevenue),
     settlementDate: data.settlementDate ? new Date(data.settlementDate) : null,
     items: data.items.map((it: any) => {
-      const prod = dbProducts.find(p => p.sku === it.productId || p.id === it.productId);
+      // Match by SKU or internal id, case-insensitively (see note in buildPurchaseInput).
+      const key = String(it.productId).toUpperCase();
+      const prod = dbProducts.find(p => (p.sku && p.sku.toUpperCase() === key) || p.id.toUpperCase() === key);
       return {
         productId: prod ? prod.id : it.productId,
         qty: it.qty,

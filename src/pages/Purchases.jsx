@@ -68,11 +68,11 @@ export default function Purchases() {
     const itemVndDiscount = discountVnd * itemValueRatio;
     const itemCompensation = compensationVnd * itemValueRatio;
     const itemPurchasingFee = purchasingFee * itemValueRatio;
-    const itemDomesticShipping = domesticShipping * itemWeightRatio;
+    const itemDomesticShipping = domesticShipping * (itemWeightRatio > 0 ? itemWeightRatio : itemValueRatio);
     
     const vndBase = item.totalVndPrice - itemVndDiscount - itemCompensation + itemPurchasingFee + itemDomesticShipping;
     
-    const vndIntlShipping = totalIntlShipping * itemWeightRatio;
+    const vndIntlShipping = totalIntlShipping * (itemWeightRatio > 0 ? itemWeightRatio : itemValueRatio);
     
     const totalVndCost = vndBase + vndIntlShipping;
     

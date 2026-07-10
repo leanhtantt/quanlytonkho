@@ -50,8 +50,8 @@ async function createPurchaseOrderTx(tx: any, input: PurchaseInput) {
     const allocatedCompensation = input.totalCompensation * costRatio;
     const allocatedPurchaseFee = input.purchaseFee * costRatio;
 
-    const allocatedDomesticShipping = input.domesticShippingFee * weightRatio;
-    const allocatedInternationalShipping = input.internationalShippingFee * weightRatio;
+    const allocatedDomesticShipping = input.domesticShippingFee * (weightRatio > 0 ? weightRatio : costRatio);
+    const allocatedInternationalShipping = input.internationalShippingFee * (weightRatio > 0 ? weightRatio : costRatio);
 
     const finalTotalCost = item.totalCost
       - allocatedDiscount

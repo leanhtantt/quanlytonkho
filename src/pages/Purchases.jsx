@@ -149,9 +149,9 @@ export default function Purchases() {
     
     // Reconstruct items with total values since store saves unit values
     setItems(p.items.map(item => {
-      const prod = products.find(prod => prod.id === item.productId);
+      const prod = products.find(prod => prod.id === item.productId || prod.sku === item.productId);
       return {
-        id: item.productId,
+        id: prod?.sku || item.sku || item.productId,
         name: prod?.name || item.name || 'Sản phẩm không xác định',
         qty: item.qty,
         totalVndPrice: item.totalVndPrice || 0,
@@ -242,7 +242,7 @@ export default function Purchases() {
                   value={newItem.id} 
                   onChange={e => {
                     const newId = e.target.value.toUpperCase();
-                    const existingProd = products.find(p => p.id === newId);
+                    const existingProd = products.find(p => (p.sku || '').toUpperCase() === newId || p.id.toUpperCase() === newId);
                     setNewItem({...newItem, id: newId, name: existingProd ? existingProd.name : newItem.name});
                   }} 
                   style={inputStyle} 

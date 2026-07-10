@@ -80,8 +80,18 @@ apiRouter.post('/products', async (req, res) => {
   
   const parsed = productSchema.safeParse(body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const product = await prisma.product.create({ data: parsed.data });
-  res.json(product);
+  
+  try {
+    const product = await prisma.product.upsert({
+      where: { sku: parsed.data.sku },
+      update: { name: parsed.data.name, status: parsed.data.status, imageId: parsed.data.imageId },
+      create: parsed.data
+    });
+    res.json(product);
+  } catch (error: any) {
+    console.error("Error upserting product:", error);
+    res.status(500).json({ error: 'Failed to create/update product' });
+  }
 });
 
 apiRouter.put('/products/:id', async (req, res) => {

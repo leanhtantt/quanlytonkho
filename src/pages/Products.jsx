@@ -41,7 +41,14 @@ export default function Products() {
   });
 
   filteredProducts.sort((a, b) => {
-    return (a.id || '').localeCompare(b.id || '', undefined, { numeric: true, sensitivity: 'base' });
+    const nameA = a.name || '';
+    const nameB = b.name || '';
+    if (nameA === nameB) {
+      const codeA = a.sku || a.id || '';
+      const codeB = b.sku || b.id || '';
+      return codeA.localeCompare(codeB, 'vi', { numeric: true, sensitivity: 'base' });
+    }
+    return nameA.localeCompare(nameB, 'vi', { sensitivity: 'base' });
   });
 
   return (
@@ -57,7 +64,7 @@ export default function Products() {
         <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)' }}>
           <div style={{ display: 'flex', gap: '1rem', width: '100%', maxWidth: '500px' }}>
             <div style={{ position: 'relative', flex: 1 }}>
-              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
               <input 
                 type="text" 
                 placeholder="Tìm kiếm mã hoặc tên SP..." 

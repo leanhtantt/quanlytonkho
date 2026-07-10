@@ -294,16 +294,16 @@ export default function Purchases() {
                           </div>
                         </td>
                         <td>{item.qty}</td>
-                      <td>{item.totalVndPrice.toLocaleString()} đ</td>
-                      <td>{item.totalWeightKg} kg</td>
-                      <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
-                        {calculateCost(item).toLocaleString()} đ
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleEditItem(idx)}>Sửa</button>
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={() => handleRemoveItem(idx)}>Xoá</button>
-                      </td>
-                    </tr>
+                        <td>{Math.round(item.totalVndPrice).toLocaleString()} đ</td>
+                        <td>{item.totalWeightKg} kg</td>
+                        <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
+                          {Math.round(calculateCost(item)).toLocaleString()} đ
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleEditItem(idx)}>Sửa</button>
+                          <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={() => handleRemoveItem(idx)}>Xoá</button>
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
@@ -344,9 +344,11 @@ export default function Purchases() {
                 if (a.date !== b.date) return new Date(b.date) - new Date(a.date); // ngày mới nhất lên trên
                 return String(b.id).localeCompare(String(a.id));
               }).map(p => {
-                const totalVnd = p.items.reduce((sum, item) => sum + (item.totalVndPrice || 0), 0) 
-                                - (p.discountVnd || 0) - (p.compensationVnd || 0) 
-                                + (p.purchasingFee || 0) + (p.domesticShipping || 0) + (p.totalIntlShipping || 0);
+                const totalVnd = Math.round(
+                  p.items.reduce((sum, item) => sum + (item.totalVndPrice || 0), 0) 
+                  - (p.discountVnd || 0) - (p.compensationVnd || 0) 
+                  + (p.purchasingFee || 0) + (p.domesticShipping || 0) + (p.totalIntlShipping || 0)
+                );
                 const totalQty = p.items.reduce((sum, item) => sum + item.qty, 0);
                 const isExpanded = expandedPurchaseId === p.id;
 
@@ -404,9 +406,9 @@ export default function Purchases() {
                                         </div>
                                       </td>
                                       <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.qty}</td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.totalVndPrice ? item.totalVndPrice.toLocaleString() + ' đ' : '-'}</td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{Number(item.weightKg).toFixed(3)} kg</td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'var(--color-primary)' }}>{item.finalCostVnd.toLocaleString()} đ</td>
+                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.totalVndPrice ? Math.round(item.totalVndPrice).toLocaleString() + ' đ' : '-'}</td>
+                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.weightKg > 0 ? (item.weightKg * item.qty).toFixed(2) : '-'} kg</td>
+                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'var(--color-primary)' }}>{Math.round(item.finalCostVnd).toLocaleString()} đ</td>
                                     </tr>
                                   );
                                 })}

@@ -556,7 +556,8 @@ export default function Treasury() {
                         const accountAfter = transaction.balancesAfter[accountName] || 0;
 
                         return (
-                          <tr key={transaction.id}>
+                          <React.Fragment key={transaction.id}>
+                          <tr>
                             <td>{transaction.date}</td>
                             <td>
                               {transaction.type === 'THU' && <span style={{ color: 'var(--color-success)' }}><ArrowDownRight size={16} /> Thu</span>}
@@ -566,18 +567,6 @@ export default function Treasury() {
                             <td>
                               <div style={{ fontWeight: 700, color: isExpense ? 'var(--color-danger)' : (isIncome ? 'var(--color-success)' : 'var(--color-text-base)') }}>
                                 {isExpense ? '-' : (isIncome ? '+' : '')}{formatCurrency(transaction.amount)}
-                              </div>
-                              <div style={{ marginTop: '0.35rem', fontSize: '0.75rem', lineHeight: 1.45, color: 'var(--color-text-muted)' }}>
-                                <div style={{ fontWeight: 600, color: 'var(--color-text-base)' }}>
-                                  {transaction.type === 'CHUYEN' ? `${transaction.fromAccount} → ${transaction.toAccount}` : transaction.category}
-                                </div>
-                                {(transaction.person || transaction.shop || transaction.note) && (
-                                  <div>
-                                    {transaction.person && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>[{transaction.person}] </span>}
-                                    {transaction.shop && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>[{transaction.shop}] </span>}
-                                    {transaction.note}
-                                  </div>
-                                )}
                               </div>
                             </td>
                             <td style={{ minWidth: '180px' }}>
@@ -595,6 +584,18 @@ export default function Treasury() {
                               </button>
                             </td>
                           </tr>
+                          <tr>
+                            <td colSpan="5" style={{ padding: '0.55rem 0.75rem 0.85rem', background: 'var(--color-bg-surface)' }}>
+                              <div style={{ padding: '0.65rem 0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--color-warning-light)', color: 'var(--color-text-base)', fontSize: '0.78rem', lineHeight: 1.5 }}>
+                                <strong>Nội dung: </strong>
+                                {transaction.type === 'CHUYEN' ? `${transaction.fromAccount} → ${transaction.toAccount}` : transaction.category}
+                                {transaction.person && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}> · {transaction.person}</span>}
+                                {transaction.shop && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}> · {transaction.shop}</span>}
+                                {transaction.note && <span> — {transaction.note}</span>}
+                              </div>
+                            </td>
+                          </tr>
+                          </React.Fragment>
                         );
                       })}
                     </tbody>

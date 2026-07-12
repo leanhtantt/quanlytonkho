@@ -405,24 +405,25 @@ th {
 }
 
 .treasury-history {
-  order: 2;
+  order: 3;
   margin-bottom: 2rem;
 }
 
 .treasury-wallet {
-  order: 3;
-}
-
-.treasury-withdrawal {
   order: 4;
 }
 
-.treasury-ads {
+.treasury-withdrawal {
   order: 5;
 }
 
-.treasury-entry-form {
+.treasury-ads {
   order: 6;
+}
+
+.treasury-entry-form {
+  order: 2;
+  scroll-margin-top: 9rem;
 }
 
 .treasury-capital {

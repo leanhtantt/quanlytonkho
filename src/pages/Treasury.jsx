@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { calculateMarketplaceWalletSummary, calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { Edit, Wallet, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, Trash2, Filter } from 'lucide-react';
@@ -12,6 +12,12 @@ export default function Treasury() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingTxnId, setEditingTxnId] = useState(null);
+  const entryFormRef = useRef(null);
+
+  useEffect(() => {
+    if (!showForm || !entryFormRef.current) return;
+    entryFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [showForm]);
   
   // Filters
   const [filterMonth, setFilterMonth] = useState('');
@@ -374,7 +380,7 @@ export default function Treasury() {
       </div>
 
       {showForm && (
-        <div className="card animate-fade-in treasury-entry-form" style={{ marginBottom: '2rem', border: '1px solid var(--color-primary)' }}>
+        <div ref={entryFormRef} className="card animate-fade-in treasury-entry-form" style={{ marginBottom: '2rem', border: '1px solid var(--color-primary)' }}>
           <h3 style={{ marginBottom: '1.5rem' }}>{editingTxnId ? 'Sửa Giao Dịch' : 'Ghi Nhận Dòng Tiền Mới'}</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
             <div>

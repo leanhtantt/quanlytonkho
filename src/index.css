@@ -441,6 +441,15 @@ th {
   min-width: 0;
 }
 
+.treasury-history-table th,
+.treasury-history-table td {
+  padding: 0.55rem 0.6rem;
+}
+
+.treasury-history-table tbody tr {
+  height: 64px;
+}
+
 @media (max-width: 1280px) {
   .treasury-history-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

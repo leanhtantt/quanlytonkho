@@ -534,11 +534,12 @@ export default function Treasury() {
                   </div>
                 </div>
                 <div className="table-responsive" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-                  <table className="table" style={{ fontSize: '0.875rem', margin: 0 }}>
+                  <table className="table treasury-history-table" style={{ fontSize: '0.8rem', margin: 0 }}>
                     <thead>
                       <tr>
                         <th>Ngày</th>
                         <th>Loại</th>
+                        <th>Nội dung</th>
                         <th>Số tiền</th>
                         <th>Số dư tài khoản</th>
                         <th style={{ width: '80px' }}></th>
@@ -546,7 +547,7 @@ export default function Treasury() {
                     </thead>
                     <tbody>
                       {accountTransactions.length === 0 ? (
-                        <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>Không tìm thấy giao dịch nào</td></tr>
+                        <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Không tìm thấy giao dịch nào</td></tr>
                       ) : accountTransactions.map(transaction => {
                         const isTransferOut = transaction.type === 'CHUYEN' && transaction.fromAccount === accountName;
                         const isTransferIn = transaction.type === 'CHUYEN' && transaction.toAccount === accountName;
@@ -556,22 +557,33 @@ export default function Treasury() {
                         const accountAfter = transaction.balancesAfter[accountName] || 0;
 
                         return (
-                          <React.Fragment key={transaction.id}>
-                          <tr>
+                          <tr key={transaction.id}>
                             <td>{transaction.date}</td>
                             <td>
                               {transaction.type === 'THU' && <span style={{ color: 'var(--color-success)' }}><ArrowDownRight size={16} /> Thu</span>}
                               {transaction.type === 'CHI' && <span style={{ color: 'var(--color-danger)' }}><ArrowUpRight size={16} /> Chi</span>}
                               {transaction.type === 'CHUYEN' && <span style={{ color: isTransferOut ? 'var(--color-danger)' : 'var(--color-success)' }}><ArrowRightLeft size={16} /> {isTransferOut ? 'Chuyển đi' : 'Nhận chuyển'}</span>}
                             </td>
+                            <td style={{ minWidth: '150px' }}>
+                              <div style={{ fontWeight: 600, color: 'var(--color-text-base)' }}>
+                                {transaction.type === 'CHUYEN' ? `${transaction.fromAccount} → ${transaction.toAccount}` : transaction.category}
+                              </div>
+                              {(transaction.person || transaction.shop || transaction.note) && (
+                                <div style={{ marginTop: '0.15rem', color: 'var(--color-text-muted)', fontSize: '0.72rem', lineHeight: 1.3 }}>
+                                  {transaction.person && <span style={{ color: 'var(--color-primary)' }}>{transaction.person} · </span>}
+                                  {transaction.shop && <span style={{ color: 'var(--color-primary)' }}>{transaction.shop} · </span>}
+                                  {transaction.note}
+                                </div>
+                              )}
+                            </td>
                             <td>
                               <div style={{ fontWeight: 700, color: isExpense ? 'var(--color-danger)' : (isIncome ? 'var(--color-success)' : 'var(--color-text-base)') }}>
                                 {isExpense ? '-' : (isIncome ? '+' : '')}{formatCurrency(transaction.amount)}
                               </div>
                             </td>
-                            <td style={{ minWidth: '180px' }}>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Trước: {formatCurrency(accountBefore)}</div>
-                              <div style={{ fontWeight: 700, color: accountAfter < 0 ? 'var(--color-danger)' : 'var(--color-primary)', marginTop: '0.2rem' }}>Sau: {formatCurrency(accountAfter)}</div>
+                            <td style={{ minWidth: '150px' }}>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Trước: {formatCurrency(accountBefore)}</div>
+                              <div style={{ fontWeight: 700, color: accountAfter < 0 ? 'var(--color-danger)' : 'var(--color-primary)', marginTop: '0.1rem' }}>Sau: {formatCurrency(accountAfter)}</div>
                             </td>
                             <td>
                               <button className="btn" aria-label={`Sửa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-primary)' }} onClick={() => handleEdit(transaction)}>
@@ -584,18 +596,6 @@ export default function Treasury() {
                               </button>
                             </td>
                           </tr>
-                          <tr>
-                            <td colSpan="5" style={{ padding: '0.55rem 0.75rem 0.85rem', background: 'var(--color-bg-surface)' }}>
-                              <div style={{ padding: '0.65rem 0.8rem', borderRadius: 'var(--radius-md)', background: 'var(--color-warning-light)', color: 'var(--color-text-base)', fontSize: '0.78rem', lineHeight: 1.5 }}>
-                                <strong>Nội dung: </strong>
-                                {transaction.type === 'CHUYEN' ? `${transaction.fromAccount} → ${transaction.toAccount}` : transaction.category}
-                                {transaction.person && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}> · {transaction.person}</span>}
-                                {transaction.shop && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}> · {transaction.shop}</span>}
-                                {transaction.note && <span> — {transaction.note}</span>}
-                              </div>
-                            </td>
-                          </tr>
-                          </React.Fragment>
                         );
                       })}
                     </tbody>

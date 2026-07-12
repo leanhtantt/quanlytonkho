@@ -16,7 +16,7 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
     if (!data[month][shop]) {
       data[month][shop] = {
         totalOrders: 0, deliveredOrders: 0, returnedOrders: 0, pendingOrders: 0,
-        expectedRevenue: 0, actualRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
+        expectedRevenue: 0, actualRevenue: 0, settledRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
         estimatedMatchingCost: 0, monthlyLossQty: 0, monthlyLossValue: 0, ads: 0, deductedAds: 0,
         packagingCost: 0, estimatedPackagingCost: 0,
         returnCost: 0, estimatedReturnCost: 0,
@@ -85,6 +85,12 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
       cashStats.estimatedPackagingCost += pkgCost;
       cashStats.estimatedReturnCost += retCost;
     }
+
+    // Chỉ tiêu đối soát với màn "Đã thanh toán" của sàn: chỉ ghi nhận
+    // khi có ngày sàn thực sự hoàn tất chuyển tiền cho người bán.
+    if (order.settlementDate && hasActualRevenue) {
+      cashStats.settledRevenue += actualRevNum;
+    }
   }
 
   for (const loss of losses) {
@@ -123,7 +129,7 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
       month,
       shop: 'Tổng tất cả',
       totalOrders: 0, deliveredOrders: 0, returnedOrders: 0, pendingOrders: 0,
-      expectedRevenue: 0, actualRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
+      expectedRevenue: 0, actualRevenue: 0, settledRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
       estimatedMatchingCost: 0, monthlyLossQty: 0, monthlyLossValue: 0, ads: 0, deductedAds: 0,
       packagingCost: 0, estimatedPackagingCost: 0,
       returnCost: 0, estimatedReturnCost: 0,
@@ -154,6 +160,7 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
       totalStats.returnedOrders += s.returnedOrders;
       totalStats.pendingOrders += s.pendingOrders;
       totalStats.actualRevenue += s.actualRevenue;
+      totalStats.settledRevenue += s.settledRevenue;
       totalStats.withdrawableRevenue += s.withdrawableRevenue;
       totalStats.orderProductCost += s.orderProductCost;
       totalStats.estimatedMatchingCost += s.estimatedMatchingCost;
@@ -186,4 +193,37 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
   }
 
   return results;
+}
+
+export function calculateMarketplaceWalletSummary(orders = [], transactions = [], configuredShops = []) {
+  const summaries = new Map(configuredShops.map(shop => [shop, {
+    shop,
+    settledRevenue: 0,
+    withdrawn: 0,
+    estimatedBalance: 0
+  }]));
+
+  const getSummary = (shop) => {
+    if (!summaries.has(shop)) {
+      summaries.set(shop, { shop, settledRevenue: 0, withdrawn: 0, estimatedBalance: 0 });
+    }
+    return summaries.get(shop);
+  };
+
+  orders.forEach(order => {
+    if (!order.shop || !order.settlementDate || order.actualRevenue == null || order.actualRevenue === '') return;
+    getSummary(order.shop).settledRevenue += Number(order.actualRevenue) || 0;
+  });
+
+  transactions.forEach(transaction => {
+    if (transaction.type !== 'THU' || transaction.category !== 'Rút tiền từ Sàn' || !transaction.shop) return;
+    getSummary(transaction.shop).withdrawn += Number(transaction.amount) || 0;
+  });
+
+  return Array.from(summaries.values())
+    .map(summary => ({
+      ...summary,
+      estimatedBalance: summary.settledRevenue - summary.withdrawn
+    }))
+    .sort((a, b) => a.shop.localeCompare(b.shop, 'vi'));
 }

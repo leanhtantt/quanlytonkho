@@ -241,7 +241,7 @@ export default function Profit() {
       </div>
 
       <div className="card" style={{ marginBottom: '1.5rem', height: '400px' }}>
-        <h3>Biểu đồ Lợi Nhuận Dòng Tiền (Cash-Month Profit)</h3>
+        <h3>Biểu đồ Lợi Nhuận Theo Tháng Sàn Thanh Toán</h3>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
@@ -271,9 +271,10 @@ export default function Profit() {
                 <th>Đã giao</th>
                 <th>Hoàn</th>
                 <th>Chưa đối soát</th>
-                <th>Doanh thu (Thực)</th>
+                <th>Doanh thu theo đơn</th>
+                <th>Sàn đã thanh toán</th>
                 <th>Vốn (Thực)</th>
-                <th>Vốn (+15d)</th>
+                <th>Vốn theo kỳ thanh toán</th>
                 <th>SL Hao hụt</th>
                 <th>Giá trị Hao hụt</th>
                 <th>Đóng gói</th>
@@ -296,6 +297,7 @@ export default function Profit() {
                   <td>{row.returnedOrders}</td>
                   <td>{row.pendingOrders}</td>
                   <td style={{ color: 'var(--color-success)' }}>{formatCurrency(row.actualRevenue)}</td>
+                  <td style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{formatCurrency(row.settledRevenue)}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.orderProductCost)}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.estimatedMatchingCost)}</td>
                   <td>{row.monthlyLossQty}</td>
@@ -314,7 +316,7 @@ export default function Profit() {
               ))}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={16 + partners.length} style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
+                  <td colSpan={17 + partners.length} style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
                 </tr>
               )}
             </tbody>

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { calculateProfitAnalytics } from '../domain/profitAnalytics';
+import { calculateMarketplaceWalletSummary, calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { Edit, Wallet, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, Trash2, Filter } from 'lucide-react';
 
 function formatCurrency(value) {
@@ -56,6 +56,11 @@ export default function Treasury() {
   }
 
   const totalFund = Object.values(balances).reduce((sum, b) => sum + b, 0);
+
+  const marketplaceWallets = useMemo(
+    () => calculateMarketplaceWalletSummary(orders, transactions, shops),
+    [orders, transactions, shops]
+  );
 
   // Calculate profit share using partners configuration
   const profitData = useMemo(() => calculateProfitAnalytics(orders, losses, ads, partners), [orders, losses, ads, partners]);
@@ -245,6 +250,40 @@ export default function Treasury() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: '2rem' }}>
+        <h3>Ví Sàn Theo Shop</h3>
+        <p style={{ color: 'var(--color-text-muted)', margin: '0.5rem 0 1rem' }}>
+          Sàn đã thanh toán lấy theo ngày hoàn tất thanh toán của từng đơn. Tiền rút về chỉ là chuyển từ ví sàn sang tài khoản nhận, không tạo thêm doanh thu.
+        </p>
+        <div className="table-responsive">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Shop</th>
+                <th>Sàn đã thanh toán</th>
+                <th>Đã rút về</th>
+                <th>Số dư ví sàn tạm tính</th>
+              </tr>
+            </thead>
+            <tbody>
+              {marketplaceWallets.map(wallet => (
+                <tr key={wallet.shop}>
+                  <td style={{ fontWeight: 600 }}>{wallet.shop}</td>
+                  <td style={{ color: 'var(--color-success)' }}>{formatCurrency(wallet.settledRevenue)}</td>
+                  <td style={{ color: 'var(--color-info)' }}>{formatCurrency(wallet.withdrawn)}</td>
+                  <td style={{ fontWeight: 700, color: wallet.estimatedBalance < 0 ? 'var(--color-danger)' : 'var(--color-primary)' }}>
+                    {formatCurrency(wallet.estimatedBalance)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p style={{ color: 'var(--color-warning)', fontSize: '0.8rem', marginTop: '0.75rem' }}>
+          Số dư tạm tính chưa bao gồm số dư ví sàn đã có trước khi dữ liệu được nhập vào ứng dụng.
+        </p>
       </div>
 
       {showForm && (

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Search, X, PackageOpen, ChevronDown, ChevronUp, ArrowDown, ArrowUp } from 'lucide-react';
+import { Search, X, PackageOpen, ChevronDown, ChevronUp, ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
 import ProductImage from '../components/ProductImage';
 import { processAndCompressImage } from '../domain/imageProcessor';
@@ -15,6 +15,8 @@ export default function Products() {
   const [imagePreview, setImagePreview] = useState(null);
   const [sortMode, setSortMode] = useState('custom');
   const [reorderBusy, setReorderBusy] = useState(false);
+  const [draggedProductId, setDraggedProductId] = useState(null);
+  const [dragOverProductId, setDragOverProductId] = useState(null);
 
   const handleImageUpload = async (productId, e) => {
     const file = e.target.files[0];
@@ -91,6 +93,41 @@ export default function Products() {
 
     const nextOrder = [...orderedInventory];
     [nextOrder[currentIndex], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[currentIndex]];
+    try {
+      setReorderBusy(true);
+      await reorderProducts(nextOrder.map(product => product.id));
+    } catch (error) {
+      alert(`Không thể đổi thứ tự sản phẩm: ${error.message}`);
+    } finally {
+      setReorderBusy(false);
+    }
+  };
+
+  const handleDragStart = (productId, event) => {
+    if (sortMode !== 'custom' || reorderBusy) {
+      event.preventDefault();
+      return;
+    }
+    setDraggedProductId(productId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', productId);
+  };
+
+  const handleDropProduct = async (targetProductId, event) => {
+    event.preventDefault();
+    const sourceProductId = draggedProductId || event.dataTransfer.getData('text/plain');
+    setDragOverProductId(null);
+    setDraggedProductId(null);
+    if (!sourceProductId || sourceProductId === targetProductId || reorderBusy) return;
+
+    const sourceIndex = orderedInventory.findIndex(product => product.id === sourceProductId);
+    const targetIndex = orderedInventory.findIndex(product => product.id === targetProductId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const nextOrder = [...orderedInventory];
+    const [movedProduct] = nextOrder.splice(sourceIndex, 1);
+    nextOrder.splice(targetIndex, 0, movedProduct);
+
     try {
       setReorderBusy(true);
       await reorderProducts(nextOrder.map(product => product.id));
@@ -233,7 +270,19 @@ export default function Products() {
                 
                 return (
                   <React.Fragment key={product.id}>
-                    <tr style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--color-bg-hover)' : '' }} onClick={() => setExpandedId(isExpanded ? null : product.id)}>
+                    <tr
+                      className={dragOverProductId === product.id ? 'inventory-row-drag-over' : ''}
+                      style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--color-bg-hover)' : '' }}
+                      onClick={() => setExpandedId(isExpanded ? null : product.id)}
+                      onDragOver={(event) => {
+                        if (sortMode !== 'custom' || reorderBusy) return;
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = 'move';
+                        setDragOverProductId(product.id);
+                      }}
+                      onDragLeave={() => setDragOverProductId(current => current === product.id ? null : current)}
+                      onDrop={(event) => handleDropProduct(product.id, event)}
+                    >
                       <td>
                         {remainingBatches.length > 0 ? (
                           isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />
@@ -302,6 +351,16 @@ export default function Products() {
                       <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                         {sortMode === 'custom' && (
                           <>
+                            <span
+                              draggable={!reorderBusy}
+                              onDragStart={(event) => handleDragStart(product.id, event)}
+                              onDragEnd={() => { setDraggedProductId(null); setDragOverProductId(null); }}
+                              title="Nhấn giữ và kéo để đổi vị trí"
+                              aria-label={`Kéo ${product.sku || product.id} để đổi vị trí`}
+                              className="inventory-drag-handle"
+                            >
+                              <GripVertical size={17} />
+                            </span>
                             <button type="button" className="btn" aria-label={`Đưa ${product.sku || product.id} lên`} disabled={reorderBusy || orderedInventory[0]?.id === product.id} onClick={(e) => handleMoveProduct(product.id, -1, e)} style={{ padding: '0.25rem', color: 'var(--color-primary)' }}><ArrowUp size={16} /></button>
                             <button type="button" className="btn" aria-label={`Đưa ${product.sku || product.id} xuống`} disabled={reorderBusy || orderedInventory[orderedInventory.length - 1]?.id === product.id} onClick={(e) => handleMoveProduct(product.id, 1, e)} style={{ padding: '0.25rem', color: 'var(--color-primary)', marginLeft: '0.2rem' }}><ArrowDown size={16} /></button>
                           </>

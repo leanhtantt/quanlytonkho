@@ -370,6 +370,28 @@ th {
   z-index: 2;
 }
 
+.inventory-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  color: var(--color-text-muted);
+  cursor: grab;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.inventory-drag-handle:active {
+  cursor: grabbing;
+  color: var(--color-primary);
+}
+
+.inventory-row-drag-over {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  background: var(--color-bg-selected) !important;
+}
+
 .profit-table-container {
   max-height: min(70vh, 680px);
   overflow: auto;

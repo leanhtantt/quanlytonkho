@@ -195,17 +195,18 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
   return results;
 }
 
-export function calculateMarketplaceWalletSummary(orders = [], transactions = [], configuredShops = []) {
+export function calculateMarketplaceWalletSummary(orders = [], transactions = [], ads = [], configuredShops = []) {
   const summaries = new Map(configuredShops.map(shop => [shop, {
     shop,
     settledRevenue: 0,
     withdrawn: 0,
+    walletAdSpend: 0,
     estimatedBalance: 0
   }]));
 
   const getSummary = (shop) => {
     if (!summaries.has(shop)) {
-      summaries.set(shop, { shop, settledRevenue: 0, withdrawn: 0, estimatedBalance: 0 });
+      summaries.set(shop, { shop, settledRevenue: 0, withdrawn: 0, walletAdSpend: 0, estimatedBalance: 0 });
     }
     return summaries.get(shop);
   };
@@ -220,10 +221,15 @@ export function calculateMarketplaceWalletSummary(orders = [], transactions = []
     getSummary(transaction.shop).withdrawn += Number(transaction.amount) || 0;
   });
 
+  ads.forEach(ad => {
+    if (ad.source !== 'SHOPEE_WALLET' || !ad.shop) return;
+    getSummary(ad.shop).walletAdSpend += Number(ad.amount) || 0;
+  });
+
   return Array.from(summaries.values())
     .map(summary => ({
       ...summary,
-      estimatedBalance: summary.settledRevenue - summary.withdrawn
+      estimatedBalance: summary.settledRevenue - summary.withdrawn - summary.walletAdSpend
     }))
     .sort((a, b) => a.shop.localeCompare(b.shop, 'vi'));
 }

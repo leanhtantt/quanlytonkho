@@ -101,7 +101,7 @@ const adExpenseSchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/),
   shop: z.string().trim().min(1),
   amount: z.number().positive(),
-  source: z.enum(['DEDUCTED_FROM_REVENUE', 'SELF_FUNDED']),
+  source: z.enum(['DEDUCTED_FROM_REVENUE', 'SHOPEE_WALLET', 'SELF_FUNDED']),
   account: z.string().trim().optional().nullable(),
   date: z.string().optional().nullable(),
   note: z.string().max(1000).optional().nullable(),

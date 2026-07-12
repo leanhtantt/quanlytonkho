@@ -73,7 +73,7 @@ export default function Treasury() {
         amount: Number(adAmount),
         source: adSource,
         account: adSource === 'SELF_FUNDED' ? adAccount : null,
-        date: adSource === 'SELF_FUNDED' ? adDate : null,
+        date: adSource !== 'DEDUCTED_FROM_REVENUE' ? adDate : null,
         note: adNote.trim() || null,
       });
       setAdAmount('');
@@ -114,8 +114,8 @@ export default function Treasury() {
   const totalFund = Object.values(balances).reduce((sum, b) => sum + b, 0);
 
   const marketplaceWallets = useMemo(
-    () => calculateMarketplaceWalletSummary(orders, transactions, shops),
-    [orders, transactions, shops]
+    () => calculateMarketplaceWalletSummary(orders, transactions, ads, shops),
+    [orders, transactions, ads, shops]
   );
 
   // Calculate profit share using partners configuration
@@ -319,6 +319,7 @@ export default function Treasury() {
                 <th>Shop</th>
                 <th>Sàn đã thanh toán</th>
                 <th>Đã rút về</th>
+                <th>Nạp QC từ Ví Shopee</th>
                 <th>Số dư ví sàn tạm tính</th>
               </tr>
             </thead>
@@ -328,6 +329,7 @@ export default function Treasury() {
                   <td style={{ fontWeight: 600 }}>{wallet.shop}</td>
                   <td style={{ color: 'var(--color-success)' }}>{formatCurrency(wallet.settledRevenue)}</td>
                   <td style={{ color: 'var(--color-info)' }}>{formatCurrency(wallet.withdrawn)}</td>
+                  <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(wallet.walletAdSpend)}</td>
                   <td style={{ fontWeight: 700, color: wallet.estimatedBalance < 0 ? 'var(--color-danger)' : 'var(--color-primary)' }}>
                     {formatCurrency(wallet.estimatedBalance)}
                   </td>
@@ -362,12 +364,13 @@ export default function Treasury() {
           <div style={{ flex: '1 1 160px' }}><label>Tháng</label><input type="month" value={adMonth} onChange={e => setAdMonth(e.target.value)} required /></div>
           <div style={{ flex: '1 1 220px' }}><label>Shop</label><input type="text" list="treasury-ad-shops" value={adShop} onChange={e => setAdShop(e.target.value)} placeholder="Chọn hoặc nhập shop..." required /><datalist id="treasury-ad-shops">{shops.map(shopName => <option key={shopName} value={shopName} />)}</datalist></div>
           <div style={{ flex: '1 1 180px' }}><label>Chi phí (VND)</label><input type="number" min="1" value={adAmount} onChange={e => setAdAmount(e.target.value)} required /></div>
-          <div style={{ flex: '1 1 230px' }}><label>Nguồn quảng cáo</label><select value={adSource} onChange={e => setAdSource(e.target.value)}><option value="DEDUCTED_FROM_REVENUE">Đã trừ từ doanh thu</option><option value="SELF_FUNDED">Shop tự nạp</option></select></div>
-          {adSource === 'SELF_FUNDED' && (<><div style={{ flex: '1 1 180px' }}><label>Ngày chi</label><input type="date" value={adDate} onChange={e => setAdDate(e.target.value)} required /></div><div style={{ flex: '1 1 180px' }}><label>Tài khoản chi</label><select value={adAccount} onChange={e => setAdAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div></>)}
+          <div style={{ flex: '1 1 230px' }}><label>Nguồn quảng cáo</label><select value={adSource} onChange={e => setAdSource(e.target.value)}><option value="DEDUCTED_FROM_REVENUE">Shopee tự trừ trong đơn</option><option value="SHOPEE_WALLET">Nạp thủ công từ Ví Shopee</option><option value="SELF_FUNDED">Nạp từ tài khoản ngân hàng</option></select></div>
+          {adSource !== 'DEDUCTED_FROM_REVENUE' && <div style={{ flex: '1 1 180px' }}><label>Ngày chi</label><input type="date" value={adDate} onChange={e => setAdDate(e.target.value)} required /></div>}
+          {adSource === 'SELF_FUNDED' && <div style={{ flex: '1 1 180px' }}><label>Tài khoản chi</label><select value={adAccount} onChange={e => setAdAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>}
           <div style={{ flex: '2 1 240px' }}><label>Ghi chú</label><input type="text" value={adNote} onChange={e => setAdNote(e.target.value)} placeholder="VD: QC Shopee tháng 7" /></div>
           <button type="submit" className="btn btn-primary">Lưu chi phí</button>
         </form>
-        {ads.length > 0 && (<div className="table-responsive" style={{ marginTop: '1rem', maxHeight: '260px' }}><table className="table"><thead><tr><th>Tháng</th><th>Shop</th><th>Nguồn</th><th>Tài khoản</th><th>Số tiền</th><th>Ghi chú</th><th></th></tr></thead><tbody>{ads.map(ad => (<tr key={ad.id}><td>{ad.month}</td><td>{ad.shop}</td><td>{ad.source === 'SELF_FUNDED' ? 'Shop tự nạp' : 'Đã trừ doanh thu'}</td><td>{ad.account || '-'}</td><td>{formatCurrency(ad.amount)}</td><td>{ad.note || '-'}</td><td><button className="btn" aria-label={`Xóa chi phí quảng cáo ${ad.shop} ${ad.month}`} onClick={() => deleteAd(ad.id)} style={{ padding: '4px', color: 'var(--color-danger)' }}><Trash2 size={16} /></button></td></tr>))}</tbody></table></div>)}
+        {ads.length > 0 && (<div className="table-responsive" style={{ marginTop: '1rem', maxHeight: '260px' }}><table className="table"><thead><tr><th>Tháng</th><th>Shop</th><th>Nguồn</th><th>Tài khoản</th><th>Số tiền</th><th>Ghi chú</th><th></th></tr></thead><tbody>{ads.map(ad => (<tr key={ad.id}><td>{ad.month}</td><td>{ad.shop}</td><td>{ad.source === 'SELF_FUNDED' ? 'Tài khoản ngân hàng' : ad.source === 'SHOPEE_WALLET' ? 'Ví Shopee' : 'Shopee tự trừ trong đơn'}</td><td>{ad.account || '-'}</td><td>{formatCurrency(ad.amount)}</td><td>{ad.note || '-'}</td><td><button className="btn" aria-label={`Xóa chi phí quảng cáo ${ad.shop} ${ad.month}`} onClick={() => deleteAd(ad.id)} style={{ padding: '4px', color: 'var(--color-danger)' }}><Trash2 size={16} /></button></td></tr>))}</tbody></table></div>)}
       </div>
 
       {showForm && (

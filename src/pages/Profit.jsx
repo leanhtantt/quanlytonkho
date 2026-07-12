@@ -109,7 +109,7 @@ export default function Profit() {
                 <th>SL Hao hụt</th>
                 <th>Giá trị Hao hụt</th>
                 <th>Đóng gói</th>
-                <th>QC tự nạp</th>
+                <th>QC nạp thủ công</th>
                 <th>Đã rút về</th>
                 <th>LN Đơn hàng</th>
                 <th>LN Dòng tiền</th>
@@ -161,7 +161,7 @@ export default function Profit() {
             <TrendingUp size={24} style={{ color: 'var(--color-primary)' }} />
             Báo cáo Chi phí Ẩn
           </h2>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>QC đã trừ doanh thu chỉ theo dõi; QC tự nạp đã được trừ trong lợi nhuận.</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>QC Shopee tự trừ trong đơn chỉ theo dõi; QC nạp từ Ví Shopee hoặc ngân hàng được trừ trong lợi nhuận.</span>
         </div>
         
         <div className="table-responsive profit-table-container">

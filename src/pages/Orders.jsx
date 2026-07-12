@@ -52,6 +52,7 @@ export default function Orders() {
     ...orders.map(order => order.shop).filter(Boolean)
   ])), [shops, orders]);
   const defaultShop = availableShops[0] || '';
+  const [activeShop, setActiveShop] = useState(defaultShop);
   const [showForm, setShowForm] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -93,6 +94,12 @@ export default function Orders() {
     if (!shop && defaultShop) setShop(defaultShop);
     if (!importShop && defaultShop) setImportShop(defaultShop);
   }, [defaultShop, shop, importShop]);
+
+  useEffect(() => {
+    if (!activeShop || !availableShops.includes(activeShop)) {
+      setActiveShop(defaultShop);
+    }
+  }, [activeShop, availableShops, defaultShop]);
 
   // Đơn import bị lỗi (SKU không khớp hoặc lưu thất bại), giữ lại để người dùng sửa nhanh.
   const [importIssues, setImportIssues] = useState(() => {
@@ -560,7 +567,8 @@ export default function Orders() {
     reader.readAsBinaryString(file);
   };
 
-  const filteredOrders = orders.filter(o => {
+  const shopOrders = orders.filter(o => o.shop === activeShop);
+  const filteredOrders = shopOrders.filter(o => {
     const normalizedSearch = search.toLocaleLowerCase('vi');
     const matchSearch = o.id.toLocaleLowerCase('vi').includes(normalizedSearch)
       || o.shop.toLocaleLowerCase('vi').includes(normalizedSearch)
@@ -827,11 +835,35 @@ export default function Orders() {
 
       {/* Danh sách đơn hàng */}
       <div className="card" style={{ padding: 0 }}>
+        <div className="shop-tabs" role="tablist" aria-label="Đơn hàng theo shop">
+          {availableShops.map(shopName => {
+            const orderCount = orders.filter(order => order.shop === shopName).length;
+            const isActive = activeShop === shopName;
+            return (
+              <button
+                key={shopName}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`shop-tab${isActive ? ' active' : ''}`}
+                onClick={() => {
+                  setActiveShop(shopName);
+                  setShop(shopName);
+                  setImportShop(shopName);
+                  setExpandedOrderId(null);
+                }}
+              >
+                <span>{shopName}</span>
+                <span className="shop-tab-count">{orderCount}</span>
+              </button>
+            );
+          })}
+        </div>
         <div style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end', borderBottom: '1px solid var(--color-border)' }}>
           <div style={{ flex: '1 1 250px', position: 'relative' }}>
             <label style={labelStyle}>Tìm kiếm</label>
             <Search size={18} style={{ position: 'absolute', left: '1rem', bottom: '12px', color: 'var(--color-text-muted)' }} />
-            <input type="text" placeholder="Mã đơn, shop..." value={search} onChange={(e) => setSearch(e.target.value)} style={{...inputStyle, paddingLeft: '2.5rem'}} />
+            <input type="text" placeholder="Mã đơn, ghi chú..." value={search} onChange={(e) => setSearch(e.target.value)} style={{...inputStyle, paddingLeft: '2.5rem'}} />
           </div>
           <div>
             <label style={labelStyle}>Từ ngày</label>
@@ -874,7 +906,7 @@ export default function Orders() {
         </div>
 
         <div aria-live="polite" style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-muted)', fontSize: '0.875rem', fontWeight: 600 }}>
-          Đang hiển thị <span style={{ color: 'var(--color-text-base)' }}>{filteredOrders.length}</span> / {orders.length} đơn
+          Shop <span style={{ color: 'var(--color-text-base)' }}>{activeShop || 'Chưa cấu hình'}</span>: đang hiển thị <span style={{ color: 'var(--color-text-base)' }}>{filteredOrders.length}</span> / {shopOrders.length} đơn
         </div>
 
         <div className="table-container orders-table-container" style={{ border: 'none', borderRadius: 0 }}>

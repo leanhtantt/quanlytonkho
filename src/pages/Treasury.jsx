@@ -539,7 +539,6 @@ export default function Treasury() {
                       <tr>
                         <th>Ngày</th>
                         <th>Loại</th>
-                        <th>Nội dung</th>
                         <th>Số tiền</th>
                         <th>Số dư tài khoản</th>
                         <th style={{ width: '80px' }}></th>
@@ -547,7 +546,7 @@ export default function Treasury() {
                     </thead>
                     <tbody>
                       {accountTransactions.length === 0 ? (
-                        <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Không tìm thấy giao dịch nào</td></tr>
+                        <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem' }}>Không tìm thấy giao dịch nào</td></tr>
                       ) : accountTransactions.map(transaction => {
                         const isTransferOut = transaction.type === 'CHUYEN' && transaction.fromAccount === accountName;
                         const isTransferIn = transaction.type === 'CHUYEN' && transaction.toAccount === accountName;
@@ -565,17 +564,21 @@ export default function Treasury() {
                               {transaction.type === 'CHUYEN' && <span style={{ color: isTransferOut ? 'var(--color-danger)' : 'var(--color-success)' }}><ArrowRightLeft size={16} /> {isTransferOut ? 'Chuyển đi' : 'Nhận chuyển'}</span>}
                             </td>
                             <td>
-                              <div style={{ fontWeight: 500 }}>
-                                {transaction.type === 'CHUYEN' ? `${transaction.fromAccount} → ${transaction.toAccount}` : transaction.category}
+                              <div style={{ fontWeight: 700, color: isExpense ? 'var(--color-danger)' : (isIncome ? 'var(--color-success)' : 'var(--color-text-base)') }}>
+                                {isExpense ? '-' : (isIncome ? '+' : '')}{formatCurrency(transaction.amount)}
                               </div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                                {transaction.person && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>[{transaction.person}] </span>}
-                                {transaction.shop && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>[{transaction.shop}] </span>}
-                                {transaction.note}
+                              <div style={{ marginTop: '0.35rem', fontSize: '0.75rem', lineHeight: 1.45, color: 'var(--color-text-muted)' }}>
+                                <div style={{ fontWeight: 600, color: 'var(--color-text-base)' }}>
+                                  {transaction.type === 'CHUYEN' ? `${transaction.fromAccount} → ${transaction.toAccount}` : transaction.category}
+                                </div>
+                                {(transaction.person || transaction.shop || transaction.note) && (
+                                  <div>
+                                    {transaction.person && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>[{transaction.person}] </span>}
+                                    {transaction.shop && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>[{transaction.shop}] </span>}
+                                    {transaction.note}
+                                  </div>
+                                )}
                               </div>
-                            </td>
-                            <td style={{ fontWeight: 600, color: isExpense ? 'var(--color-danger)' : (isIncome ? 'var(--color-success)' : 'var(--color-text-base)') }}>
-                              {isExpense ? '-' : (isIncome ? '+' : '')}{formatCurrency(transaction.amount)}
                             </td>
                             <td style={{ minWidth: '180px' }}>
                               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Trước: {formatCurrency(accountBefore)}</div>

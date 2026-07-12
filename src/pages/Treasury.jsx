@@ -8,7 +8,7 @@ function formatCurrency(value) {
 }
 
 export default function Treasury() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, accounts, partners, shops } = useAppStore();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, addAd, deleteAd, accounts, partners, shops } = useAppStore();
 
   const [showForm, setShowForm] = useState(false);
   const [editingTxnId, setEditingTxnId] = useState(null);
@@ -26,6 +26,62 @@ export default function Treasury() {
   const [person, setPerson] = useState(partners.length > 0 ? partners[0].name : ''); 
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [withdrawalDate, setWithdrawalDate] = useState(new Date().toISOString().split('T')[0]);
+  const [withdrawalShop, setWithdrawalShop] = useState('');
+  const [withdrawalAccount, setWithdrawalAccount] = useState(accounts[0] || '');
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
+  const [withdrawalNote, setWithdrawalNote] = useState('');
+  const [adMonth, setAdMonth] = useState('');
+  const [adShop, setAdShop] = useState('');
+  const [adAmount, setAdAmount] = useState('');
+  const [adSource, setAdSource] = useState('DEDUCTED_FROM_REVENUE');
+  const [adAccount, setAdAccount] = useState(accounts[0] || '');
+  const [adDate, setAdDate] = useState(new Date().toISOString().split('T')[0]);
+  const [adNote, setAdNote] = useState('');
+
+  const handleSaveWithdrawal = async (event) => {
+    event.preventDefault();
+    if (!withdrawalDate || !withdrawalShop || !withdrawalAccount || Number(withdrawalAmount) <= 0) return;
+
+    try {
+      await addTransaction({
+        date: withdrawalDate,
+        type: 'THU',
+        account: withdrawalAccount,
+        category: 'Rút tiền từ Sàn',
+        shop: withdrawalShop,
+        amount: Number(withdrawalAmount),
+        note: withdrawalNote.trim()
+      });
+      setWithdrawalAmount('');
+      setWithdrawalNote('');
+      alert('Đã ghi nhận tiền rút về tài khoản.');
+    } catch (error) {
+      alert(`Không thể lưu tiền rút về: ${error.message}`);
+    }
+  };
+
+  const handleSaveAd = async (event) => {
+    event.preventDefault();
+    if (!adMonth || !adShop || Number(adAmount) <= 0) return;
+    if (adSource === 'SELF_FUNDED' && !adAccount) return;
+
+    try {
+      await addAd({
+        month: adMonth,
+        shop: adShop,
+        amount: Number(adAmount),
+        source: adSource,
+        account: adSource === 'SELF_FUNDED' ? adAccount : null,
+        date: adSource === 'SELF_FUNDED' ? adDate : null,
+        note: adNote.trim() || null,
+      });
+      setAdAmount('');
+      setAdNote('');
+    } catch (error) {
+      alert(`Không thể lưu chi phí quảng cáo: ${error.message}`);
+    }
+  };
 
   // 1. Calculate Balances dynamically based on accounts
   const balances = {};
@@ -284,6 +340,35 @@ export default function Treasury() {
         <p style={{ color: 'var(--color-warning)', fontSize: '0.8rem', marginTop: '0.75rem' }}>
           Số dư tạm tính chưa bao gồm số dư ví sàn đã có trước khi dữ liệu được nhập vào ứng dụng.
         </p>
+      </div>
+
+      <div className="card" style={{ marginBottom: '2rem' }}>
+        <h3>Nhập Tiền Rút Về Tài Khoản</h3>
+        <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
+          Ghi nhận tiền chuyển từ ví sàn về tài khoản nhận; khoản này không cộng lại vào doanh thu hoặc lợi nhuận.
+        </p>
+        <form onSubmit={handleSaveWithdrawal} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '1rem' }}>
+          <div style={{ flex: '1 1 160px' }}><label>Ngày rút</label><input type="date" value={withdrawalDate} onChange={e => setWithdrawalDate(e.target.value)} required /></div>
+          <div style={{ flex: '1 1 200px' }}><label>Shop</label><select value={withdrawalShop} onChange={e => setWithdrawalShop(e.target.value)} required><option value="">Chọn shop</option>{shops.map(shopName => <option key={shopName} value={shopName}>{shopName}</option>)}</select></div>
+          <div style={{ flex: '1 1 180px' }}><label>Tài khoản nhận</label><select value={withdrawalAccount} onChange={e => setWithdrawalAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>
+          <div style={{ flex: '1 1 180px' }}><label>Số tiền (VND)</label><input type="number" min="1" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} required /></div>
+          <div style={{ flex: '2 1 220px' }}><label>Ghi chú</label><input type="text" value={withdrawalNote} onChange={e => setWithdrawalNote(e.target.value)} placeholder="VD: Rút tiền Shopee tuần 2" /></div>
+          <button type="submit" className="btn btn-primary">Ghi nhận tiền về</button>
+        </form>
+      </div>
+
+      <div className="card" style={{ marginBottom: '2rem' }}>
+        <h3>Nhập Chi Phí Quảng Cáo</h3>
+        <form onSubmit={handleSaveAd} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '1rem' }}>
+          <div style={{ flex: '1 1 160px' }}><label>Tháng</label><input type="month" value={adMonth} onChange={e => setAdMonth(e.target.value)} required /></div>
+          <div style={{ flex: '1 1 220px' }}><label>Shop</label><input type="text" list="treasury-ad-shops" value={adShop} onChange={e => setAdShop(e.target.value)} placeholder="Chọn hoặc nhập shop..." required /><datalist id="treasury-ad-shops">{shops.map(shopName => <option key={shopName} value={shopName} />)}</datalist></div>
+          <div style={{ flex: '1 1 180px' }}><label>Chi phí (VND)</label><input type="number" min="1" value={adAmount} onChange={e => setAdAmount(e.target.value)} required /></div>
+          <div style={{ flex: '1 1 230px' }}><label>Nguồn quảng cáo</label><select value={adSource} onChange={e => setAdSource(e.target.value)}><option value="DEDUCTED_FROM_REVENUE">Đã trừ từ doanh thu</option><option value="SELF_FUNDED">Shop tự nạp</option></select></div>
+          {adSource === 'SELF_FUNDED' && (<><div style={{ flex: '1 1 180px' }}><label>Ngày chi</label><input type="date" value={adDate} onChange={e => setAdDate(e.target.value)} required /></div><div style={{ flex: '1 1 180px' }}><label>Tài khoản chi</label><select value={adAccount} onChange={e => setAdAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div></>)}
+          <div style={{ flex: '2 1 240px' }}><label>Ghi chú</label><input type="text" value={adNote} onChange={e => setAdNote(e.target.value)} placeholder="VD: QC Shopee tháng 7" /></div>
+          <button type="submit" className="btn btn-primary">Lưu chi phí</button>
+        </form>
+        {ads.length > 0 && (<div className="table-responsive" style={{ marginTop: '1rem', maxHeight: '260px' }}><table className="table"><thead><tr><th>Tháng</th><th>Shop</th><th>Nguồn</th><th>Tài khoản</th><th>Số tiền</th><th>Ghi chú</th><th></th></tr></thead><tbody>{ads.map(ad => (<tr key={ad.id}><td>{ad.month}</td><td>{ad.shop}</td><td>{ad.source === 'SELF_FUNDED' ? 'Shop tự nạp' : 'Đã trừ doanh thu'}</td><td>{ad.account || '-'}</td><td>{formatCurrency(ad.amount)}</td><td>{ad.note || '-'}</td><td><button className="btn" aria-label={`Xóa chi phí quảng cáo ${ad.shop} ${ad.month}`} onClick={() => deleteAd(ad.id)} style={{ padding: '4px', color: 'var(--color-danger)' }}><Trash2 size={16} /></button></td></tr>))}</tbody></table></div>)}
       </div>
 
       {showForm && (

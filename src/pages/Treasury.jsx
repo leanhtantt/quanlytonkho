@@ -533,7 +533,7 @@ export default function Treasury() {
                     <strong style={{ color: balances[accountName] < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>{formatCurrency(balances[accountName])}</strong>
                   </div>
                 </div>
-                <div className="table-responsive" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                <div className="table-responsive treasury-history-scroll">
                   <table className="table treasury-history-table" style={{ fontSize: '0.8rem', margin: 0 }}>
                     <thead>
                       <tr>

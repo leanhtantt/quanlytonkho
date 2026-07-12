@@ -4,6 +4,7 @@ import { Search, X, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
 import ProductImage from '../components/ProductImage';
 import { processAndCompressImage } from '../domain/imageProcessor';
+import { deleteProductImage, uploadProductImage } from '../domain/imageStorage';
 
 export default function Products() {
   const { inventory, updateProduct } = useAppStore();
@@ -19,7 +20,15 @@ export default function Products() {
     try {
       setUploadingId(productId);
       const dataUrl = await processAndCompressImage(file);
-      await updateProduct(productId, { imageId: dataUrl });
+      const oldImageId = inventory.find(product => product.id === productId)?.imageId;
+      const imageUrl = await uploadProductImage(productId, dataUrl);
+      try {
+        await updateProduct(productId, { imageId: imageUrl });
+      } catch (error) {
+        await deleteProductImage(imageUrl).catch(() => {});
+        throw error;
+      }
+      await deleteProductImage(oldImageId).catch(error => console.warn('Không thể xóa ảnh cũ:', error));
     } catch (err) {
       console.error(err);
       alert('Lỗi khi tải ảnh');
@@ -37,6 +46,7 @@ export default function Products() {
       setUploadingId(product.id);
       setImagePreview(null);
       await updateProduct(product.id, { imageId: null });
+      await deleteProductImage(product.imageId);
     } catch (err) {
       console.error(err);
       alert('Không thể xóa hình sản phẩm');

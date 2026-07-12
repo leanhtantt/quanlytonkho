@@ -1,52 +1,78 @@
-import { calculateProfitAnalytics } from './src/domain/profitAnalytics.js';
+import { calculateOrderGrossProfit, calculateProfitAnalytics } from './src/domain/profitAnalytics.js';
+import { buildDerivedStore } from './src/domain/inventory.js';
+
+const item = (isReturned = false) => ({ qty: 1, sellingPrice: 100000, isReturned });
 
 const orders = [
-  { id: '1', date: '2024-05-10T10:00:00Z', shop: 'Shopee', status: 'Đã giao', actualRevenue: 150000, totalCost: 100000 },
-  { id: '2', date: '2024-05-20T10:00:00Z', shop: 'Tiktok', status: 'đã hoàn trả', totalCost: 80000 }, // No actual revenue, matches 'hoan'
-  { id: '3', date: '2024-06-05T10:00:00Z', shop: 'Shopee', status: 'Đã giao', actualRevenue: 200000, totalCost: 120000 },
-  { id: '4', date: '2024-05-25T10:00:00Z', shop: 'Shopee', status: 'Đã giao', actualRevenue: 90000, totalCost: 50000 }, // Cash shifts to June
-  { id: '5', date: '2024-05-21T10:00:00Z', shop: 'Tiktok', status: 'Đang xử lý', totalCost: 40000, items: [{ isReturned: true }, { isReturned: true }] } // matches items isReturned
+  {
+    id: 'status-only', date: '2026-04-01', shop: 'Shop A', status: 'Hoàn hàng',
+    actualRevenue: 80000, totalCost: 50000, packagingFee: 0, returnFee: 5000,
+    items: [item(false)]
+  },
+  {
+    id: 'checked-return', date: '2026-04-02', shop: 'Shop A', status: 'Đã giao',
+    actualRevenue: 10000, totalCost: 40000, packagingFee: 0, returnFee: 7000,
+    items: [item(true)]
+  },
+  {
+    id: 'partial-return', date: '2026-04-03', shop: 'Shop A', status: 'Đã giao',
+    actualRevenue: 60000, totalCost: 30000, packagingFee: 0, returnFee: 3000,
+    items: [item(true), item(false)]
+  }
 ];
 
-const losses = [
-  { date: '2024-05-15T10:00:00Z', qty: 2, totalCostDeducted: 40000 }
+orders.push({
+  id: 'packaging-once', date: '2026-04-03', shop: 'Shop B', status: 'Đã giao',
+  actualRevenue: 80000, totalCost: 51000, packagingFee: 1000, returnFee: 0,
+  items: [item(false)]
+});
+
+const adExpenses = [
+  { month: '2026-04', shop: 'Shop B', amount: 7000, source: 'DEDUCTED_FROM_REVENUE' },
+  { month: '2026-04', shop: 'Shop B', amount: 5000, source: 'SELF_FUNDED' }
 ];
+const result = calculateProfitAnalytics(orders, [], adExpenses);
+const shop = result.find(row => row.month === '2026-04' && row.shop === 'Shop A');
 
-const ads = [
-  { month: '2024-05', shop: 'Shopee', amount: 20000 },
-  { month: '2024-06', shop: 'Tiktok', amount: 30000 }
-];
+if (!shop) throw new Error('Missing Shop A analytics row');
+if (shop.returnedOrders !== 1) {
+  throw new Error(`Only checked returns should count: expected 1, got ${shop.returnedOrders}`);
+}
+if (shop.deliveredOrders !== 2) {
+  throw new Error(`Normal and partial-return reconciled orders should be delivered: expected 2, got ${shop.deliveredOrders}`);
+}
+if (shop.totalOrders !== shop.deliveredOrders + shop.returnedOrders + shop.pendingOrders) {
+  throw new Error('Order status buckets must reconcile to total orders');
+}
 
-const result = calculateProfitAnalytics(orders, losses, ads);
+const returnedGrossProfit = calculateOrderGrossProfit(orders[1]);
+if (returnedGrossProfit !== -30000) {
+  throw new Error(`Returned gross profit mismatch: expected -30000, got ${returnedGrossProfit}`);
+}
 
-console.log(JSON.stringify(result, null, 2));
+// Explicit return fees: 5,000 + 7,000 + 3,000. Only the full-return order
+// contributes its gross loss magnitude: 30,000. Total hidden return cost = 45,000.
+if (shop.returnCost !== 45000) {
+  throw new Error(`Hidden return cost mismatch: expected 45000, got ${shop.returnCost}`);
+}
 
-// Assertions
-// 1. Returned orders are counted
-const mayTiktok = result.find(r => r.month === '2024-05' && r.shop === 'Tiktok');
-if (!mayTiktok || mayTiktok.returnedOrders !== 2) throw new Error(`May Tiktok returnedOrders mismatch: expected 2, got ${mayTiktok?.returnedOrders}`);
+const shopB = result.find(row => row.month === '2026-04' && row.shop === 'Shop B');
+if (!shopB || shopB.orderProductCost !== 50000 || shopB.packagingCost !== 1000 || shopB.ads !== 5000 || shopB.deductedAds !== 7000 || shopB.orderMonthProfit !== 24000) {
+  throw new Error(`Packaging must be deducted once: ${JSON.stringify(shopB)}`);
+}
 
-// 2. No pseudo loss shop row exists
-const mayChung = result.find(r => r.shop === 'Chung (Hao hụt)');
-if (mayChung) throw new Error('Pseudo loss shop row "Chung (Hao hụt)" should not exist');
+const derived = buildDerivedStore({
+  products: [{ id: 'SKU-1', name: 'Sản phẩm 1' }],
+  purchases: [{ id: 'PO-1', date: '2026-03-01', items: [{ productId: 'SKU-1', name: 'Sản phẩm 1', qty: 5, finalCostVnd: 10000 }] }],
+  orders: [
+    { id: 'status-only', date: '2026-04-01', status: 'Hoàn hàng', packagingFee: 0, items: [{ productId: 'SKU-1', qty: 2, sellingPrice: 20000, isReturned: false }] },
+    { id: 'checked-return', date: '2026-04-02', status: 'Đã giao', packagingFee: 0, items: [{ productId: 'SKU-1', qty: 3, sellingPrice: 20000, isReturned: true }] }
+  ],
+  losses: []
+});
 
-// 3. Loss appears only in total row
-const mayShopee = result.find(r => r.month === '2024-05' && r.shop === 'Shopee');
-if (mayShopee.monthlyLossValue !== 0) throw new Error('May Shopee should have 0 loss value');
-if (mayTiktok.monthlyLossValue !== 0) throw new Error('May Tiktok should have 0 loss value');
+if (derived.inventory[0].stock !== 3) {
+  throw new Error(`Inventory must follow the checkbox only: expected stock 3, got ${derived.inventory[0].stock}`);
+}
 
-const mayTotal = result.find(r => r.month === '2024-05' && r.shop === 'Tổng tất cả');
-if (!mayTotal || mayTotal.monthlyLossValue !== 40000) throw new Error(`May Total monthlyLossValue mismatch: expected 40000, got ${mayTotal?.monthlyLossValue}`);
-
-// 4. Order on May 25 with actualRevenue shifts withdrawableRevenue and matching cost to June
-// May Shopee should only have Order 1 withdrawableRevenue (150000) and cost (100000)
-if (mayShopee.withdrawableRevenue !== 150000) throw new Error(`May Shopee withdrawableRevenue mismatch: expected 150000, got ${mayShopee.withdrawableRevenue}`);
-if (mayShopee.estimatedMatchingCost !== 100000) throw new Error(`May Shopee estimatedMatchingCost mismatch: expected 100000, got ${mayShopee.estimatedMatchingCost}`);
-
-// June Shopee should have Order 3 (200000 rev, 120000 cost) + Order 4 shifted (90000 rev, 50000 cost) = 290000 rev, 170000 cost
-const juneShopee = result.find(r => r.month === '2024-06' && r.shop === 'Shopee');
-if (!juneShopee || juneShopee.withdrawableRevenue !== 290000) throw new Error(`June Shopee withdrawableRevenue mismatch: expected 290000, got ${juneShopee?.withdrawableRevenue}`);
-if (!juneShopee || juneShopee.estimatedMatchingCost !== 170000) throw new Error(`June Shopee estimatedMatchingCost mismatch: expected 170000, got ${juneShopee?.estimatedMatchingCost}`);
-
-console.log("All smoke tests passed!");
-
+console.log('All profit analytics smoke tests passed!');

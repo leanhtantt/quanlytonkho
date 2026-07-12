@@ -12,6 +12,7 @@ export interface OrderInput {
   marketingFee: number;
   actualRevenue: number | null;
   settlementDate: Date | null;
+  note: string | null;
   items: {
     productId: string; // must already be resolved to a real Product UUID
     qty: number;
@@ -33,6 +34,7 @@ function orderColumns(input: OrderInput, expectedRevenue: number) {
     platformFee: input.platformFee,
     marketingFee: input.marketingFee,
     settlementDate: input.settlementDate,
+    note: input.note,
   };
 }
 

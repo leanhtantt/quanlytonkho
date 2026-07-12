@@ -314,6 +314,65 @@ th {
   text-transform: uppercase;
 }
 
+.orders-table-container {
+  max-height: calc(100vh - 15rem);
+  overflow: auto;
+}
+
+.orders-table-container thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.profit-table-container {
+  max-height: min(70vh, 680px);
+  overflow: auto;
+}
+
+.profit-table-container thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.profit-analysis-table-container th:first-child,
+.profit-analysis-table-container td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  width: 96px;
+  min-width: 96px;
+  background: var(--color-bg-surface);
+}
+
+.profit-analysis-table-container th:nth-child(2),
+.profit-analysis-table-container td:nth-child(2) {
+  position: sticky;
+  left: 96px;
+  z-index: 3;
+  min-width: 150px;
+  background: var(--color-bg-surface);
+  box-shadow: 1px 0 0 var(--color-border);
+}
+
+.profit-analysis-table-container thead th:first-child,
+.profit-analysis-table-container thead th:nth-child(2),
+.profit-analysis-table-container .profit-total-row td:first-child,
+.profit-analysis-table-container .profit-total-row td:nth-child(2) {
+  background: var(--color-bg-subtle);
+}
+
+.profit-analysis-table-container thead th:first-child,
+.profit-analysis-table-container thead th:nth-child(2) {
+  z-index: 5;
+}
+
+.profit-analysis-table-container tbody tr:hover td:first-child,
+.profit-analysis-table-container tbody tr:hover td:nth-child(2) {
+  background: var(--color-bg-hover);
+}
+
 tr:last-child td {
   border-bottom: 0;
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getImage } from '../domain/imageDb';
+import { isRemoteImage } from '../domain/imageStorage';
 import { Image as ImageIcon } from 'lucide-react';
 
 export default function ProductImage({ imageId, alt, size = 40, style = {} }) {
@@ -8,7 +9,7 @@ export default function ProductImage({ imageId, alt, size = 40, style = {} }) {
   useEffect(() => {
     let isMounted = true;
     if (imageId) {
-      if (imageId.startsWith('data:image/')) {
+      if (imageId.startsWith('data:image/') || isRemoteImage(imageId)) {
         if (isMounted) setSrc(imageId);
       } else {
         getImage(imageId).then(dataUrl => {

@@ -8,7 +8,7 @@ function formatCurrency(value) {
 }
 
 export default function Treasury() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, accounts, partners } = useAppStore();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, accounts, partners, shops } = useAppStore();
 
   const [showForm, setShowForm] = useState(false);
   const [editingTxnId, setEditingTxnId] = useState(null);
@@ -22,6 +22,7 @@ export default function Treasury() {
   const [fromAccount, setFromAccount] = useState(accounts[0] || '');
   const [toAccount, setToAccount] = useState(accounts[1] || accounts[0] || '');
   const [category, setCategory] = useState('Rút tiền từ Sàn');
+  const [shop, setShop] = useState(shops[0] || '');
   const [person, setPerson] = useState(partners.length > 0 ? partners[0].name : ''); 
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
@@ -81,6 +82,53 @@ export default function Treasury() {
     };
   });
 
+  const transactionsWithBalance = useMemo(() => {
+    const sortedTransactions = [...(transactions || [])].sort((a, b) => {
+      const dateDiff = new Date(a.date) - new Date(b.date);
+      if (dateDiff !== 0) return dateDiff;
+      const createdDiff = new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+      if (createdDiff !== 0) return createdDiff;
+      return (a.id || '').localeCompare(b.id || '');
+    });
+    const runningBalances = Object.fromEntries(accounts.map(accountName => [accountName, 0]));
+
+    return sortedTransactions.map(transaction => {
+      const transactionAmount = Number(transaction.amount) || 0;
+      const balancesBefore = { ...runningBalances };
+
+      if (transaction.type === 'THU') {
+        runningBalances[transaction.account] = (runningBalances[transaction.account] || 0) + transactionAmount;
+      } else if (transaction.type === 'CHI') {
+        runningBalances[transaction.account] = (runningBalances[transaction.account] || 0) - transactionAmount;
+      } else if (transaction.type === 'CHUYEN') {
+        runningBalances[transaction.fromAccount] = (runningBalances[transaction.fromAccount] || 0) - transactionAmount;
+        runningBalances[transaction.toAccount] = (runningBalances[transaction.toAccount] || 0) + transactionAmount;
+      }
+
+      return {
+        ...transaction,
+        balancesBefore,
+        balancesAfter: { ...runningBalances },
+      };
+    });
+  }, [transactions, accounts]);
+
+  const visibleAccountHistories = useMemo(() => {
+    const visibleAccounts = filterAccount ? accounts.filter(accountName => accountName === filterAccount) : accounts;
+
+    return visibleAccounts.map(accountName => ({
+      account: accountName,
+      transactions: transactionsWithBalance
+        .filter(transaction => !filterMonth || transaction.date.startsWith(filterMonth))
+        .filter(transaction => (
+          transaction.account === accountName
+          || transaction.fromAccount === accountName
+          || transaction.toAccount === accountName
+        ))
+        .reverse(),
+    }));
+  }, [accounts, filterAccount, filterMonth, transactionsWithBalance]);
+
   const handleSave = () => {
     if (!amount || Number(amount) <= 0) {
       alert('Vui lòng nhập số tiền hợp lệ.');
@@ -103,6 +151,7 @@ export default function Treasury() {
     } else {
       newTxn.account = account;
       newTxn.category = category;
+      if (category === 'Rút tiền từ Sàn') newTxn.shop = shop;
       if (category === 'Nhận vốn góp' || category === 'Rút vốn / Chia lợi nhuận') {
         newTxn.person = person;
       }
@@ -134,6 +183,7 @@ export default function Treasury() {
     }
     setAmount(t.amount);
     setNote(t.note || '');
+    setShop(t.shop || shops[0] || '');
     setShowForm(true);
   };
   
@@ -146,7 +196,7 @@ export default function Treasury() {
 
   const getCategoryOptions = () => {
     if (type === 'THU') return ['Rút tiền từ Sàn', 'Nhận vốn góp', 'Thu khác'];
-    if (type === 'CHI') return ['Tiền nhập hàng', 'Tiền quảng cáo (Ads)', 'Rút vốn / Chia lợi nhuận', 'Chi phí khác'];
+    if (type === 'CHI') return ['Tiền nhập hàng', 'Mua vật liệu đóng gói', 'Tiền quảng cáo (Ads)', 'Rút vốn / Chia lợi nhuận', 'Chi phí khác'];
     return [];
   };
 
@@ -236,6 +286,14 @@ export default function Treasury() {
                     </select>
                   </div>
                 )}
+                {category === 'Rút tiền từ Sàn' && (
+                  <div>
+                    <label style={labelStyle}>Shop</label>
+                    <select value={shop} onChange={e => setShop(e.target.value)} style={inputStyle}>
+                      {shops.map(shopName => <option key={shopName} value={shopName}>{shopName}</option>)}
+                    </select>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -270,7 +328,7 @@ export default function Treasury() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gap: '1.5rem', alignItems: 'start' }}>
         <div className="card">
           <h3 style={{ marginBottom: '1rem' }}>Báo Cáo Vốn & Cổ Tức</h3>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
@@ -327,107 +385,85 @@ export default function Treasury() {
             </div>
           </div>
           
-          <div className="table-responsive" style={{ maxHeight: '600px', overflowY: 'auto' }}>
-            <table className="table" style={{ fontSize: '0.875rem' }}>
-              <thead>
-                <tr>
-                  <th>Ngày</th>
-                  <th>Loại</th>
-                  <th>Tài khoản</th>
-                  <th>Nội dung</th>
-                  <th>Số tiền</th>
-                  <th>Số dư</th>
-                  <th style={{ width: '80px' }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  // 1. Sort ascending to calculate running balance
-                  const sortedTxns = [...(transactions || [])].sort((a, b) => {
-                    const dateDiff = new Date(a.date) - new Date(b.date);
-                    if (dateDiff !== 0) return dateDiff;
-                    // fallback to id if same date
-                    return (a.id || '').localeCompare(b.id || '');
-                  });
+          <div style={{ display: 'grid', gap: '1.5rem' }}>
+            {visibleAccountHistories.map(({ account: accountName, transactions: accountTransactions }, accountIndex) => (
+              <section key={accountName} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '0.9rem 1rem', background: bgColors[accountIndex % bgColors.length] }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', color: colors[accountIndex % colors.length] }}>
+                    <Wallet size={20} />
+                    <strong>Tài khoản: {accountName}</strong>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Số dư hiện tại</div>
+                    <strong style={{ color: balances[accountName] < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>{formatCurrency(balances[accountName])}</strong>
+                  </div>
+                </div>
+                <div className="table-responsive" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+                  <table className="table" style={{ fontSize: '0.875rem', margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>Ngày</th>
+                        <th>Loại</th>
+                        <th>Nội dung</th>
+                        <th>Số tiền</th>
+                        <th>Số dư tài khoản</th>
+                        <th style={{ width: '80px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {accountTransactions.length === 0 ? (
+                        <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Không tìm thấy giao dịch nào</td></tr>
+                      ) : accountTransactions.map(transaction => {
+                        const isTransferOut = transaction.type === 'CHUYEN' && transaction.fromAccount === accountName;
+                        const isTransferIn = transaction.type === 'CHUYEN' && transaction.toAccount === accountName;
+                        const isExpense = transaction.type === 'CHI' || isTransferOut;
+                        const isIncome = transaction.type === 'THU' || isTransferIn;
+                        const accountBefore = transaction.balancesBefore[accountName] || 0;
+                        const accountAfter = transaction.balancesAfter[accountName] || 0;
 
-                  // 2. Track running balance
-                  let runningBalances = {};
-                  accounts.forEach(a => runningBalances[a] = 0);
-                  let totalFundBalance = 0;
-
-                  const txnsWithBalance = sortedTxns.map(t => {
-                    const amt = Number(t.amount) || 0;
-                    if (t.type === 'THU') {
-                      runningBalances[t.account] = (runningBalances[t.account] || 0) + amt;
-                      totalFundBalance += amt;
-                    } else if (t.type === 'CHI') {
-                      runningBalances[t.account] = (runningBalances[t.account] || 0) - amt;
-                      totalFundBalance -= amt;
-                    } else if (t.type === 'CHUYEN') {
-                      runningBalances[t.fromAccount] = (runningBalances[t.fromAccount] || 0) - amt;
-                      runningBalances[t.toAccount] = (runningBalances[t.toAccount] || 0) + amt;
-                    }
-                    
-                    return {
-                      ...t,
-                      balancesAfter: { ...runningBalances },
-                      totalBalanceAfter: totalFundBalance
-                    };
-                  });
-
-                  // 3. Filter and reverse
-                  let displayTxns = txnsWithBalance;
-                  if (filterMonth) displayTxns = displayTxns.filter(t => t.date.startsWith(filterMonth));
-                  if (filterAccount) displayTxns = displayTxns.filter(t => t.account === filterAccount || t.fromAccount === filterAccount || t.toAccount === filterAccount);
-                  
-                  displayTxns.reverse(); // Newest top
-                  
-                  if (displayTxns.length === 0) {
-                     return <tr><td colSpan="7" style={{ textAlign: 'center', padding: '2rem' }}>Không tìm thấy giao dịch nào</td></tr>;
-                  }
-
-                  return displayTxns.map(t => (
-                    <tr key={t.id}>
-                      <td>{t.date}</td>
-                      <td>
-                        {t.type === 'THU' && <span style={{ color: 'var(--color-success)' }}><ArrowDownRight size={16} /> Thu</span>}
-                        {t.type === 'CHI' && <span style={{ color: 'var(--color-danger)' }}><ArrowUpRight size={16} /> Chi</span>}
-                        {t.type === 'CHUYEN' && <span style={{ color: 'var(--color-primary)' }}><ArrowRightLeft size={16} /> Chuyển</span>}
-                      </td>
-                      <td>
-                        {t.type === 'CHUYEN' ? `${t.fromAccount} -> ${t.toAccount}` : t.account}
-                      </td>
-                      <td>
-                        <div style={{ fontWeight: 500 }}>{t.type === 'CHUYEN' ? 'Chuyển tiền nội bộ' : t.category}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                          {t.person && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>[{t.person}] </span>}
-                          {t.note}
-                        </div>
-                      </td>
-                      <td style={{ fontWeight: 600, color: t.type === 'CHI' ? 'var(--color-danger)' : (t.type === 'THU' ? 'var(--color-success)' : 'var(--color-text-base)') }}>
-                        {t.type === 'CHI' ? '-' : (t.type === 'THU' ? '+' : '')}{formatCurrency(t.amount)}
-                      </td>
-                      <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
-                        {filterAccount 
-                          ? formatCurrency(t.balancesAfter[filterAccount])
-                          : formatCurrency(t.totalBalanceAfter)
-                        }
-                      </td>
-                      <td>
-                        <button className="btn" style={{ padding: '4px', color: 'var(--color-primary)' }} onClick={() => handleEdit(t)}>
-                          <Edit size={16} />
-                        </button>
-                        <button className="btn" style={{ padding: '4px', color: 'var(--color-danger)', marginLeft: '4px' }} onClick={() => {
-                          if (window.confirm('Bạn có chắc muốn xoá giao dịch này?')) deleteTransaction(t.id);
-                        }}>
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ));
-                })()}
-              </tbody>
-            </table>
+                        return (
+                          <tr key={transaction.id}>
+                            <td>{transaction.date}</td>
+                            <td>
+                              {transaction.type === 'THU' && <span style={{ color: 'var(--color-success)' }}><ArrowDownRight size={16} /> Thu</span>}
+                              {transaction.type === 'CHI' && <span style={{ color: 'var(--color-danger)' }}><ArrowUpRight size={16} /> Chi</span>}
+                              {transaction.type === 'CHUYEN' && <span style={{ color: isTransferOut ? 'var(--color-danger)' : 'var(--color-success)' }}><ArrowRightLeft size={16} /> {isTransferOut ? 'Chuyển đi' : 'Nhận chuyển'}</span>}
+                            </td>
+                            <td>
+                              <div style={{ fontWeight: 500 }}>
+                                {transaction.type === 'CHUYEN' ? `${transaction.fromAccount} → ${transaction.toAccount}` : transaction.category}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                {transaction.person && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>[{transaction.person}] </span>}
+                                {transaction.shop && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>[{transaction.shop}] </span>}
+                                {transaction.note}
+                              </div>
+                            </td>
+                            <td style={{ fontWeight: 600, color: isExpense ? 'var(--color-danger)' : (isIncome ? 'var(--color-success)' : 'var(--color-text-base)') }}>
+                              {isExpense ? '-' : (isIncome ? '+' : '')}{formatCurrency(transaction.amount)}
+                            </td>
+                            <td style={{ minWidth: '180px' }}>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Trước: {formatCurrency(accountBefore)}</div>
+                              <div style={{ fontWeight: 700, color: accountAfter < 0 ? 'var(--color-danger)' : 'var(--color-primary)', marginTop: '0.2rem' }}>Sau: {formatCurrency(accountAfter)}</div>
+                            </td>
+                            <td>
+                              <button className="btn" aria-label={`Sửa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-primary)' }} onClick={() => handleEdit(transaction)}>
+                                <Edit size={16} />
+                              </button>
+                              <button className="btn" aria-label={`Xóa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-danger)', marginLeft: '4px' }} onClick={() => {
+                                if (window.confirm('Bạn có chắc muốn xoá giao dịch này?')) deleteTransaction(transaction.id);
+                              }}>
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ))}
           </div>
         </div>
       </div>

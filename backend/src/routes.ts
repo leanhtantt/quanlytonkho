@@ -82,6 +82,13 @@ const productImageSchema = z.object({
   dataUrl: z.string().startsWith('data:image/'),
 });
 
+const productOrderSchema = z.object({
+  productIds: z.array(z.string().uuid()).min(1).refine(
+    ids => new Set(ids).size === ids.length,
+    { message: 'Danh sách sản phẩm không được trùng mã.' }
+  ),
+});
+
 const treasuryTransactionSchema = z.object({
   id: z.string().optional(),
   date: z.string().or(z.date()),
@@ -143,6 +150,23 @@ apiRouter.post('/products', async (req, res) => {
     console.error("Error upserting product:", error);
     res.status(500).json({ error: 'Failed to create/update product' });
   }
+});
+
+apiRouter.put('/products/reorder', async (req, res) => {
+  const parsed = productOrderSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const existingCount = await prisma.product.count({ where: { id: { in: parsed.data.productIds } } });
+  if (existingCount !== parsed.data.productIds.length) {
+    return res.status(400).json({ error: 'Danh sách có sản phẩm không tồn tại.' });
+  }
+
+  await prisma.$transaction(parsed.data.productIds.map((id, index) => (
+    prisma.product.update({ where: { id }, data: { displayOrder: index + 1 } })
+  )));
+
+  const products = await prisma.product.findMany({ orderBy: [{ displayOrder: 'asc' }, { sku: 'asc' }] });
+  res.json(products);
 });
 
 apiRouter.put('/products/:id', async (req, res) => {

@@ -149,6 +149,11 @@ export function StoreProvider({ children }) {
     await api.deleteTransaction(txnId);
     setTransactions(prev => prev.filter(t => t.id !== txnId));
   };
+  const reorderProducts = async (productIds) => {
+    const reordered = await api.reorderProducts(productIds);
+    setProducts(reordered);
+    return reordered;
+  };
   const addAd = async (ad) => {
     const created = await api.createAd(ad);
     setAds(prev => [created, ...prev]);
@@ -193,6 +198,7 @@ export function StoreProvider({ children }) {
     addLoss,
     addProduct,
     updateProduct,
+    reorderProducts,
     transactions,
     addTransaction,
     updateTransaction,

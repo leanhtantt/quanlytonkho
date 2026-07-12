@@ -28,6 +28,7 @@ export const api = {
   getProducts: () => authFetch('/api/products'),
   createProduct: (data) => authFetch('/api/products', { method: 'POST', body: JSON.stringify(data) }),
   updateProduct: (id, data) => authFetch(`/api/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  reorderProducts: (productIds) => authFetch('/api/products/reorder', { method: 'PUT', body: JSON.stringify({ productIds }) }),
   uploadProductImage: (productId, dataUrl) => authFetch('/api/product-images', { method: 'POST', body: JSON.stringify({ productId, dataUrl }) }),
   deleteProductImage: (imageUrl) => authFetch('/api/product-images', { method: 'DELETE', body: JSON.stringify({ imageUrl }) }),
   

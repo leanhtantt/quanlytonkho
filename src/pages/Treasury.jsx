@@ -15,7 +15,7 @@ export default function Treasury() {
   
   // Filters
   const [filterMonth, setFilterMonth] = useState('');
-  const [filterAccount, setFilterAccount] = useState('');
+  const [filterType, setFilterType] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [type, setType] = useState('THU'); // THU, CHI, CHUYEN
   const [account, setAccount] = useState(accounts[0] || '');
@@ -175,12 +175,11 @@ export default function Treasury() {
   }, [transactions, accounts]);
 
   const visibleAccountHistories = useMemo(() => {
-    const visibleAccounts = filterAccount ? accounts.filter(accountName => accountName === filterAccount) : accounts;
-
-    return visibleAccounts.map(accountName => ({
+    return accounts.map(accountName => ({
       account: accountName,
       transactions: transactionsWithBalance
         .filter(transaction => !filterMonth || transaction.date.startsWith(filterMonth))
+        .filter(transaction => !filterType || transaction.type === filterType)
         .filter(transaction => (
           transaction.account === accountName
           || transaction.fromAccount === accountName
@@ -188,7 +187,7 @@ export default function Treasury() {
         ))
         .reverse(),
     }));
-  }, [accounts, filterAccount, filterMonth, transactionsWithBalance]);
+  }, [accounts, filterMonth, filterType, transactionsWithBalance]);
 
   const handleSave = () => {
     if (!amount || Number(amount) <= 0) {
@@ -266,7 +265,7 @@ export default function Treasury() {
   const bgColors = ['#eff6ff', '#ecfdf5', '#fef3c7', '#ccfbf1', '#ede9fe', '#fef2f2'];
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in treasury-page">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Sổ Quỹ & Dòng Tiền</h1>
@@ -277,7 +276,7 @@ export default function Treasury() {
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div className="treasury-balances" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         {accounts.map((acc, idx) => {
           const color = colors[idx % colors.length];
           const bg = bgColors[idx % bgColors.length];
@@ -308,7 +307,7 @@ export default function Treasury() {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
+      <div className="card treasury-wallet" style={{ marginBottom: '2rem' }}>
         <h3>Ví Sàn Theo Shop</h3>
         <p style={{ color: 'var(--color-text-muted)', margin: '0.5rem 0 1rem' }}>
           Sàn đã thanh toán lấy theo ngày hoàn tất thanh toán của từng đơn. Tiền rút về chỉ là chuyển từ ví sàn sang tài khoản nhận, không tạo thêm doanh thu.
@@ -342,7 +341,7 @@ export default function Treasury() {
         </p>
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
+      <div className="card treasury-withdrawal" style={{ marginBottom: '2rem' }}>
         <h3>Nhập Tiền Rút Về Tài Khoản</h3>
         <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
           Ghi nhận tiền chuyển từ ví sàn về tài khoản nhận; khoản này không cộng lại vào doanh thu hoặc lợi nhuận.
@@ -357,7 +356,7 @@ export default function Treasury() {
         </form>
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
+      <div className="card treasury-ads" style={{ marginBottom: '2rem' }}>
         <h3>Nhập Chi Phí Quảng Cáo</h3>
         <form onSubmit={handleSaveAd} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '1rem' }}>
           <div style={{ flex: '1 1 160px' }}><label>Tháng</label><input type="month" value={adMonth} onChange={e => setAdMonth(e.target.value)} required /></div>
@@ -372,7 +371,7 @@ export default function Treasury() {
       </div>
 
       {showForm && (
-        <div className="card animate-fade-in" style={{ marginBottom: '2rem', border: '1px solid var(--color-primary)' }}>
+        <div className="card animate-fade-in treasury-entry-form" style={{ marginBottom: '2rem', border: '1px solid var(--color-primary)' }}>
           <h3 style={{ marginBottom: '1.5rem' }}>{editingTxnId ? 'Sửa Giao Dịch' : 'Ghi Nhận Dòng Tiền Mới'}</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
             <div>
@@ -452,8 +451,8 @@ export default function Treasury() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gap: '1.5rem', alignItems: 'start' }}>
-        <div className="card">
+      <div className="treasury-lower-sections" style={{ display: 'grid', gap: '1.5rem', alignItems: 'start' }}>
+        <div className="card treasury-capital">
           <h3 style={{ marginBottom: '1rem' }}>Báo Cáo Vốn & Cổ Tức</h3>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
             Lợi nhuận được chia theo tỷ lệ cấu hình trong phần Cài Đặt.<br/>
@@ -487,7 +486,7 @@ export default function Treasury() {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card treasury-history">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3>Lịch Sử Giao Dịch</h3>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -498,18 +497,21 @@ export default function Treasury() {
                 onChange={e => setFilterMonth(e.target.value)} 
                 style={{ ...inputStyle, width: '130px', padding: '0.25rem 0.5rem', fontSize: '0.875rem' }} 
               />
-              <select 
-                value={filterAccount} 
-                onChange={e => setFilterAccount(e.target.value)} 
+              <select
+                aria-label="Lọc theo loại giao dịch"
+                value={filterType}
+                onChange={e => setFilterType(e.target.value)}
                 style={{ ...inputStyle, width: '150px', padding: '0.25rem 0.5rem', fontSize: '0.875rem' }}
               >
-                <option value="">Tất cả tài khoản</option>
-                {accounts.map(a => <option key={a} value={a}>{a}</option>)}
+                <option value="">Tất cả Thu / Chi</option>
+                <option value="THU">Thu</option>
+                <option value="CHI">Chi</option>
+                <option value="CHUYEN">Chuyển nội bộ</option>
               </select>
             </div>
           </div>
           
-          <div style={{ display: 'grid', gap: '1.5rem' }}>
+          <div className="treasury-history-grid">
             {visibleAccountHistories.map(({ account: accountName, transactions: accountTransactions }, accountIndex) => (
               <section key={accountName} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '0.9rem 1rem', background: bgColors[accountIndex % bgColors.length] }}>

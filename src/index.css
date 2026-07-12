@@ -381,6 +381,71 @@ th {
   z-index: 2;
 }
 
+.treasury-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.treasury-balances {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  order: 1;
+  padding: 0.75rem 0;
+  background: var(--color-bg-base);
+  box-shadow: 0 8px 16px -16px rgb(15 23 42 / 45%);
+}
+
+.treasury-balances .card {
+  padding: 1rem;
+}
+
+.treasury-lower-sections {
+  display: contents !important;
+}
+
+.treasury-history {
+  order: 2;
+  margin-bottom: 2rem;
+}
+
+.treasury-wallet {
+  order: 3;
+}
+
+.treasury-withdrawal {
+  order: 4;
+}
+
+.treasury-ads {
+  order: 5;
+}
+
+.treasury-entry-form {
+  order: 6;
+}
+
+.treasury-capital {
+  order: 7;
+}
+
+.treasury-history-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.treasury-history-grid section {
+  min-width: 0;
+}
+
+@media (max-width: 1280px) {
+  .treasury-history-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .profit-analysis-table-container th:first-child,
 .profit-analysis-table-container td:first-child {
   position: sticky;
@@ -581,6 +646,14 @@ tbody tr:hover td {
 
   .import-control {
     min-width: 0;
+  }
+
+  .treasury-balances {
+    position: static;
+  }
+
+  .treasury-history-grid {
+    grid-template-columns: 1fr;
   }
 }
 

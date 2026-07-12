@@ -446,6 +446,14 @@ th {
   padding: 0.55rem 0.6rem;
 }
 
+.treasury-history-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-bg-subtle);
+  box-shadow: 0 1px 0 var(--color-border);
+}
+
 .treasury-history-table tbody tr {
   height: 64px;
 }

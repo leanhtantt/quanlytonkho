@@ -37,7 +37,7 @@ function Sidebar() {
         <div className="sidebar-logo-mark">
           <Package size={24} />
         </div>
-        <span>Cưới Hỏi BAP</span>
+        <span>Phụ kiện Decor</span>
       </div>
       <nav className="nav-list" aria-label="Điều hướng chính">
         {menuItems.map((item) => (

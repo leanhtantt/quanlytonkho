@@ -40,7 +40,7 @@ export default function Login() {
       <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-logo">
           <Package size={32} />
-          <span>Cưới Hỏi BAP</span>
+          <span>Phụ kiện Decor</span>
         </div>
         <h2>{isRegister ? 'Tạo tài khoản' : 'Đăng nhập'}</h2>
 

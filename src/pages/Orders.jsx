@@ -4,6 +4,7 @@ import { Search, Plus, Save, X, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ProductImage from '../components/ProductImage';
 import { calculateOrderGrossProfit } from '../domain/profitAnalytics';
+import { findProductByCode } from '../domain/productSku';
 
 const normalizeExcelText = (value) => String(value ?? '')
   .normalize('NFD')
@@ -120,7 +121,7 @@ export default function Orders() {
     const val = code.toUpperCase();
     setSelectedProductId(val);
     // Match by the product code (SKU) the user sees, falling back to internal id.
-    const prod = products.find(p => (p.sku || '').toUpperCase() === val || p.id === code);
+    const prod = findProductByCode(products, val || code);
     if (prod) {
       setSelectedProductName(prod.name);
     }
@@ -131,11 +132,11 @@ export default function Orders() {
 
     // The user only enters/sees the product code (SKU), but store the internal id
     // so inventory/cost matching elsewhere keeps working.
-    const prod = products.find(p => (p.sku || '').toUpperCase() === selectedProductId.toUpperCase() || p.id === selectedProductId);
+    const prod = findProductByCode(products, selectedProductId);
 
     setItems([...items, {
       productId: prod ? prod.id : selectedProductId.toUpperCase(),
-      sku: prod ? (prod.sku || prod.id) : selectedProductId.toUpperCase(),
+      sku: selectedProductId.toUpperCase(),
       name: selectedProductName,
       qty: Number(qty),
       sellingPrice: Number(sellingPrice),
@@ -157,7 +158,7 @@ export default function Orders() {
 
   const handleEditItem = (index) => {
     const item = items[index];
-    const prod = products.find(p => p.id === item.productId);
+    const prod = findProductByCode(products, item.productId);
     // Prefer the SKU carried on the item; only fall back to a lookup / raw id.
     setSelectedProductId(item.sku || (prod ? (prod.sku || prod.id) : item.productId));
     setSelectedProductName(item.name);
@@ -282,9 +283,8 @@ export default function Orders() {
     // Deep copy, and re-resolve each item's product so the code (SKU) always shows
     // correctly in the edit form even if the item's stored id/sku drifted.
     setItems(o.items.map(i => {
-      const prod = products.find(p => p.id === i.productId)
-        || products.find(p => (p.sku || '').toUpperCase() === String(i.sku || '').toUpperCase());
-      return { ...i, productId: prod?.id || i.productId, sku: prod?.sku || i.sku || i.productId };
+      const prod = findProductByCode(products, i.productId) || findProductByCode(products, i.sku);
+      return { ...i, productId: prod?.id || i.productId, sku: i.sku || prod?.sku || i.productId };
     }));
     
     setShowForm(true);
@@ -493,11 +493,12 @@ export default function Orders() {
           
           const rawSku = sku ? sku.trim().toUpperCase() : '';
           // Resolve về SKU/UUID sản phẩm thật trong kho, giống luồng nhập tay (handleAddItem).
-          const prod = rawSku ? products.find(p => (p.sku || '').toUpperCase() === rawSku || p.id === rawSku) : null;
+          const prod = rawSku ? findProductByCode(products, rawSku) : null;
           const productId = prod ? prod.id : rawSku;
 
           orderMap[idStr].items.push({
             productId: productId,
+            sku: rawSku,
             name: name,
             qty: qty,
             sellingPrice: price,

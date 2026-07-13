@@ -28,6 +28,7 @@ export const api = {
   getProducts: () => authFetch('/api/products'),
   createProduct: (data) => authFetch('/api/products', { method: 'POST', body: JSON.stringify(data) }),
   updateProduct: (id, data) => authFetch(`/api/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  renameProductSku: (id, sku) => authFetch(`/api/products/${id}/sku`, { method: 'PUT', body: JSON.stringify({ sku }) }),
   reorderProducts: (productIds) => authFetch('/api/products/reorder', { method: 'PUT', body: JSON.stringify({ productIds }) }),
   uploadProductImage: (productId, dataUrl) => authFetch('/api/product-images', { method: 'POST', body: JSON.stringify({ productId, dataUrl }) }),
   deleteProductImage: (imageUrl) => authFetch('/api/product-images', { method: 'DELETE', body: JSON.stringify({ imageUrl }) }),
@@ -67,6 +68,7 @@ export const api = {
 
   getAds: () => authFetch('/api/ads'),
   createAd: (data) => authFetch('/api/ads', { method: 'POST', body: JSON.stringify(data) }),
+  reimburseAdAdvance: (id, data) => authFetch(`/api/ads/${id}/reimbursements`, { method: 'POST', body: JSON.stringify(data) }),
   deleteAd: (id) => authFetch(`/api/ads/${id}`, { method: 'DELETE' }),
   
   getTransactions: () => authFetch('/api/treasury/transactions'),

@@ -201,12 +201,13 @@ export function calculateMarketplaceWalletSummary(orders = [], transactions = []
     settledRevenue: 0,
     withdrawn: 0,
     walletAdSpend: 0,
+    advanceReimbursements: 0,
     estimatedBalance: 0
   }]));
 
   const getSummary = (shop) => {
     if (!summaries.has(shop)) {
-      summaries.set(shop, { shop, settledRevenue: 0, withdrawn: 0, walletAdSpend: 0, estimatedBalance: 0 });
+      summaries.set(shop, { shop, settledRevenue: 0, withdrawn: 0, walletAdSpend: 0, advanceReimbursements: 0, estimatedBalance: 0 });
     }
     return summaries.get(shop);
   };
@@ -222,14 +223,47 @@ export function calculateMarketplaceWalletSummary(orders = [], transactions = []
   });
 
   ads.forEach(ad => {
-    if (ad.source !== 'SHOPEE_WALLET' || !ad.shop) return;
-    getSummary(ad.shop).walletAdSpend += Number(ad.amount) || 0;
+    if (!ad.shop) return;
+    if (ad.source === 'SHOPEE_WALLET') {
+      getSummary(ad.shop).walletAdSpend += Number(ad.amount) || 0;
+    }
+    (ad.reimbursements || []).forEach(reimbursement => {
+      if (reimbursement.source === 'SHOPEE_WALLET') {
+        getSummary(ad.shop).advanceReimbursements += Number(reimbursement.amount) || 0;
+      }
+    });
   });
 
   return Array.from(summaries.values())
     .map(summary => ({
       ...summary,
-      estimatedBalance: summary.settledRevenue - summary.withdrawn - summary.walletAdSpend
+      estimatedBalance: summary.settledRevenue - summary.withdrawn - summary.walletAdSpend - summary.advanceReimbursements
     }))
     .sort((a, b) => a.shop.localeCompare(b.shop, 'vi'));
+}
+
+export function calculateAdAdvanceSummary(ads = []) {
+  const advances = ads
+    .filter(ad => ad.source === 'PERSONAL_ADVANCE')
+    .map(ad => {
+      const reimbursed = (ad.reimbursements || []).reduce(
+        (sum, reimbursement) => sum + (Number(reimbursement.amount) || 0),
+        0
+      );
+      const amount = Number(ad.amount) || 0;
+      return {
+        ...ad,
+        amount,
+        reimbursed,
+        outstanding: Math.max(0, amount - reimbursed),
+        status: reimbursed >= amount ? 'PAID' : reimbursed > 0 ? 'PARTIAL' : 'OPEN'
+      };
+    });
+
+  return {
+    advances,
+    totalAdvanced: advances.reduce((sum, advance) => sum + advance.amount, 0),
+    totalReimbursed: advances.reduce((sum, advance) => sum + advance.reimbursed, 0),
+    totalOutstanding: advances.reduce((sum, advance) => sum + advance.outstanding, 0)
+  };
 }

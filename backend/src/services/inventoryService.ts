@@ -57,7 +57,14 @@ export async function deductStockFIFO(
     }
 
     if (remainingToDeduct > 0 && strict) {
-      throw new Error(`Not enough stock for product ${productId}. Missing ${remainingToDeduct} items.`);
+      const product = await tx.product.findUnique({
+        where: { id: productId },
+        select: { sku: true, name: true }
+      });
+      const sku = product?.sku || productId;
+      const productName = product?.name ? ` – ${product.name}` : '';
+      const availableQty = requestedQty - remainingToDeduct;
+      throw new Error(`Không đủ tồn kho cho SKU ${sku}${productName}. Tồn khả dụng: ${availableQty}, cần: ${requestedQty}, thiếu: ${remainingToDeduct}.`);
     }
 
     return {

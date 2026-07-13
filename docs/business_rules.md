@@ -52,6 +52,14 @@ Hao hut la cac truong hop mat hang, hong hang, giao thieu, sai mau hoac can dieu
 - Khi ghi hao hut, he thong tru kho theo FIFO tai ngay ghi nhan.
 - Gia tri thiet hai duoc tinh theo batch bi tru va tinh vao chi phi thang.
 
+### Kiem ke du
+
+- Hang kiem ke du phai ghi bang phieu dieu chinh tang kho, khong tao don nhap hang gia.
+- Phieu tang kho tao mot batch dieu chinh rieng va tham gia FIFO theo ngay ghi nhan.
+- Gia von mac dinh lay tu batch gan nhat; neu khong co lich su thi nguoi dung nhap gia von.
+- Gia tri tang kho duoc ghi vao ledger voi nguon `ADJUSTMENT` de tach khoi chi phi mua hang.
+- Chi duoc sua hoac xoa phieu tang kho khi batch dieu chinh chua duoc xuat dung. Neu da xuat, phai tao phieu dieu chinh nguoc de giu audit trail.
+
 ## 4. Don hang va ban da kenh
 
 Hien tai ung dung theo doi cac kenh:
@@ -89,4 +97,3 @@ Tat ca gia ban tham khao duoc lam tron.
 - Stock transaction va ledger phai la append-only.
 - Sua sai bang giao dich dao, khong xoa lich su.
 - Khong cho am kho im lang; neu can, tao trang thai backorder.
-

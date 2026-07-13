@@ -24,7 +24,7 @@ function Sidebar() {
     { path: '/purchases', name: 'Nhập Hàng', icon: <Truck size={20} /> },
     { path: '/products', name: 'Tồn Kho', icon: <Package size={20} /> },
     { path: '/orders', name: 'Xuất Bán', icon: <ShoppingCart size={20} /> },
-    { path: '/losses', name: 'Hao Hụt', icon: <ShieldAlert size={20} /> },
+    { path: '/losses', name: 'Điều Chỉnh Kho', icon: <ShieldAlert size={20} /> },
     { path: '/profit', name: 'Lợi Nhuận', icon: <TrendingUp size={20} /> },
     { path: '/treasury', name: 'Sổ Quỹ', icon: <Wallet size={20} /> },
     { path: '/settings', name: 'Cài Đặt', icon: <SettingsIcon size={20} /> },
@@ -104,4 +104,3 @@ function App() {
 }
 
 export default App;
-

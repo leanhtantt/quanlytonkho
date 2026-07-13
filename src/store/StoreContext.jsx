@@ -5,11 +5,25 @@ import { api } from '../lib/api';
 
 const DEFAULT_SHOPS = ['Chà Tiktok', 'Chà Shopee', 'Lyn WD', 'Lyn - Phụ kiện', 'Lyn Tiktok'];
 
+function normalizeLossRecord(response, fallback = {}) {
+  const record = response?.loss || response;
+  if (!record || typeof record !== 'object' || !record.id) return null;
+
+  return {
+    ...record,
+    name: record.name || fallback.name,
+    sku: record.sku || fallback.sku,
+    date: record.date || record.occurredAt || fallback.date,
+    totalCostDeducted: response?.totalLossValue ?? record.totalCostDeducted ?? 0
+  };
+}
+
 export function StoreProvider({ children }) {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [purchases, setPurchases] = useState([]);
   const [orders, setOrders] = useState([]);
   const [losses, setLosses] = useState([]);
+  const [inventoryAdjustments, setInventoryAdjustments] = useState([]);
   const [ads, setAds] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState(['Hà', 'Luyến', 'Châu', 'Tiền mặt']);
@@ -27,11 +41,12 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     async function loadData() {
       try {
-        const [prodRes, purRes, ordRes, lossRes, txRes, adRes, setRes] = await Promise.all([
+        const [prodRes, purRes, ordRes, lossRes, adjustmentRes, txRes, adRes, setRes] = await Promise.all([
           api.getProducts().catch(() => []),
           api.getPurchases().catch(() => []),
           api.getOrders().catch(() => []),
           api.getLosses().catch(() => []),
+          api.getInventoryAdjustments().catch(() => []),
           api.getTransactions().catch(() => []),
           api.getAds().catch(() => []),
           api.getSettings().catch(() => ({}))
@@ -43,7 +58,8 @@ export function StoreProvider({ children }) {
         // We will pass the raw fetched orders, but we must map them if they differ from localStorage structure.
         // Actually, let's assume they are compatible or just passed through.
         setOrders(ordRes);
-        setLosses(lossRes);
+        setLosses(lossRes.map(loss => normalizeLossRecord(loss)).filter(Boolean));
+        setInventoryAdjustments(adjustmentRes);
         setTransactions(txRes);
         setAds(adRes);
         
@@ -118,16 +134,36 @@ export function StoreProvider({ children }) {
   };
   const addLoss = async (loss) => {
     const response = await api.createLoss(loss);
-    const createdLoss = response.loss || response;
-    const normalizedLoss = {
-      ...createdLoss,
-      name: loss.name,
-      sku: loss.sku,
-      date: createdLoss.occurredAt || loss.date,
-      totalCostDeducted: response.totalLossValue ?? createdLoss.totalCostDeducted ?? 0
-    };
+    const normalizedLoss = normalizeLossRecord(response, loss);
+    if (!normalizedLoss) throw new Error('Backend không trả về mã phiếu hao hụt hợp lệ.');
     setLosses(prev => [...prev, normalizedLoss]);
     return normalizedLoss;
+  };
+  const updateLoss = async (lossId, loss) => {
+    const response = await api.updateLoss(lossId, loss);
+    const normalizedLoss = normalizeLossRecord(response, loss);
+    if (!normalizedLoss) throw new Error('Backend không trả về mã phiếu hao hụt hợp lệ.');
+    setLosses(prev => prev.map(item => item.id === lossId ? normalizedLoss : item));
+    return normalizedLoss;
+  };
+  const deleteLoss = async (lossId) => {
+    if (!lossId) throw new Error('Phiếu hao hụt không có UUID hợp lệ. Hãy tải lại trang.');
+    await api.deleteLoss(lossId);
+    setLosses(prev => prev.filter(item => normalizeLossRecord(item)?.id !== lossId));
+  };
+  const addInventoryAdjustment = async (adjustment) => {
+    const created = await api.createInventoryAdjustment(adjustment);
+    setInventoryAdjustments(prev => [...prev, created]);
+    return created;
+  };
+  const updateInventoryAdjustment = async (adjustmentId, adjustment) => {
+    const updated = await api.updateInventoryAdjustment(adjustmentId, adjustment);
+    setInventoryAdjustments(prev => prev.map(item => item.id === adjustmentId ? updated : item));
+    return updated;
+  };
+  const deleteInventoryAdjustment = async (adjustmentId) => {
+    await api.deleteInventoryAdjustment(adjustmentId);
+    setInventoryAdjustments(prev => prev.filter(item => item.id !== adjustmentId));
   };
   const addProduct = async (product) => {
     const created = await api.createProduct(product);
@@ -182,18 +218,25 @@ export function StoreProvider({ children }) {
     }
   };
 
+  const normalizedLosses = useMemo(
+    () => losses.map(loss => normalizeLossRecord(loss)).filter(Boolean),
+    [losses]
+  );
+
   const derivedState = useMemo(() => buildDerivedStore({
     products,
     purchases,
     orders,
-    losses
-  }), [products, purchases, orders, losses]);
+    losses: normalizedLosses,
+    inventoryAdjustments
+  }), [products, purchases, orders, normalizedLosses, inventoryAdjustments]);
 
   const value = {
     products,
     purchases,
     orders: derivedState.enrichedOrders,
     losses: derivedState.enrichedLosses,
+    inventoryAdjustments: derivedState.enrichedAdjustments,
     inventory: derivedState.inventory,
     ads,
     addAd,
@@ -205,6 +248,11 @@ export function StoreProvider({ children }) {
     updateOrder,
     deleteOrder,
     addLoss,
+    updateLoss,
+    deleteLoss,
+    addInventoryAdjustment,
+    updateInventoryAdjustment,
+    deleteInventoryAdjustment,
     addProduct,
     updateProduct,
     reorderProducts,

@@ -23,6 +23,7 @@ export default function Purchases() {
   
   // New Item State
   const [newItem, setNewItem] = useState({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0 });
+  const [productSearch, setProductSearch] = useState('');
 
   const handleAddItem = () => {
     if (!newItem.id || !newItem.name || newItem.qty <= 0) return;
@@ -125,6 +126,18 @@ export default function Purchases() {
     setCompensationVnd(0);
     setTotalIntlShipping(0);
   };
+
+  const normalizedProductSearch = productSearch.trim().toLocaleLowerCase('vi');
+  const filteredPurchases = purchases.filter(purchase => {
+    if (!normalizedProductSearch) return true;
+
+    return purchase.items.some(item => {
+      const product = products.find(productItem => productItem.id === item.productId || productItem.sku === item.productId);
+      const sku = String(product?.sku || item.sku || item.productId || '').toLocaleLowerCase('vi');
+      const name = String(product?.name || item.name || '').toLocaleLowerCase('vi');
+      return sku.includes(normalizedProductSearch) || name.includes(normalizedProductSearch);
+    });
+  });
 
   const handleDeletePurchase = async (p) => {
     if (!window.confirm(`Bạn có chắc muốn xóa phiếu nhập "${p.id}"? Toàn bộ lô hàng của phiếu này sẽ bị gỡ khỏi kho.`)) return;
@@ -317,7 +330,20 @@ export default function Purchases() {
       {/* Danh sách lô hàng đã nhập */}
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)' }}>
-          <h3 style={{ margin: 0 }}>Lịch sử nhập hàng</h3>
+          <h3 style={{ margin: 0, marginBottom: '1rem' }}>Lịch sử nhập hàng</h3>
+          <label style={labelStyle}>Tìm đơn theo SKU hoặc tên sản phẩm</label>
+          <input
+            type="search"
+            value={productSearch}
+            onChange={e => setProductSearch(e.target.value)}
+            placeholder="Nhập SKU hoặc tên sản phẩm để xem đã nhập ở đơn nào..."
+            style={inputStyle}
+          />
+          {normalizedProductSearch && (
+            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              Tìm thấy {filteredPurchases.length} đơn nhập phù hợp
+            </div>
+          )}
         </div>
         <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
           <table>
@@ -340,7 +366,14 @@ export default function Purchases() {
                   </td>
                 </tr>
               )}
-              {[...purchases].sort((a, b) => {
+              {purchases.length > 0 && filteredPurchases.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+                    Không tìm thấy đơn nhập nào chứa SKU hoặc tên sản phẩm này.
+                  </td>
+                </tr>
+              )}
+              {[...filteredPurchases].sort((a, b) => {
                 if (a.date !== b.date) return new Date(b.date) - new Date(a.date); // ngày mới nhất lên trên
                 return String(b.id).localeCompare(String(a.id));
               }).map(p => {

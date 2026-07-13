@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { prisma } from './prismaClient';
 import { z } from 'zod';
 import { createPurchaseOrder, deletePurchaseOrder, replacePurchaseOrder } from './services/procurementService';
-import { recordLoss } from './services/financeService';
+import { deleteLoss, recordLoss, replaceLoss } from './services/financeService';
+import { createSurplusAdjustment, deleteSurplusAdjustment, replaceSurplusAdjustment } from './services/inventoryAdjustmentService';
 import { createOrder, replaceOrder, deleteOrder, OrderInput } from './services/orderService';
 import { randomUUID } from 'crypto';
 import { getApps, initializeApp } from 'firebase-admin/app';
@@ -67,6 +68,15 @@ const lossSchema = z.object({
   productId: z.string(),
   qty: z.number().positive(),
   reason: z.string(),
+  date: z.string().optional(),
+});
+
+const inventoryAdjustmentSchema = z.object({
+  productId: z.string(),
+  qty: z.number().int().positive(),
+  unitCost: z.number().nonnegative(),
+  reason: z.string().min(1),
+  date: z.string(),
 });
 
 const settingsSchema = z.object({
@@ -503,7 +513,8 @@ apiRouter.post('/losses', async (req, res) => {
     const prod = dbProducts.find(p => p.sku === req.body.productId || p.id === req.body.productId);
     const resolvedProductId = prod ? prod.id : req.body.productId;
 
-    const result = await recordLoss(resolvedProductId, req.body.qty, req.body.reason);
+    const occurredAt = parsed.data.date ? new Date(`${parsed.data.date}T00:00:00.000Z`) : undefined;
+    const result = await recordLoss(resolvedProductId, parsed.data.qty, parsed.data.reason, occurredAt);
     res.json(result);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
@@ -557,6 +568,94 @@ apiRouter.put('/settings', async (req, res) => {
 apiRouter.get('/treasury/transactions', async (req, res) => {
   const transactions = await prisma.treasuryTransaction.findMany();
   res.json(transactions.map(mapTreasuryTransaction));
+});
+
+apiRouter.put('/losses/:id', async (req, res) => {
+  const parsed = lossSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const product = await prisma.product.findFirst({
+      where: { OR: [{ sku: parsed.data.productId }, { id: parsed.data.productId }] }
+    });
+    const resolvedProductId = product?.id || parsed.data.productId;
+    const occurredAt = parsed.data.date ? new Date(`${parsed.data.date}T00:00:00.000Z`) : undefined;
+    const result = await replaceLoss(req.params.id, resolvedProductId, parsed.data.qty, parsed.data.reason, occurredAt);
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+apiRouter.delete('/losses/:id', async (req, res) => {
+  try {
+    await deleteLoss(req.params.id);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// --- Inventory surplus adjustments ---
+apiRouter.get('/inventory-adjustments', async (_req, res) => {
+  const adjustments = await prisma.inventoryAdjustment.findMany({
+    include: { product: true },
+    orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }]
+  });
+  res.json(adjustments.map(adjustment => ({
+    ...adjustment,
+    unitCost: Number(adjustment.unitCost),
+    date: adjustment.occurredAt,
+    name: adjustment.product.name,
+    sku: adjustment.product.sku,
+    type: 'SURPLUS'
+  })));
+});
+
+apiRouter.post('/inventory-adjustments', async (req, res) => {
+  const parsed = inventoryAdjustmentSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const product = await prisma.product.findFirst({
+      where: { OR: [{ sku: parsed.data.productId }, { id: parsed.data.productId }] }
+    });
+    if (!product) throw new Error('Không tìm thấy sản phẩm.');
+    const adjustment = await createSurplusAdjustment({
+      ...parsed.data,
+      productId: product.id,
+      occurredAt: new Date(`${parsed.data.date}T00:00:00.000Z`)
+    });
+    res.json({ ...adjustment, unitCost: Number(adjustment.unitCost), name: product.name, sku: product.sku, date: adjustment.occurredAt, type: 'SURPLUS' });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+apiRouter.put('/inventory-adjustments/:id', async (req, res) => {
+  const parsed = inventoryAdjustmentSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const product = await prisma.product.findFirst({
+      where: { OR: [{ sku: parsed.data.productId }, { id: parsed.data.productId }] }
+    });
+    if (!product) throw new Error('Không tìm thấy sản phẩm.');
+    const adjustment = await replaceSurplusAdjustment(req.params.id, {
+      ...parsed.data,
+      productId: product.id,
+      occurredAt: new Date(`${parsed.data.date}T00:00:00.000Z`)
+    });
+    res.json({ ...adjustment, unitCost: Number(adjustment.unitCost), name: product.name, sku: product.sku, date: adjustment.occurredAt, type: 'SURPLUS' });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+apiRouter.delete('/inventory-adjustments/:id', async (req, res) => {
+  try {
+    await deleteSurplusAdjustment(req.params.id);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 apiRouter.post('/product-images', async (req, res) => {

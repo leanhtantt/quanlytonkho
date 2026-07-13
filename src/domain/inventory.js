@@ -28,7 +28,7 @@ export function calculateSuggestedPrice(cost) {
   return Math.round(((cost + 3000) * 2.2) / 0.745);
 }
 
-export function buildDerivedStore({ products, purchases, orders, losses }) {
+export function buildDerivedStore({ products, purchases, orders, losses, inventoryAdjustments = [] }) {
   const inv = {};
 
   products.forEach(p => {
@@ -41,6 +41,7 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
       totalImported: 0,
       totalSold: 0,
       totalLost: 0,
+      totalAdjusted: 0,
       stock: 0,
       batches: []
     };
@@ -58,6 +59,7 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
           totalImported: 0,
           totalSold: 0,
           totalLost: 0,
+          totalAdjusted: 0,
           stock: 0,
           batches: []
         };
@@ -88,7 +90,8 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
 
   const timelineEvents = [
     ...orders.map((order) => ({ type: 'order', date: order.date, id: order.id, data: order })),
-    ...losses.map((loss) => ({ type: 'loss', date: loss.date, id: loss.id, data: loss }))
+    ...losses.map((loss) => ({ type: 'loss', date: loss.date, id: loss.id, data: loss })),
+    ...inventoryAdjustments.map((adjustment) => ({ type: 'adjustment', date: adjustment.date, id: adjustment.id, data: adjustment }))
   ];
 
   timelineEvents.sort((a, b) => {
@@ -98,6 +101,7 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
 
   const enrichedOrders = [];
   const enrichedLosses = [];
+  const enrichedAdjustments = [];
 
   const deductFifo = (productId, qtyToDeduct) => {
     const inventoryItem = inv[productId];
@@ -131,6 +135,28 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
   };
 
   timelineEvents.forEach((event) => {
+    if (event.type === 'adjustment') {
+      const adjustment = event.data;
+      const inventoryItem = inv[adjustment.productId];
+      if (inventoryItem) {
+        inventoryItem.totalAdjusted += adjustment.qty;
+        inventoryItem.stock += adjustment.qty;
+        inventoryItem.batches.push({
+          purchaseId: `ADJUSTMENT-${adjustment.id}`,
+          date: adjustment.date,
+          qtyOriginal: adjustment.qty,
+          qtyRemaining: adjustment.qty,
+          costVnd: Number(adjustment.unitCost) || 0
+        });
+        inventoryItem.batches.sort((a, b) => {
+          if (a.date !== b.date) return new Date(a.date) - new Date(b.date);
+          return String(a.purchaseId).localeCompare(String(b.purchaseId));
+        });
+      }
+      enrichedAdjustments.push({ ...adjustment, totalValue: adjustment.qty * (Number(adjustment.unitCost) || 0) });
+      return;
+    }
+
     if (event.type === 'order') {
       const order = event.data;
       let orderTotalCost = 0;
@@ -175,6 +201,7 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
   return {
     inventory: Object.values(inv),
     enrichedOrders,
-    enrichedLosses
+    enrichedLosses,
+    enrichedAdjustments
   };
 }

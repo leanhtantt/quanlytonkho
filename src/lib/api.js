@@ -53,6 +53,12 @@ export const api = {
   
   getLosses: () => authFetch('/api/losses'),
   createLoss: (data) => authFetch('/api/losses', { method: 'POST', body: JSON.stringify(data) }),
+  updateLoss: (id, data) => authFetch(`/api/losses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteLoss: (id) => authFetch(`/api/losses/${id}`, { method: 'DELETE' }),
+  getInventoryAdjustments: () => authFetch('/api/inventory-adjustments'),
+  createInventoryAdjustment: (data) => authFetch('/api/inventory-adjustments', { method: 'POST', body: JSON.stringify(data) }),
+  updateInventoryAdjustment: (id, data) => authFetch(`/api/inventory-adjustments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteInventoryAdjustment: (id) => authFetch(`/api/inventory-adjustments/${id}`, { method: 'DELETE' }),
   
   getInventory: () => authFetch('/api/inventory'),
   

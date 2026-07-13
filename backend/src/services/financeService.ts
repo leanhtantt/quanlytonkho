@@ -1,35 +1,73 @@
 import { prisma } from '../prismaClient';
 import { deductStockFIFO } from './inventoryService';
 
-export async function recordLoss(productId: string, qty: number, reason: string) {
-  return await prisma.$transaction(async (tx) => {
-    // 1. Record the Loss entry
+async function writeLossEffects(tx: any, lossId: string, productId: string, qty: number) {
+  const fifoResult = await deductStockFIFO(productId, qty, 'LOSS', lossId, tx);
+
+  await tx.ledgerEntry.create({
+    data: {
+      account: 'INVENTORY_LOSS',
+      direction: 'DEBIT',
+      amount: fifoResult.totalCogs,
+      referenceType: 'LOSS',
+      referenceId: lossId
+    }
+  });
+
+  return fifoResult;
+}
+
+async function reverseLossEffects(tx: any, lossId: string) {
+  const outTransactions = await tx.stockTransaction.findMany({
+    where: { referenceType: 'LOSS', referenceId: lossId, type: 'OUT' }
+  });
+
+  for (const transaction of outTransactions) {
+    await tx.inventoryBatch.update({
+      where: { id: transaction.batchId },
+      data: { qtyRemaining: { increment: -transaction.qty } }
+    });
+  }
+
+  await tx.stockTransaction.deleteMany({ where: { referenceType: 'LOSS', referenceId: lossId } });
+  await tx.ledgerEntry.deleteMany({ where: { referenceType: 'LOSS', referenceId: lossId } });
+}
+
+export async function recordLoss(productId: string, qty: number, reason: string, occurredAt?: Date) {
+  return prisma.$transaction(async (tx) => {
     const loss = await tx.loss.create({
-      data: {
-        productId,
-        qty,
-        reason
-      }
+      data: { productId, qty, reason, ...(occurredAt ? { occurredAt } : {}) }
     });
 
-    // 2. Deduct from Inventory using FIFO
-    const fifoResult = await deductStockFIFO(productId, qty, 'LOSS', loss.id, tx);
+    const fifoResult = await writeLossEffects(tx, loss.id, productId, qty);
 
-    // 3. Record in Ledger as expense
-    await tx.ledgerEntry.create({
-      data: {
-        account: 'INVENTORY_LOSS',
-        direction: 'DEBIT',
-        amount: fifoResult.totalCogs,
-        referenceType: 'LOSS',
-        referenceId: loss.id
-      }
+    return { loss, deductions: fifoResult.deductions, totalLossValue: fifoResult.totalCogs };
+  });
+}
+
+export async function replaceLoss(lossId: string, productId: string, qty: number, reason: string, occurredAt?: Date) {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.loss.findUnique({ where: { id: lossId } });
+    if (!existing) throw new Error('Không tìm thấy phiếu hao hụt.');
+
+    await reverseLossEffects(tx, lossId);
+    const loss = await tx.loss.update({
+      where: { id: lossId },
+      data: { productId, qty, reason, ...(occurredAt ? { occurredAt } : {}) }
     });
 
-    return {
-      loss,
-      deductions: fifoResult.deductions,
-      totalLossValue: fifoResult.totalCogs
-    };
+    const fifoResult = await writeLossEffects(tx, loss.id, productId, qty);
+
+    return { loss, deductions: fifoResult.deductions, totalLossValue: fifoResult.totalCogs };
+  });
+}
+
+export async function deleteLoss(lossId: string) {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.loss.findUnique({ where: { id: lossId } });
+    if (!existing) throw new Error('Không tìm thấy phiếu hao hụt.');
+
+    await reverseLossEffects(tx, lossId);
+    await tx.loss.delete({ where: { id: lossId } });
   });
 }

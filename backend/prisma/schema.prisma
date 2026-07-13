@@ -20,6 +20,7 @@ model Product {
   stockTransactions  StockTransaction[]
   orderItems         OrderItem[]
   losses             Loss[]
+  inventoryAdjustments InventoryAdjustment[]
 }
 
 model PurchaseOrder {
@@ -64,6 +65,7 @@ model InventoryBatch {
   product            Product             @relation(fields: [productId], references: [id])
   purchaseItem       PurchaseItem?       @relation(fields: [purchaseItemId], references: [id])
   stockTransactions  StockTransaction[]
+  inventoryAdjustment InventoryAdjustment?
 }
 
 model StockTransaction {
@@ -179,4 +181,16 @@ model MonthlyAdExpense {
   note        String?
   treasuryTransactionId String? @unique
   createdAt   DateTime @default(now())
+}
+
+model InventoryAdjustment {
+  id                 String              @id @default(uuid())
+  productId          String
+  batchId            String              @unique
+  qty                Int
+  unitCost           Decimal             @db.Decimal(15, 2)
+  reason             String
+  occurredAt         DateTime            @default(now())
+  product            Product             @relation(fields: [productId], references: [id])
+  batch              InventoryBatch      @relation(fields: [batchId], references: [id])
 }

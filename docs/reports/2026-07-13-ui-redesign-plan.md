@@ -1,7 +1,7 @@
 # Plan: Refactor toàn bộ giao diện (UI Redesign — Premium Light)
 
 Ngày: 2026-07-13
-Trạng thái: **Chờ duyệt** — chưa triển khai code.
+Trạng thái: **Đã duyệt 2026-07-13** (các quyết định chốt ở mục 12) — chưa triển khai code, chờ giao việc theo phase.
 
 Plan này gồm 2 phần: (A) bộ quy tắc design system mới — sau khi duyệt sẽ trở thành `docs/ui_rules.md` v2; (B) kế hoạch triển khai theo phase.
 
@@ -69,42 +69,45 @@ Quy tắc bắt buộc:
 
 ## 4. Màu sắc
 
-Giữ light mode + giữ nhận diện primary teal (đang là màu thương hiệu của app), tinh chỉnh neutrals ấm hơn và bổ sung token còn thiếu:
+Light mode. **Đổi tông primary từ teal sang indigo** (đã chốt 2026-07-13: đổi tông cho hiện đại/pro) — indigo là tông đặc trưng của SaaS premium hiện đại (Linear, Stripe dashboard...), lạnh, gọn, chuyên nghiệp. Neutrals kéo theo hơi lạnh (ngả xanh) cho đồng bộ:
 
 ```css
-/* Neutrals — nền & chữ (tinh chỉnh ấm hơn, sạch hơn) */
---color-bg-base:      #f7f8fa;  /* nền app */
+/* Neutrals — nền & chữ (tông lạnh nhẹ, đồng bộ với indigo) */
+--color-bg-base:      #f6f7fb;  /* nền app */
 --color-bg-surface:   #ffffff;  /* card, form, bảng */
---color-bg-subtle:    #f1f3f6;  /* header bảng, vùng phụ */
---color-bg-hover:     #eaeef2;
---color-bg-selected:  #e6f4f1;
+--color-bg-subtle:    #f0f2f8;  /* header bảng, vùng phụ */
+--color-bg-hover:     #e9ecf5;
+--color-bg-selected:  #eef2ff;  /* = primary-light */
 
---color-text-base:    #1a2129;  /* chữ chính */
---color-text-muted:   #5b6875;  /* chữ phụ, label */
---color-text-soft:    #8a95a1;  /* placeholder, caption */
+--color-text-base:    #191d27;  /* chữ chính */
+--color-text-muted:   #5a6172;  /* chữ phụ, label */
+--color-text-soft:    #8b91a3;  /* placeholder, caption */
 
-/* Primary — teal, giữ nhận diện */
---color-primary:        #0f766e;
---color-primary-hover:  #0d635c;
---color-primary-active: #0b524c;
---color-primary-light:  #e6f4f1;
+/* Primary — indigo (MỚI, thay teal #0f766e) */
+--color-primary:        #4f46e5;  /* trên nền trắng ~6.3:1, đạt AA */
+--color-primary-hover:  #4338ca;
+--color-primary-active: #3730a3;
+--color-primary-light:  #eef2ff;
 --color-on-primary:     #ffffff;
+--color-focus:          #4f46e5;
 
 /* Trạng thái (giữ, đủ tương phản AA trên nền -light tương ứng) */
 success #047857 / warning #a16207 / danger #b42318 / info #1d4ed8 (+ biến -light như cũ)
 
 /* Elevation 3 mức */
---shadow-sm: 0 1px 2px rgba(16,24,32,.05);                          /* card tĩnh */
---shadow-md: 0 4px 12px rgba(16,24,32,.08);                         /* hover, dropdown */
---shadow-lg: 0 12px 32px rgba(16,24,32,.14);                        /* modal, toast */
+--shadow-sm: 0 1px 2px rgba(20,24,40,.05);                          /* card tĩnh */
+--shadow-md: 0 4px 12px rgba(20,24,40,.08);                         /* hover, dropdown */
+--shadow-lg: 0 12px 32px rgba(20,24,40,.14);                        /* modal, toast */
 
 /* Radius */
 --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px; --radius-full: 9999px;
 
 /* Chart palette (recharts) — 6 màu cố định, dùng theo thứ tự */
---chart-1: #0f766e; --chart-2: #1d4ed8; --chart-3: #a16207;
---chart-4: #b42318; --chart-5: #7c3aed; --chart-6: #64748b;
+--chart-1: #4f46e5; --chart-2: #0f766e; --chart-3: #a16207;
+--chart-4: #b42318; --chart-5: #0ea5e9; --chart-6: #64748b;
 ```
+
+Lưu ý migration màu: teal cũ (`#0f766e`) không còn là primary nhưng được giữ làm `--chart-2`; mọi chỗ đang trỏ token primary sẽ tự đổi theo, còn chỗ nào hard-code teal thì bị dọn sạch ở Phase U3 (nằm trong 328 inline style).
 
 Quy tắc dùng màu:
 1. **Cấm hard-code màu trong JSX/component** — chỉ dùng token. (Đây là quy tắc đã có nhưng bị vi phạm 328 lần; đợt refactor này dọn sạch và lint giữ cửa về sau.)
@@ -153,7 +156,7 @@ Quy tắc bổ sung:
 - **Xóa `alert()`/`window.confirm()` toàn bộ (18 chỗ)**. Thay bằng: toast (thông báo) và `<ConfirmDialog>` (xác nhận).
 - **ConfirmDialog** bắt buộc cho mọi hành động phá hủy: nêu đích danh đối tượng ("Xóa đơn *DH-102*? Tồn kho sẽ được hoàn lại."), nút xác nhận variant `danger`, nút Hủy là secondary và được focus mặc định.
 - Toast: góc phải-dưới, success tự tắt 3s, error tự tắt 6s + có nút đóng, tối đa 3 toast xếp chồng.
-- Thư viện toast: dùng **[sonner](https://sonner.emilkowal.ski/)** (nhẹ, MIT, chuẩn React, đỡ tự code queue/animation). Nếu muốn zero-dependency thì tự viết ToastContext (~120 dòng) — quyết khi giao việc, plan khuyến nghị sonner.
+- Thư viện toast: **đã chốt dùng [sonner](https://sonner.emilkowal.ski/)** (nhẹ ~5KB, MIT, chuẩn React) — queue, stacking, pause-on-hover, animation có sẵn; tự viết đủ mức đó tốn công không đáng.
 - Mọi mutation trong `StoreContext` hiện đang nuốt lỗi bằng `console.error`/`alert` không đồng nhất → chuẩn hóa: mutation **throw** để component xử lý loading/toast, không nuốt lỗi trong store.
 
 ## 6. Icons
@@ -219,8 +222,8 @@ Gợi ý đợt giao việc: U0+U1 một đợt → U2 một đợt → U3 chia 
 - `sonner` và `@fontsource-variable/plus-jakarta-sans` cần verify tương thích React 19 + Vite 8 lúc cài (rủi ro thấp).
 - Không gộp refactor UI với thay đổi nghiệp vụ trong cùng 1 commit/đợt — diff sẽ không review nổi.
 
-## 12. Câu hỏi mở (anh quyết khi duyệt)
+## 12. Quyết định đã chốt (duyệt ngày 2026-07-13)
 
-1. Màu primary: **giữ teal `#0f766e`** (plan khuyến nghị — là nhận diện hiện tại, đạt AA) hay muốn đổi hẳn sang tông khác (xanh dương/indigo kiểu SaaS)?
-2. Toast: dùng thư viện `sonner` (khuyến nghị) hay tự viết để zero-dependency?
-3. Font: chốt Plus Jakarta Sans luôn, hay muốn tôi dựng 1 trang demo so sánh Plus Jakarta Sans vs Be Vietnam Pro với nội dung tiếng Việt thật của app trước khi quyết?
+1. **Đổi tông primary: teal → indigo `#4f46e5`** (hiện đại/pro kiểu SaaS premium) — palette đầy đủ ở mục 4; teal cũ giữ lại làm màu biểu đồ `--chart-2`.
+2. **Toast dùng thư viện `sonner`** — không tự viết.
+3. **Font chốt: Plus Jakarta Sans** (self-host qua `@fontsource-variable/plus-jakarta-sans`), không cần demo so sánh.

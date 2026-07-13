@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 :root {
   color-scheme: light;
 
@@ -36,7 +34,7 @@
   --color-border-strong: #aab4bf;
   --color-focus: #0f766e;
 
-  --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family: 'Plus Jakarta Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;

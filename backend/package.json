@@ -13,7 +13,7 @@
     "db:backup:dump": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/backup-dump.ps1",
     "db:backup:verify": "tsx scripts/verifyBackup.ts",
     "db:restore": "tsx scripts/restore.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -38,6 +38,7 @@
     "prisma": "^7.8.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }

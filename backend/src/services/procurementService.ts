@@ -1,4 +1,5 @@
 import { prisma } from '../prismaClient';
+import { allocatePurchaseItemCosts } from './procurementMath';
 
 interface PurchaseInput {
   code: string;
@@ -23,9 +24,13 @@ interface PurchaseInput {
 
 // Core logic that runs inside a transaction. `tx` is the Prisma transaction client.
 async function createPurchaseOrderTx(tx: any, input: PurchaseInput) {
-  // 1. Calculate totals for allocation
-  const totalOrderCost = input.items.reduce((sum, item) => sum + item.totalCost, 0);
-  const totalOrderWeight = input.items.reduce((sum, item) => sum + item.totalWeight, 0);
+  const allocations = allocatePurchaseItemCosts(input.items, {
+    totalDiscount: input.totalDiscount,
+    totalCompensation: input.totalCompensation,
+    purchaseFee: input.purchaseFee,
+    domesticShippingFee: input.domesticShippingFee,
+    internationalShippingFee: input.internationalShippingFee,
+  });
 
   // 2. Create the Purchase Order
   const po = await tx.purchaseOrder.create({
@@ -43,7 +48,7 @@ async function createPurchaseOrderTx(tx: any, input: PurchaseInput) {
   });
 
   // 3. Process items and allocate costs
-  for (const item of input.items) {
+  for (const [index, item] of input.items.entries()) {
     let productId = item.productId;
     if (!productId) {
       const product = await tx.product.upsert({
@@ -54,25 +59,7 @@ async function createPurchaseOrderTx(tx: any, input: PurchaseInput) {
       productId = product.id;
     }
 
-    // Calculate allocation ratios
-    const costRatio = totalOrderCost > 0 ? item.totalCost / totalOrderCost : 0;
-    const weightRatio = totalOrderWeight > 0 ? item.totalWeight / totalOrderWeight : 0;
-
-    const allocatedDiscount = input.totalDiscount * costRatio;
-    const allocatedCompensation = input.totalCompensation * costRatio;
-    const allocatedPurchaseFee = input.purchaseFee * costRatio;
-
-    const allocatedDomesticShipping = input.domesticShippingFee * (weightRatio > 0 ? weightRatio : costRatio);
-    const allocatedInternationalShipping = input.internationalShippingFee * (weightRatio > 0 ? weightRatio : costRatio);
-
-    const finalTotalCost = item.totalCost
-      - allocatedDiscount
-      - allocatedCompensation
-      + allocatedPurchaseFee
-      + allocatedDomesticShipping
-      + allocatedInternationalShipping;
-
-    const unitCost = Math.round(finalTotalCost / item.qty);
+    const unitCost = allocations[index].unitCost;
 
     // 4. Create Purchase Item
     const pItem = await tx.purchaseItem.create({

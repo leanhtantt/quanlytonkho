@@ -27,6 +27,8 @@ jobs:
         run: npm run build
       - name: Lint
         run: npm run lint
+      - name: Test
+        run: npm test
 
   backend:
     name: Backend typecheck
@@ -49,3 +51,5 @@ jobs:
         run: npx prisma generate
       - name: Typecheck
         run: npm run typecheck
+      - name: Test
+        run: npm test

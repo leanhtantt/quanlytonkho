@@ -18,4 +18,10 @@ SET "skuAtOrder" = p."sku"
 FROM "Product" AS p
 WHERE p."id" = oi."productId";
 
+-- Fallback: dòng đơn cũ trỏ tới sản phẩm không còn tồn tại sẽ để trống sau bước trên.
+-- Lấp bằng chính productId để bước SET NOT NULL không bao giờ gãy khi deploy.
+UPDATE "OrderItem"
+SET "skuAtOrder" = "productId"
+WHERE "skuAtOrder" IS NULL;
+
 ALTER TABLE "OrderItem" ALTER COLUMN "skuAtOrder" SET NOT NULL;

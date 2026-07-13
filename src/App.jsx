@@ -14,6 +14,7 @@ import { Wallet, Settings as SettingsIcon, LogOut } from 'lucide-react';
 import { useAppStore } from './store/appStoreContext';
 
 import HealthStatus from './components/HealthStatus';
+import AppToaster from './components/ui/Toast';
 
 function Sidebar() {
   const location = useLocation();
@@ -74,14 +75,18 @@ function App() {
   
   if (loading) {
     return (
+      <>
+        <AppToaster />
       <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
         <p>Đang tải dữ liệu...</p>
       </div>
+      </>
     );
   }
 
   return (
     <Router>
+      <AppToaster />
       <div className="app-container">
         <Sidebar />
         <div className="main-content">

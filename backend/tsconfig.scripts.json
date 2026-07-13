@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": [
+    "src/**/*",
+    "scripts/backup.ts",
+    "scripts/backupFormat.ts",
+    "scripts/restore.ts",
+    "scripts/verifyBackup.ts",
+    "scripts/wipe.ts"
+  ],
+  "exclude": ["node_modules"]
+}

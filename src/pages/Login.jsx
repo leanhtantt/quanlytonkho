@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
-import { Package } from 'lucide-react';
+import { IconPackage as Package } from '@tabler/icons-react';
 
 export default function Login() {
   const { login, register } = useAuth();

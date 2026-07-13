@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp } from 'lucide-react';
+import { IconTrendingUp as TrendingUp } from '@tabler/icons-react';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);

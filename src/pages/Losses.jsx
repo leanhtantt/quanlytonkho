@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Pencil, Plus, Save, Trash2, X } from 'lucide-react';
+import { IconPencil as Pencil, IconPlus as Plus, IconDeviceFloppy as Save, IconTrash as Trash2, IconX as X } from '@tabler/icons-react';
 import ProductImage from '../components/ProductImage';
 import { buildInventoryAdjustmentDisplayCodes } from '../domain/inventoryAdjustmentCodes';
 import { findProductByCode, productMatchesSearch } from '../domain/productSku';

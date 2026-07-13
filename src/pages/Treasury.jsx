@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { calculateAdAdvanceSummary, calculateMarketplaceWalletSummary, calculateProfitAnalytics } from '../domain/profitAnalytics';
-import { Edit, Wallet, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, Trash2, Filter } from 'lucide-react';
+import { IconEdit as Edit, IconWallet as Wallet, IconArrowUpRight as ArrowUpRight, IconArrowDownRight as ArrowDownRight, IconArrowsExchange as ArrowRightLeft, IconPlus as Plus, IconTrash as Trash2, IconFilter as Filter } from '@tabler/icons-react';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);

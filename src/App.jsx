@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, Truck, ShieldAlert, TrendingUp } from 'lucide-react';
+import { IconLayoutDashboard as LayoutDashboard, IconPackage as Package, IconShoppingCart as ShoppingCart, IconTruck as Truck, IconShieldExclamation as ShieldAlert, IconTrendingUp as TrendingUp } from '@tabler/icons-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
@@ -10,7 +10,7 @@ import Treasury from './pages/Treasury';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import { useAuth } from './lib/AuthContext';
-import { Wallet, Settings as SettingsIcon, LogOut } from 'lucide-react';
+import { IconWallet as Wallet, IconSettings as SettingsIcon, IconLogout as LogOut } from '@tabler/icons-react';
 import { useAppStore } from './store/appStoreContext';
 
 import HealthStatus from './components/HealthStatus';

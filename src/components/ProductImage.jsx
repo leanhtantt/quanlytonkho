@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getImage } from '../domain/imageDb';
 import { isRemoteImage } from '../domain/imageStorage';
-import { Image as ImageIcon } from 'lucide-react';
+import { IconPhoto as ImageIcon } from '@tabler/icons-react';
 
 export default function ProductImage({ imageId, alt, size = 40, style = {} }) {
   const [src, setSrc] = useState(null);

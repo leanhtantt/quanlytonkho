@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Package, ShoppingCart, DollarSign, AlertCircle, CalendarDays } from 'lucide-react';
+import { IconPackage as Package, IconShoppingCart as ShoppingCart, IconCurrencyDollar as DollarSign, IconAlertCircle as AlertCircle, IconCalendar as CalendarDays } from '@tabler/icons-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAppStore } from '../store/appStoreContext';
 import { calculateProfitAnalytics } from '../domain/profitAnalytics';

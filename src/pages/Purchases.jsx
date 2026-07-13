@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { Plus, Save, X } from 'lucide-react';
+import { findProductByCode, productMatchesSearch } from '../domain/productSku';
 
 export default function Purchases() {
-  const { purchases, addPurchase, updatePurchase, deletePurchase, addProduct, products } = useAppStore();
+  const { purchases, addPurchase, updatePurchase, deletePurchase, products } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [expandedPurchaseId, setExpandedPurchaseId] = useState(null);
   const [editingPurchaseId, setEditingPurchaseId] = useState(null);
@@ -35,7 +36,6 @@ export default function Purchases() {
       totalWeightKg: Number(newItem.totalWeightKg)
     }]);
     
-    addProduct({ id: newItem.id.toUpperCase(), name: newItem.name });
     setNewItem({ id: '', name: '', qty: 1, totalVndPrice: 0, totalWeightKg: 0 });
   };
 
@@ -132,7 +132,8 @@ export default function Purchases() {
     if (!normalizedProductSearch) return true;
 
     return purchase.items.some(item => {
-      const product = products.find(productItem => productItem.id === item.productId || productItem.sku === item.productId);
+      const product = findProductByCode(products, item.productId);
+      if (product && productMatchesSearch(product, normalizedProductSearch)) return true;
       const sku = String(product?.sku || item.sku || item.productId || '').toLocaleLowerCase('vi');
       const name = String(product?.name || item.name || '').toLocaleLowerCase('vi');
       return sku.includes(normalizedProductSearch) || name.includes(normalizedProductSearch);
@@ -162,7 +163,7 @@ export default function Purchases() {
     
     // Reconstruct items with total values since store saves unit values
     setItems(p.items.map(item => {
-      const prod = products.find(prod => prod.id === item.productId || prod.sku === item.productId);
+      const prod = findProductByCode(products, item.productId);
       return {
         id: prod?.sku || item.sku || item.productId || '',
         name: prod?.name || item.name || 'Sản phẩm không xác định',
@@ -255,7 +256,7 @@ export default function Purchases() {
                   value={newItem.id} 
                   onChange={e => {
                     const newId = e.target.value.toUpperCase();
-                    const existingProd = products.find(p => (p.sku || '').toUpperCase() === newId || p.id.toUpperCase() === newId);
+                    const existingProd = findProductByCode(products, newId);
                     setNewItem({...newItem, id: newId, name: existingProd ? existingProd.name : newItem.name});
                   }} 
                   style={inputStyle} 

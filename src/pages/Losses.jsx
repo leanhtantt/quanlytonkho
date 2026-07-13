@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import ProductImage from '../components/ProductImage';
+import { buildInventoryAdjustmentDisplayCodes } from '../domain/inventoryAdjustmentCodes';
+import { findProductByCode, productMatchesSearch } from '../domain/productSku';
 
 export default function Losses() {
   const { inventory, losses, addLoss, updateLoss, deleteLoss } = useAppStore();
@@ -27,10 +29,25 @@ export default function Losses() {
   const [unitCost, setUnitCost] = useState(0);
   const [editingAdjustmentId, setEditingAdjustmentId] = useState(null);
   const [deletingAdjustmentId, setDeletingAdjustmentId] = useState(null);
+  const [statsSearch, setStatsSearch] = useState('');
+
+  const getLatestUnitCost = (product) => {
+    const latestBatch = [...(product?.batches || [])]
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .at(-1);
+    return Number(latestBatch?.costVnd) || 0;
+  };
+
+  const getValidUnitCost = (item) => {
+    const itemUnitCost = Number(item?.unitCost);
+    return Number.isFinite(itemUnitCost) && itemUnitCost >= 0
+      ? itemUnitCost
+      : getLatestUnitCost(item?.product);
+  };
 
   const handleAddItem = () => {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase('vi');
-    const product = inventory.find(p => {
+    const product = findProductByCode(inventory, searchQuery) || inventory.find(p => {
       const sku = String(p.sku || '').trim().toLocaleLowerCase('vi');
       const name = String(p.name || '').trim().toLocaleLowerCase('vi');
       return sku === normalizedQuery
@@ -41,15 +58,21 @@ export default function Losses() {
       alert('Vui lòng chọn đúng SKU hoặc tên sản phẩm và nhập số lượng > 0');
       return;
     }
-    setItems(prev => editingLossId || adjustmentType === 'SURPLUS'
-      ? [{ product, qty: Number(qty) }]
-      : [...prev, { product, qty: Number(qty) }]);
+    let resolvedUnitCost = Number(unitCost) || 0;
     if (adjustmentType === 'SURPLUS') {
-      const latestBatch = [...product.batches].sort((a, b) => new Date(a.date) - new Date(b.date)).at(-1);
-      setUnitCost(Number(latestBatch?.costVnd) || 0);
+      resolvedUnitCost ||= getLatestUnitCost(product);
     }
+    const nextItem = {
+      product,
+      qty: Number(qty),
+      ...(adjustmentType === 'SURPLUS' ? { unitCost: resolvedUnitCost } : {})
+    };
+    setItems(prev => editingLossId || editingAdjustmentId
+      ? [nextItem]
+      : [...prev, nextItem]);
     setSearchQuery('');
     setQty(1);
+    if (adjustmentType === 'SURPLUS') setUnitCost(0);
   };
 
   const handleRemoveItem = (index) => {
@@ -63,22 +86,25 @@ export default function Losses() {
     try {
       if (editingAdjustmentId) {
         const item = items[0];
+        const resolvedUnitCost = getValidUnitCost(item);
         await updateInventoryAdjustment(editingAdjustmentId, {
           date,
           productId: item.product.id,
           qty: item.qty,
-          unitCost: Number(unitCost),
+          unitCost: resolvedUnitCost,
           reason
         });
       } else if (adjustmentType === 'SURPLUS') {
-        const item = items[0];
-        await addInventoryAdjustment({
-          date,
-          productId: item.product.id,
-          qty: item.qty,
-          unitCost: Number(unitCost),
-          reason
-        });
+        for (const item of items) {
+          const resolvedUnitCost = getValidUnitCost(item);
+          await addInventoryAdjustment({
+            date,
+            productId: item.product.id,
+            qty: item.qty,
+            unitCost: resolvedUnitCost,
+            reason
+          });
+        }
       } else if (editingLossId) {
         const item = items[0];
         await updateLoss(editingLossId, {
@@ -104,8 +130,8 @@ export default function Losses() {
 
       resetForm();
     } catch (error) {
-      console.error('Lưu phiếu hao hụt thất bại', error);
-      alert(`Không lưu được phiếu hao hụt: ${error.message}`);
+      console.error('Lưu phiếu điều chỉnh kho thất bại', error);
+      alert(`Không lưu được phiếu điều chỉnh kho: ${error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -175,7 +201,7 @@ export default function Losses() {
     setDate(String(adjustment.date || '').slice(0, 10));
     setReason(adjustment.reason || 'Kiểm kê dư');
     setUnitCost(Number(adjustment.unitCost) || 0);
-    setItems([{ product, qty: Number(adjustment.qty) }]);
+    setItems([{ product, qty: Number(adjustment.qty), unitCost: Number(adjustment.unitCost) || 0 }]);
     setQty(Number(adjustment.qty));
     setShowForm(true);
   };
@@ -212,11 +238,65 @@ export default function Losses() {
     ]));
   }, [losses]);
 
-  const adjustmentDisplayCodes = useMemo(() => new Map(
-    [...inventoryAdjustments]
-      .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || String(a.id).localeCompare(String(b.id)))
-      .map((adjustment, index) => [adjustment.id, `KKD${String(index + 1).padStart(4, '0')}`])
-  ), [inventoryAdjustments]);
+  const adjustmentDisplayCodes = useMemo(
+    () => buildInventoryAdjustmentDisplayCodes(inventoryAdjustments),
+    [inventoryAdjustments]
+  );
+
+  const adjustmentStats = useMemo(() => {
+    const statsByProduct = new Map();
+    const getStats = (record) => {
+      const product = inventory.find(item => item.id === record.productId);
+      const current = statsByProduct.get(record.productId) || {
+        productId: record.productId,
+        sku: record.sku || product?.sku || record.productId,
+        name: record.name || product?.name || 'Sản phẩm không xác định',
+        increaseQty: 0,
+        decreaseQty: 0,
+        increaseValue: 0,
+        decreaseValue: 0
+      };
+      statsByProduct.set(record.productId, current);
+      return current;
+    };
+
+    losses.forEach(loss => {
+      const stats = getStats(loss);
+      stats.decreaseQty += Number(loss.qty) || 0;
+      stats.decreaseValue += Number(loss.totalCostDeducted) || 0;
+    });
+
+    inventoryAdjustments.forEach(adjustment => {
+      const stats = getStats(adjustment);
+      stats.increaseQty += Number(adjustment.qty) || 0;
+      stats.increaseValue += Number(adjustment.totalValue) || 0;
+    });
+
+    return [...statsByProduct.values()]
+      .map(stats => ({ ...stats, netQty: stats.increaseQty - stats.decreaseQty }))
+      .sort((a, b) => String(a.sku).localeCompare(String(b.sku), 'vi', { numeric: true, sensitivity: 'base' }));
+  }, [inventory, inventoryAdjustments, losses]);
+
+  const normalizedStatsSearch = statsSearch.trim().toLocaleLowerCase('vi');
+  const filteredAdjustmentStats = useMemo(() => {
+    if (!normalizedStatsSearch) return adjustmentStats;
+    return adjustmentStats.filter(stats =>
+      String(stats.sku).toLocaleLowerCase('vi').includes(normalizedStatsSearch)
+      || String(stats.name).toLocaleLowerCase('vi').includes(normalizedStatsSearch)
+    );
+  }, [adjustmentStats, normalizedStatsSearch]);
+
+  const matchesStatsSearch = (record) => {
+    if (!normalizedStatsSearch) return true;
+    const product = inventory.find(item => item.id === record.productId);
+    if (product && productMatchesSearch(product, normalizedStatsSearch)) return true;
+    const sku = String(record.sku || product?.sku || record.productId || '').toLocaleLowerCase('vi');
+    const name = String(record.name || product?.name || '').toLocaleLowerCase('vi');
+    return sku.includes(normalizedStatsSearch) || name.includes(normalizedStatsSearch);
+  };
+
+  const filteredLosses = losses.filter(matchesStatsSearch);
+  const filteredInventoryAdjustments = inventoryAdjustments.filter(matchesStatsSearch);
 
   const getFifoEstimate = (productId, qtyToDeduct) => {
     const product = inventory.find(p => p.id === productId);
@@ -329,7 +409,21 @@ export default function Losses() {
               {adjustmentType === 'SURPLUS' && (
                 <div style={{ width: '170px' }}>
                   <label style={labelStyle}>Giá vốn điều chỉnh</label>
-                  <input type="number" min="0" step="1000" value={unitCost} onChange={e => setUnitCost(e.target.value)} style={inputStyle} />
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value={unitCost}
+                    onChange={e => {
+                      setUnitCost(e.target.value);
+                      if (editingAdjustmentId) {
+                        setItems(prev => prev.map((item, index) => index === 0
+                          ? { ...item, unitCost: Number(e.target.value) }
+                          : item));
+                      }
+                    }}
+                    style={inputStyle}
+                  />
                 </div>
               )}
               <button className="btn btn-outline" onClick={handleAddItem} style={{ height: '42px' }}>
@@ -346,13 +440,15 @@ export default function Losses() {
                       <th style={{ textAlign: 'left', padding: '0.5rem' }}>Mã SP</th>
                       <th style={{ textAlign: 'left', padding: '0.5rem' }}>Tên SP</th>
                       <th style={{ textAlign: 'center', padding: '0.5rem' }}>Số lượng</th>
+                      {adjustmentType === 'SURPLUS' && <th style={{ textAlign: 'right', padding: '0.5rem' }}>Giá vốn</th>}
                       <th style={{ textAlign: 'right', padding: '0.5rem' }}>{adjustmentType === 'SURPLUS' ? 'Giá trị tăng kho' : 'Ước tính Thiệt hại (FIFO)'}</th>
                       <th style={{ padding: '0.5rem' }}></th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.map((item, index) => {
-                      const estimatedLoss = adjustmentType === 'SURPLUS' ? item.qty * Number(unitCost) : getFifoEstimate(item.product.id, item.qty);
+                      const resolvedUnitCost = adjustmentType === 'SURPLUS' ? getValidUnitCost(item) : 0;
+                      const estimatedLoss = adjustmentType === 'SURPLUS' ? item.qty * resolvedUnitCost : getFifoEstimate(item.product.id, item.qty);
                       return (
                         <tr key={`${item.product.id}-${index}`} style={{ borderBottom: '1px solid var(--color-border)' }}>
                           <td style={{ padding: '0.5rem' }}>
@@ -361,6 +457,9 @@ export default function Losses() {
                           <td style={{ padding: '0.5rem', fontWeight: 500 }}>{item.product.sku || item.product.id}</td>
                           <td style={{ padding: '0.5rem' }}>{item.product.name}</td>
                           <td style={{ padding: '0.5rem', textAlign: 'center' }}>{item.qty}</td>
+                          {adjustmentType === 'SURPLUS' && (
+                            <td style={{ padding: '0.5rem', textAlign: 'right' }}>{resolvedUnitCost.toLocaleString()} đ</td>
+                          )}
                           <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--color-danger)', fontWeight: 500 }}>
                             {estimatedLoss.toLocaleString()} đ
                           </td>
@@ -386,10 +485,78 @@ export default function Losses() {
         </div>
       )}
 
+      <div className="card" style={{ padding: 0, marginBottom: '1.5rem' }}>
+        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--color-border)' }}>
+          <h3 style={{ margin: 0 }}>Thống kê điều chỉnh theo sản phẩm</h3>
+          <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+            Tổng hợp tất cả phiếu tăng/giảm kho đã lập.
+          </p>
+          <div style={{ marginTop: '1rem' }}>
+            <label style={labelStyle}>Tìm theo SKU hoặc tên sản phẩm</label>
+            <input
+              type="search"
+              value={statsSearch}
+              onChange={event => setStatsSearch(event.target.value)}
+              placeholder="Nhập SKU hoặc tên sản phẩm..."
+              style={inputStyle}
+            />
+            {normalizedStatsSearch && (
+              <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                Tìm thấy {filteredAdjustmentStats.length} sản phẩm, {filteredLosses.length} phiếu giảm và {filteredInventoryAdjustments.length} phiếu tăng
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Tên sản phẩm</th>
+                <th style={{ color: 'var(--color-success)' }}>SL tăng</th>
+                <th style={{ color: 'var(--color-danger)' }}>SL giảm</th>
+                <th>Chênh lệch</th>
+                <th style={{ color: 'var(--color-success)' }}>Giá trị tăng</th>
+                <th style={{ color: 'var(--color-danger)' }}>Giá trị giảm</th>
+              </tr>
+            </thead>
+            <tbody>
+              {adjustmentStats.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--color-text-muted)' }}>
+                    Chưa có dữ liệu điều chỉnh kho.
+                  </td>
+                </tr>
+              )}
+              {adjustmentStats.length > 0 && filteredAdjustmentStats.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--color-text-muted)' }}>
+                    Không tìm thấy sản phẩm phù hợp.
+                  </td>
+                </tr>
+              )}
+              {filteredAdjustmentStats.map(stats => (
+                <tr key={stats.productId}>
+                  <td style={{ fontWeight: 600 }}>{stats.sku}</td>
+                  <td>{stats.name}</td>
+                  <td style={{ color: 'var(--color-success)', fontWeight: 600 }}>{stats.increaseQty > 0 ? `+${stats.increaseQty}` : '0'}</td>
+                  <td style={{ color: 'var(--color-danger)', fontWeight: 600 }}>{stats.decreaseQty > 0 ? `-${stats.decreaseQty}` : '0'}</td>
+                  <td style={{ fontWeight: 700, color: stats.netQty > 0 ? 'var(--color-success)' : stats.netQty < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>
+                    {stats.netQty > 0 ? '+' : ''}{stats.netQty}
+                  </td>
+                  <td>{Math.round(stats.increaseValue).toLocaleString()} đ</td>
+                  <td>{Math.round(stats.decreaseValue).toLocaleString()} đ</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Danh sách hao hụt */}
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--color-border)' }}>
-          <h3 style={{ margin: 0 }}>Giảm kho – Hao hụt</h3>
+          <h3 style={{ margin: 0 }}>Giảm kho – Hao hụt{normalizedStatsSearch ? ` (${filteredLosses.length})` : ''}</h3>
         </div>
         <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
           <table>
@@ -412,7 +579,14 @@ export default function Losses() {
                   </td>
                 </tr>
               )}
-              {losses.map(l => (
+              {losses.length > 0 && filteredLosses.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+                    Không tìm thấy phiếu giảm kho phù hợp.
+                  </td>
+                </tr>
+              )}
+              {filteredLosses.map(l => (
                 <tr key={l.id}>
                   <td style={{ fontWeight: 600 }}>{lossDisplayCodes.get(l.id)}</td>
                   <td>{formatDateOnly(l.date)}</td>
@@ -439,7 +613,7 @@ export default function Losses() {
 
       <div className="card" style={{ padding: 0, marginTop: '1.5rem' }}>
         <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--color-border)' }}>
-          <h3 style={{ margin: 0 }}>Tăng kho – Kiểm kê dư</h3>
+          <h3 style={{ margin: 0 }}>Tăng kho – Kiểm kê dư{normalizedStatsSearch ? ` (${filteredInventoryAdjustments.length})` : ''}</h3>
         </div>
         <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
           <table>
@@ -463,7 +637,14 @@ export default function Losses() {
                   </td>
                 </tr>
               )}
-              {inventoryAdjustments.map(adjustment => (
+              {inventoryAdjustments.length > 0 && filteredInventoryAdjustments.length === 0 && (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
+                    Không tìm thấy phiếu tăng kho phù hợp.
+                  </td>
+                </tr>
+              )}
+              {filteredInventoryAdjustments.map(adjustment => (
                 <tr key={adjustment.id}>
                   <td style={{ fontWeight: 600 }}>{adjustmentDisplayCodes.get(adjustment.id)}</td>
                   <td>{formatDateOnly(adjustment.date)}</td>

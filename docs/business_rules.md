@@ -77,6 +77,14 @@ Trang thai xu ly:
 
 Huong toi uu sau nay: luu `return_status`, `returned_qty`, va giao dich nhap lai kho neu hang quay ve.
 
+### Doi ma SKU san pham
+
+- Danh tinh san pham duoc giu bang `productId`; doi SKU khong tao san pham hay ton kho moi.
+- SKU cu duoc luu lam bi danh de file don hang cu van nhan dien dung san pham.
+- Moi dong don hang luu SKU tai thoi diem phat sinh de lich su khong bi doi theo SKU hien tai.
+- Don moi dung SKU hien tai; ton kho, FIFO, so da nhap, da ban va hao hut tiep tuc cong don theo cung `productId`.
+- Neu hang khac mau, kich thuoc hoac quy cach thi tao san pham/SKU moi, khong dung chuc nang doi SKU.
+
 ## 5. Gia ban tham khao
 
 Tai man hinh ton kho, gia ban tham khao duoc tinh theo gia von batch:

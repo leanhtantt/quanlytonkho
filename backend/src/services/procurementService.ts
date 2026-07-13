@@ -6,7 +6,9 @@ interface PurchaseInput {
   receivedAt: Date;
   notes?: string;
   items: {
-    productId: string;
+    productId?: string;
+    sku: string;
+    name: string;
     qty: number;
     totalCost: number; // Tong tien mua
     totalWeight: number; // Tong can nang
@@ -42,6 +44,16 @@ async function createPurchaseOrderTx(tx: any, input: PurchaseInput) {
 
   // 3. Process items and allocate costs
   for (const item of input.items) {
+    let productId = item.productId;
+    if (!productId) {
+      const product = await tx.product.upsert({
+        where: { sku: item.sku },
+        update: {},
+        create: { sku: item.sku, name: item.name, status: 'active' }
+      });
+      productId = product.id;
+    }
+
     // Calculate allocation ratios
     const costRatio = totalOrderCost > 0 ? item.totalCost / totalOrderCost : 0;
     const weightRatio = totalOrderWeight > 0 ? item.totalWeight / totalOrderWeight : 0;
@@ -66,7 +78,7 @@ async function createPurchaseOrderTx(tx: any, input: PurchaseInput) {
     const pItem = await tx.purchaseItem.create({
       data: {
         purchaseOrderId: po.id,
-        productId: item.productId,
+        productId,
         qty: item.qty,
         totalCost: item.totalCost,
         totalWeight: item.totalWeight,
@@ -76,7 +88,7 @@ async function createPurchaseOrderTx(tx: any, input: PurchaseInput) {
     // 5. Create Inventory Batch
     const batch = await tx.inventoryBatch.create({
       data: {
-        productId: item.productId,
+        productId,
         purchaseItemId: pItem.id,
         receivedAt: input.receivedAt,
         qtyInitial: item.qty,
@@ -88,7 +100,7 @@ async function createPurchaseOrderTx(tx: any, input: PurchaseInput) {
     // 6. Record Stock Transaction (IN)
     await tx.stockTransaction.create({
       data: {
-        productId: item.productId,
+        productId,
         batchId: batch.id,
         type: 'IN',
         qty: item.qty,

@@ -97,3 +97,13 @@ Tat ca gia ban tham khao duoc lam tron.
 - Stock transaction va ledger phai la append-only.
 - Sua sai bang giao dich dao, khong xoa lich su.
 - Khong cho am kho im lang; neu can, tao trang thai backorder.
+
+## 7. Chi phi quang cao va tam ung ca nhan
+
+- Moi khoan quang cao duoc tinh vao chi phi cua thang va lam giam loi nhuan theo shop.
+- Quang cao chi truc tiep tu quy shop tao giao dich `CHI` va tru ngay tai khoan quy duoc chon.
+- Quang cao do ca nhan ung truoc khong duoc tru vao tai khoan quy hien co. Khoan nay tao cong no shop phai hoan cho nguoi ung.
+- Khi hoan ung tu tai khoan quy, he thong moi tao giao dich `CHI` voi hang muc `Hoan ung quang cao` va giam cong no tuong ung.
+- Khi hoan ung truc tiep tu vi san, he thong giam so du vi san tam tinh va giam cong no, khong tac dong tai khoan quy.
+- Hoan ung khong duoc tinh thanh chi phi quang cao lan thu hai.
+- Khoan quang cao da co lich su hoan ung khong duoc xoa de giu audit trail.

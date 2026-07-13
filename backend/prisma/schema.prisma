@@ -7,156 +7,167 @@ datasource db {
 }
 
 model Product {
-  id                 String              @id @default(uuid())
-  sku                String              @unique
-  name               String
-  status             String              @default("active")
-  imageId            String?
-  displayOrder       Int                 @default(0)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  purchaseItems      PurchaseItem[]
-  inventoryBatches   InventoryBatch[]
-  stockTransactions  StockTransaction[]
-  orderItems         OrderItem[]
-  losses             Loss[]
+  id                   String                @id @default(uuid())
+  sku                  String                @unique
+  name                 String
+  status               String                @default("active")
+  imageId              String?
+  displayOrder         Int                   @default(0)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  purchaseItems        PurchaseItem[]
+  inventoryBatches     InventoryBatch[]
+  stockTransactions    StockTransaction[]
+  orderItems           OrderItem[]
+  losses               Loss[]
   inventoryAdjustments InventoryAdjustment[]
+  skuAliases           ProductSkuAlias[]
+}
+
+model ProductSkuAlias {
+  sku       String   @id
+  productId String
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 model PurchaseOrder {
-  id                 String              @id @default(uuid())
-  code               String              @unique
-  supplier           String?
-  receivedAt         DateTime
-  notes              String?
-  totalDiscount      Decimal             @db.Decimal(15, 2) @default(0)
-  totalCompensation  Decimal             @db.Decimal(15, 2) @default(0)
-  purchaseFee        Decimal             @db.Decimal(15, 2) @default(0)
-  domesticShipping   Decimal             @db.Decimal(15, 2) @default(0)
-  intlShipping       Decimal             @db.Decimal(15, 2) @default(0)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  purchaseItems      PurchaseItem[]
+  id                String         @id @default(uuid())
+  code              String         @unique
+  supplier          String?
+  receivedAt        DateTime
+  notes             String?
+  totalDiscount     Decimal        @default(0) @db.Decimal(15, 2)
+  totalCompensation Decimal        @default(0) @db.Decimal(15, 2)
+  purchaseFee       Decimal        @default(0) @db.Decimal(15, 2)
+  domesticShipping  Decimal        @default(0) @db.Decimal(15, 2)
+  intlShipping      Decimal        @default(0) @db.Decimal(15, 2)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  purchaseItems     PurchaseItem[]
 }
 
 model PurchaseItem {
-  id                 String              @id @default(uuid())
-  purchaseOrderId    String
-  productId          String
-  qty                Int
-  totalCost          Decimal             @db.Decimal(15, 2)
-  totalWeight        Decimal             @db.Decimal(10, 3)
-  createdAt          DateTime            @default(now())
-  purchaseOrder      PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id])
-  product            Product             @relation(fields: [productId], references: [id])
-  inventoryBatches   InventoryBatch[]
+  id               String           @id @default(uuid())
+  purchaseOrderId  String
+  productId        String
+  qty              Int
+  totalCost        Decimal          @db.Decimal(15, 2)
+  totalWeight      Decimal          @db.Decimal(10, 3)
+  createdAt        DateTime         @default(now())
+  purchaseOrder    PurchaseOrder    @relation(fields: [purchaseOrderId], references: [id])
+  product          Product          @relation(fields: [productId], references: [id])
+  inventoryBatches InventoryBatch[]
 }
 
 model InventoryBatch {
-  id                 String              @id @default(uuid())
-  productId          String
-  purchaseItemId     String?
-  receivedAt         DateTime
-  qtyInitial         Int
-  qtyRemaining       Int
-  unitCost           Decimal             @db.Decimal(15, 2)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  product            Product             @relation(fields: [productId], references: [id])
-  purchaseItem       PurchaseItem?       @relation(fields: [purchaseItemId], references: [id])
-  stockTransactions  StockTransaction[]
+  id                  String               @id @default(uuid())
+  productId           String
+  purchaseItemId      String?
+  receivedAt          DateTime
+  qtyInitial          Int
+  qtyRemaining        Int
+  unitCost            Decimal              @db.Decimal(15, 2)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  product             Product              @relation(fields: [productId], references: [id])
+  purchaseItem        PurchaseItem?        @relation(fields: [purchaseItemId], references: [id])
+  stockTransactions   StockTransaction[]
   inventoryAdjustment InventoryAdjustment?
 }
 
 model StockTransaction {
-  id                 String              @id @default(uuid())
-  productId          String
-  batchId            String
-  type               String              // "IN", "OUT", "LOSS", "RETURN"
-  qty                Int                 // positive or negative
-  unitCost           Decimal             @db.Decimal(15, 2)
-  referenceType      String              // "ORDER", "LOSS", "PURCHASE"
-  referenceId        String
-  createdAt          DateTime            @default(now())
-  product            Product             @relation(fields: [productId], references: [id])
-  batch              InventoryBatch      @relation(fields: [batchId], references: [id])
+  id            String         @id @default(uuid())
+  productId     String
+  batchId       String
+  type          String // "IN", "OUT", "LOSS", "RETURN"
+  qty           Int // positive or negative
+  unitCost      Decimal        @db.Decimal(15, 2)
+  referenceType String // "ORDER", "LOSS", "PURCHASE"
+  referenceId   String
+  createdAt     DateTime       @default(now())
+  product       Product        @relation(fields: [productId], references: [id])
+  batch         InventoryBatch @relation(fields: [batchId], references: [id])
 }
 
 model Order {
-  id                 String              @id @default(uuid())
-  channel            String
-  externalCode       String              @unique
-  status             String
-  orderedAt          DateTime
-  expectedRevenue    Decimal             @db.Decimal(15, 2)
-  actualRevenue      Decimal?            @db.Decimal(15, 2)
-  packagingFee       Decimal             @db.Decimal(15, 2) @default(0)
-  returnFee          Decimal             @db.Decimal(15, 2) @default(0)
-  platformFee        Decimal             @db.Decimal(15, 2) @default(0)
-  marketingFee       Decimal             @db.Decimal(15, 2) @default(0)
-  settlementDate     DateTime?
-  note               String?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  orderItems         OrderItem[]
+  id              String      @id @default(uuid())
+  channel         String
+  externalCode    String      @unique
+  status          String
+  orderedAt       DateTime
+  expectedRevenue Decimal     @db.Decimal(15, 2)
+  actualRevenue   Decimal?    @db.Decimal(15, 2)
+  packagingFee    Decimal     @default(0) @db.Decimal(15, 2)
+  returnFee       Decimal     @default(0) @db.Decimal(15, 2)
+  platformFee     Decimal     @default(0) @db.Decimal(15, 2)
+  marketingFee    Decimal     @default(0) @db.Decimal(15, 2)
+  settlementDate  DateTime?
+  note            String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  orderItems      OrderItem[]
 }
 
 model OrderItem {
-  id                 String              @id @default(uuid())
-  orderId            String
-  productId          String
-  qty                Int
-  sellingPrice       Decimal             @db.Decimal(15, 2)
-  isReturned         Boolean             @default(false)
-  returnStatus       String?
-  order              Order               @relation(fields: [orderId], references: [id])
-  product            Product             @relation(fields: [productId], references: [id])
+  id           String  @id @default(uuid())
+  orderId      String
+  productId    String
+  qty          Int
+  sellingPrice Decimal @db.Decimal(15, 2)
+  isReturned   Boolean @default(false)
+  skuAtOrder   String
+  returnStatus String?
+  order        Order   @relation(fields: [orderId], references: [id])
+  product      Product @relation(fields: [productId], references: [id])
 }
 
 model Loss {
-  id                 String              @id @default(uuid())
-  productId          String
-  qty                Int
-  reason             String
-  occurredAt         DateTime            @default(now())
-  product            Product             @relation(fields: [productId], references: [id])
+  id         String   @id @default(uuid())
+  productId  String
+  qty        Int
+  reason     String
+  occurredAt DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id])
 }
 
 model Reconciliation {
-  id                 String              @id @default(uuid())
-  channel            String
-  period             String
-  sourceFile         String
-  status             String
-  expectedAmount     Decimal             @db.Decimal(15, 2)
-  actualAmount       Decimal             @db.Decimal(15, 2)
-  createdAt          DateTime            @default(now())
+  id             String   @id @default(uuid())
+  channel        String
+  period         String
+  sourceFile     String
+  status         String
+  expectedAmount Decimal  @db.Decimal(15, 2)
+  actualAmount   Decimal  @db.Decimal(15, 2)
+  createdAt      DateTime @default(now())
 }
 
 model LedgerEntry {
-  id                 String              @id @default(uuid())
-  account            String
-  direction          String              // "DEBIT", "CREDIT"
-  amount             Decimal             @db.Decimal(15, 2)
-  referenceType      String
-  referenceId        String
-  createdAt          DateTime            @default(now())
+  id            String   @id @default(uuid())
+  account       String
+  direction     String // "DEBIT", "CREDIT"
+  amount        Decimal  @db.Decimal(15, 2)
+  referenceType String
+  referenceId   String
+  createdAt     DateTime @default(now())
 }
 
 model AppSettings {
-  id                 String   @id @default("default")
-  partners           Json     // [{ name, share }]
-  accounts           Json     // ["Hà", "Luyến", ...]
-  shops              Json     @default("[]") // ["Chà Tiktok", "Chà Shopee", ...]
-  packagingCost      Decimal  @db.Decimal(15, 2) @default(1000)
-  returnFee          Decimal  @db.Decimal(15, 2) @default(20000)
-  updatedAt          DateTime @updatedAt
+  id            String   @id @default("default")
+  partners      Json // [{ name, share }]
+  accounts      Json // ["Hà", "Luyến", ...]
+  shops         Json     @default("[]") // ["Chà Tiktok", "Chà Shopee", ...]
+  packagingCost Decimal  @default(1000) @db.Decimal(15, 2)
+  returnFee     Decimal  @default(20000) @db.Decimal(15, 2)
+  updatedAt     DateTime @updatedAt
 }
 
 model TreasuryTransaction {
   id          String   @id @default(uuid())
   date        DateTime
-  type        String   // "capital_in", "capital_out", "expense", "revenue"
+  type        String // "capital_in", "capital_out", "expense", "revenue"
   account     String?
   fromAccount String?
   toAccount   String?

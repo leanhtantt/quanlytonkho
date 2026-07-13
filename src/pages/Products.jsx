@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Search, X, PackageOpen, ChevronDown, ChevronUp, ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
+import { Search, X, PackageOpen, ChevronDown, ChevronUp, ArrowDown, ArrowUp, GripVertical, Pencil } from 'lucide-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
+import { buildInventoryAdjustmentDisplayCodes } from '../domain/inventoryAdjustmentCodes';
+import { normalizeProductSku, productMatchesSearch } from '../domain/productSku';
 import ProductImage from '../components/ProductImage';
 import { processAndCompressImage } from '../domain/imageProcessor';
 import { deleteProductImage, uploadProductImage } from '../domain/imageStorage';
 
 export default function Products() {
-  const { inventory, updateProduct, reorderProducts } = useAppStore();
+  const { inventory, inventoryAdjustments, updateProduct, renameProductSku, reorderProducts } = useAppStore();
   const [search, setSearch] = useState('');
   const [filterStock, setFilterStock] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
@@ -17,6 +19,19 @@ export default function Products() {
   const [reorderBusy, setReorderBusy] = useState(false);
   const [draggedProductId, setDraggedProductId] = useState(null);
   const [dragOverProductId, setDragOverProductId] = useState(null);
+  const [renamingProductId, setRenamingProductId] = useState(null);
+  const adjustmentDisplayCodes = useMemo(
+    () => buildInventoryAdjustmentDisplayCodes(inventoryAdjustments),
+    [inventoryAdjustments]
+  );
+
+  const getBatchDisplayCode = (batch) => {
+    const adjustmentPrefix = 'ADJUSTMENT-';
+    if (!String(batch.purchaseId).startsWith(adjustmentPrefix)) return batch.purchaseId;
+
+    const adjustmentId = String(batch.purchaseId).slice(adjustmentPrefix.length);
+    return adjustmentDisplayCodes.get(adjustmentId) || batch.purchaseId;
+  };
 
   const handleImageUpload = async (productId, e) => {
     const file = e.target.files[0];
@@ -138,13 +153,31 @@ export default function Products() {
     }
   };
 
+  const handleRenameSku = async (product, event) => {
+    event.stopPropagation();
+    const enteredSku = window.prompt(
+      `Đổi SKU cho "${product.name}". SKU hiện tại: ${product.sku || product.id}`,
+      product.sku || ''
+    );
+    if (enteredSku === null) return;
+
+    const newSku = normalizeProductSku(enteredSku);
+    if (!newSku || newSku === normalizeProductSku(product.sku)) return;
+    if (!window.confirm(`Đổi SKU ${product.sku || product.id} thành ${newSku}? SKU cũ vẫn được giữ trong lịch sử.`)) return;
+
+    try {
+      setRenamingProductId(product.id);
+      await renameProductSku(product.id, newSku);
+      alert(`Đã đổi SKU thành ${newSku}. Tồn kho và lịch sử bán hàng vẫn được giữ nguyên.`);
+    } catch (error) {
+      alert(`Không thể đổi SKU: ${error.message}`);
+    } finally {
+      setRenamingProductId(null);
+    }
+  };
+
   const normalizedSearch = search.trim().toLocaleLowerCase('vi');
-  let filteredProducts = orderedInventory.filter(p => {
-    if (!normalizedSearch) return true;
-    const displayedSku = String(p.sku || p.id || '').toLocaleLowerCase('vi');
-    const productName = String(p.name || '').toLocaleLowerCase('vi');
-    return displayedSku.includes(normalizedSearch) || productName.includes(normalizedSearch);
-  });
+  let filteredProducts = orderedInventory.filter(p => productMatchesSearch(p, normalizedSearch));
 
   filteredProducts = filteredProducts.filter(p => {
     if (filterStock === 'all') return true;
@@ -330,7 +363,27 @@ export default function Products() {
                           )}
                         </div>
                       </td>
-                      <td style={{ fontWeight: 600, color: 'var(--color-text-muted)' }}>{product.sku || product.id}</td>
+                      <td onClick={(event) => event.stopPropagation()} style={{ color: 'var(--color-text-muted)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span style={{ fontWeight: 600 }}>{product.sku || product.id}</span>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={(event) => handleRenameSku(product, event)}
+                            disabled={renamingProductId === product.id}
+                            aria-label={`Đổi SKU ${product.sku || product.id}`}
+                            title="Đổi SKU và giữ lịch sử"
+                            style={{ padding: '0.2rem', color: 'var(--color-primary)' }}
+                          >
+                            <Pencil size={14} aria-hidden="true" />
+                          </button>
+                        </div>
+                        {(product.aliases || []).length > 0 && (
+                          <div style={{ marginTop: '0.2rem', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                            Mã cũ: {product.aliases.join(', ')}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ fontWeight: 500 }}>{product.name}</td>
                       <td style={{ color: 'var(--color-success)' }}>{product.totalImported}</td>
                       <td style={{ color: 'var(--color-primary)' }}>{product.totalSold}</td>
@@ -386,7 +439,7 @@ export default function Products() {
                                   minWidth: '200px'
                                 }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                    <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Lô: {batch.purchaseId}</span>
+                                    <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Lô: {getBatchDisplayCode(batch)}</span>
                                     <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>Tồn: {batch.qtyRemaining}</span>
                                   </div>
                                   <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Ngày nhập: {batch.date}</div>

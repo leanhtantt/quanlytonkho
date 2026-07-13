@@ -15,6 +15,7 @@ export interface OrderInput {
   note: string | null;
   items: {
     productId: string; // must already be resolved to a real Product UUID
+    skuAtOrder: string;
     qty: number;
     sellingPrice: number;
     isReturned: boolean;
@@ -49,6 +50,7 @@ async function writeOrderItems(tx: any, orderId: string, items: OrderInput['item
       data: {
         orderId,
         productId: item.productId,
+        skuAtOrder: item.skuAtOrder,
         qty: item.qty,
         sellingPrice: item.sellingPrice,
         isReturned: item.isReturned,

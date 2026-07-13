@@ -37,6 +37,7 @@ export function buildDerivedStore({ products, purchases, orders, losses, invento
       sku: p.sku || p.id,
       name: p.name || p.id,
       imageId: p.imageId || null,
+      aliases: p.aliases || [],
       displayOrder: Number(p.displayOrder) || 0,
       totalImported: 0,
       totalSold: 0,
@@ -52,9 +53,10 @@ export function buildDerivedStore({ products, purchases, orders, losses, invento
       if (!inv[item.productId]) {
         inv[item.productId] = {
           id: item.productId,
-          sku: item.productId,
+          sku: item.sku || item.productId,
           name: item.name || item.productId,
           imageId: null,
+          aliases: [],
           displayOrder: 0,
           totalImported: 0,
           totalSold: 0,

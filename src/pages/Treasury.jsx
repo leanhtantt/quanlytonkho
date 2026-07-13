@@ -1,14 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { calculateMarketplaceWalletSummary, calculateProfitAnalytics } from '../domain/profitAnalytics';
+import { calculateAdAdvanceSummary, calculateMarketplaceWalletSummary, calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { Edit, Wallet, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, Trash2, Filter } from 'lucide-react';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
 }
 
+function getAdSourceLabel(source) {
+  if (source === 'SELF_FUNDED') return 'Chi trực tiếp từ quỹ shop';
+  if (source === 'PERSONAL_ADVANCE') return 'Cá nhân ứng trước';
+  if (source === 'SHOPEE_WALLET') return 'Ví Shopee';
+  return 'Shopee tự trừ trong đơn';
+}
+
 export default function Treasury() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, addAd, deleteAd, accounts, partners, shops } = useAppStore();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, addAd, reimburseAdAdvance, deleteAd, accounts, partners, shops } = useAppStore();
 
   const [showForm, setShowForm] = useState(false);
   const [editingTxnId, setEditingTxnId] = useState(null);
@@ -42,8 +49,15 @@ export default function Treasury() {
   const [adAmount, setAdAmount] = useState('');
   const [adSource, setAdSource] = useState('DEDUCTED_FROM_REVENUE');
   const [adAccount, setAdAccount] = useState(accounts[0] || '');
+  const [adAdvancedBy, setAdAdvancedBy] = useState(partners[0]?.name || '');
   const [adDate, setAdDate] = useState(new Date().toISOString().split('T')[0]);
   const [adNote, setAdNote] = useState('');
+  const [repayingAdvanceId, setRepayingAdvanceId] = useState(null);
+  const [reimbursementAmount, setReimbursementAmount] = useState('');
+  const [reimbursementDate, setReimbursementDate] = useState(new Date().toISOString().split('T')[0]);
+  const [reimbursementSource, setReimbursementSource] = useState('TREASURY_ACCOUNT');
+  const [reimbursementAccount, setReimbursementAccount] = useState(accounts[0] || '');
+  const [reimbursementNote, setReimbursementNote] = useState('');
 
   const handleSaveWithdrawal = async (event) => {
     event.preventDefault();
@@ -71,6 +85,7 @@ export default function Treasury() {
     event.preventDefault();
     if (!adMonth || !adShop || Number(adAmount) <= 0) return;
     if (adSource === 'SELF_FUNDED' && !adAccount) return;
+    if (adSource === 'PERSONAL_ADVANCE' && !adAdvancedBy.trim()) return;
 
     try {
       await addAd({
@@ -79,6 +94,7 @@ export default function Treasury() {
         amount: Number(adAmount),
         source: adSource,
         account: adSource === 'SELF_FUNDED' ? adAccount : null,
+        advancedBy: adSource === 'PERSONAL_ADVANCE' ? adAdvancedBy.trim() : null,
         date: adSource !== 'DEDUCTED_FROM_REVENUE' ? adDate : null,
         note: adNote.trim() || null,
       });
@@ -86,6 +102,45 @@ export default function Treasury() {
       setAdNote('');
     } catch (error) {
       alert(`Không thể lưu chi phí quảng cáo: ${error.message}`);
+    }
+  };
+
+  const openReimbursementForm = (advance) => {
+    setRepayingAdvanceId(advance.id);
+    setReimbursementAmount('');
+    setReimbursementDate(new Date().toISOString().split('T')[0]);
+    setReimbursementSource('TREASURY_ACCOUNT');
+    setReimbursementAccount(accounts[0] || '');
+    setReimbursementNote('');
+  };
+
+  const closeReimbursementForm = () => {
+    setRepayingAdvanceId(null);
+    setReimbursementAmount('');
+    setReimbursementNote('');
+  };
+
+  const handleSaveReimbursement = async (event) => {
+    event.preventDefault();
+    const advance = calculateAdAdvanceSummary(ads).advances.find(item => item.id === repayingAdvanceId);
+    const amountToReimburse = Number(reimbursementAmount);
+    if (!advance || amountToReimburse <= 0 || amountToReimburse > advance.outstanding) {
+      alert('Số tiền hoàn ứng không hợp lệ hoặc vượt quá công nợ còn lại.');
+      return;
+    }
+    if (reimbursementSource === 'TREASURY_ACCOUNT' && !reimbursementAccount) return;
+
+    try {
+      await reimburseAdAdvance(advance.id, {
+        amount: amountToReimburse,
+        source: reimbursementSource,
+        account: reimbursementSource === 'TREASURY_ACCOUNT' ? reimbursementAccount : null,
+        date: reimbursementDate,
+        note: reimbursementNote.trim() || null,
+      });
+      closeReimbursementForm();
+    } catch (error) {
+      alert(`Không thể hoàn ứng: ${error.message}`);
     }
   };
 
@@ -118,6 +173,9 @@ export default function Treasury() {
   }
 
   const totalFund = Object.values(balances).reduce((sum, b) => sum + b, 0);
+
+  const advanceSummary = useMemo(() => calculateAdAdvanceSummary(ads), [ads]);
+  const projectedFundAfterReimbursement = totalFund - advanceSummary.totalOutstanding;
 
   const marketplaceWallets = useMemo(
     () => calculateMarketplaceWalletSummary(orders, transactions, ads, shops),
@@ -311,6 +369,22 @@ export default function Treasury() {
             </div>
           </div>
         </div>
+        <div className="card treasury-advance-card">
+          <div className="treasury-advance-card-icon"><ArrowUpRight size={24} /></div>
+          <div>
+            <div className="treasury-balance-label">CÔNG NỢ CÁ NHÂN ỨNG TRƯỚC</div>
+            <div className="treasury-balance-value treasury-debt-value">{formatCurrency(advanceSummary.totalOutstanding)}</div>
+            <div className="treasury-balance-help">Shop còn phải hoàn lại</div>
+          </div>
+        </div>
+        <div className="card treasury-projected-card">
+          <div className="treasury-projected-card-icon"><Wallet size={24} /></div>
+          <div>
+            <div className="treasury-balance-label">QUỸ SAU KHI HOÀN HẾT ỨNG</div>
+            <div className={`treasury-balance-value ${projectedFundAfterReimbursement < 0 ? 'treasury-debt-value' : ''}`}>{formatCurrency(projectedFundAfterReimbursement)}</div>
+            <div className="treasury-balance-help">Số dự kiến, chưa trừ quỹ hiện tại</div>
+          </div>
+        </div>
       </div>
 
       <div className="card treasury-wallet" style={{ marginBottom: '2rem' }}>
@@ -326,6 +400,7 @@ export default function Treasury() {
                 <th>Sàn đã thanh toán</th>
                 <th>Đã rút về</th>
                 <th>Nạp QC từ Ví Shopee</th>
+                <th>Hoàn ứng từ ví sàn</th>
                 <th>Số dư ví sàn tạm tính</th>
               </tr>
             </thead>
@@ -336,6 +411,7 @@ export default function Treasury() {
                   <td style={{ color: 'var(--color-success)' }}>{formatCurrency(wallet.settledRevenue)}</td>
                   <td style={{ color: 'var(--color-info)' }}>{formatCurrency(wallet.withdrawn)}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(wallet.walletAdSpend)}</td>
+                  <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(wallet.advanceReimbursements)}</td>
                   <td style={{ fontWeight: 700, color: wallet.estimatedBalance < 0 ? 'var(--color-danger)' : 'var(--color-primary)' }}>
                     {formatCurrency(wallet.estimatedBalance)}
                   </td>
@@ -366,17 +442,85 @@ export default function Treasury() {
 
       <div className="card treasury-ads" style={{ marginBottom: '2rem' }}>
         <h3>Nhập Chi Phí Quảng Cáo</h3>
+        <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
+          Chi phí luôn được tính vào lợi nhuận. Chỉ nguồn chi trực tiếp từ quỹ mới trừ tài khoản ngay; cá nhân ứng trước sẽ tạo công nợ để hoàn lại sau.
+        </p>
         <form onSubmit={handleSaveAd} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '1rem' }}>
           <div style={{ flex: '1 1 160px' }}><label>Tháng</label><input type="month" value={adMonth} onChange={e => setAdMonth(e.target.value)} required /></div>
           <div style={{ flex: '1 1 220px' }}><label>Shop</label><input type="text" list="treasury-ad-shops" value={adShop} onChange={e => setAdShop(e.target.value)} placeholder="Chọn hoặc nhập shop..." required /><datalist id="treasury-ad-shops">{shops.map(shopName => <option key={shopName} value={shopName} />)}</datalist></div>
           <div style={{ flex: '1 1 180px' }}><label>Chi phí (VND)</label><input type="number" min="1" value={adAmount} onChange={e => setAdAmount(e.target.value)} required /></div>
-          <div style={{ flex: '1 1 230px' }}><label>Nguồn quảng cáo</label><select value={adSource} onChange={e => setAdSource(e.target.value)}><option value="DEDUCTED_FROM_REVENUE">Shopee tự trừ trong đơn</option><option value="SHOPEE_WALLET">Nạp thủ công từ Ví Shopee</option><option value="SELF_FUNDED">Nạp từ tài khoản ngân hàng</option></select></div>
+          <div style={{ flex: '1 1 250px' }}><label htmlFor="treasury-ad-source">Nguồn thanh toán</label><select id="treasury-ad-source" value={adSource} onChange={e => setAdSource(e.target.value)}><option value="DEDUCTED_FROM_REVENUE">Shopee tự trừ trong đơn</option><option value="SHOPEE_WALLET">Nạp thủ công từ Ví Shopee</option><option value="SELF_FUNDED">Chi trực tiếp từ quỹ shop</option><option value="PERSONAL_ADVANCE">Cá nhân ứng trước (không trừ quỹ)</option></select></div>
           {adSource !== 'DEDUCTED_FROM_REVENUE' && <div style={{ flex: '1 1 180px' }}><label>Ngày chi</label><input type="date" value={adDate} onChange={e => setAdDate(e.target.value)} required /></div>}
-          {adSource === 'SELF_FUNDED' && <div style={{ flex: '1 1 180px' }}><label>Tài khoản chi</label><select value={adAccount} onChange={e => setAdAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>}
+          {adSource === 'SELF_FUNDED' && <div style={{ flex: '1 1 180px' }}><label htmlFor="treasury-ad-account">Tài khoản quỹ chi</label><select id="treasury-ad-account" value={adAccount} onChange={e => setAdAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>}
+          {adSource === 'PERSONAL_ADVANCE' && <div style={{ flex: '1 1 200px' }}><label htmlFor="treasury-ad-advanced-by">Người ứng tiền</label><input id="treasury-ad-advanced-by" type="text" list="treasury-ad-advance-people" value={adAdvancedBy} onChange={e => setAdAdvancedBy(e.target.value)} placeholder="Chọn hoặc nhập tên..." required /><datalist id="treasury-ad-advance-people">{partners.map(partner => <option key={partner.name} value={partner.name} />)}</datalist></div>}
           <div style={{ flex: '2 1 240px' }}><label>Ghi chú</label><input type="text" value={adNote} onChange={e => setAdNote(e.target.value)} placeholder="VD: QC Shopee tháng 7" /></div>
           <button type="submit" className="btn btn-primary">Lưu chi phí</button>
         </form>
-        {ads.length > 0 && (<div className="table-responsive" style={{ marginTop: '1rem', maxHeight: '260px' }}><table className="table"><thead><tr><th>Tháng</th><th>Shop</th><th>Nguồn</th><th>Tài khoản</th><th>Số tiền</th><th>Ghi chú</th><th></th></tr></thead><tbody>{ads.map(ad => (<tr key={ad.id}><td>{ad.month}</td><td>{ad.shop}</td><td>{ad.source === 'SELF_FUNDED' ? 'Tài khoản ngân hàng' : ad.source === 'SHOPEE_WALLET' ? 'Ví Shopee' : 'Shopee tự trừ trong đơn'}</td><td>{ad.account || '-'}</td><td>{formatCurrency(ad.amount)}</td><td>{ad.note || '-'}</td><td><button className="btn" aria-label={`Xóa chi phí quảng cáo ${ad.shop} ${ad.month}`} onClick={() => deleteAd(ad.id)} style={{ padding: '4px', color: 'var(--color-danger)' }}><Trash2 size={16} /></button></td></tr>))}</tbody></table></div>)}
+        {adSource === 'PERSONAL_ADVANCE' && <div className="surface-subtle treasury-source-note"><strong>Khoản này không trừ tài khoản quỹ.</strong> Hệ thống chỉ ghi nhận chi phí quảng cáo và công nợ phải hoàn cho người ứng.</div>}
+        {adSource === 'SELF_FUNDED' && <div className="surface-subtle treasury-source-note"><strong>Khoản này sẽ trừ ngay tài khoản quỹ đã chọn</strong> và vẫn được tính là chi phí quảng cáo.</div>}
+        {ads.length > 0 && (<div className="table-responsive" style={{ marginTop: '1rem', maxHeight: '260px' }}><table className="table"><thead><tr><th>Tháng</th><th>Shop</th><th>Nguồn</th><th>Tài khoản / Người ứng</th><th>Số tiền</th><th>Ghi chú</th><th></th></tr></thead><tbody>{ads.map(ad => (<tr key={ad.id}><td>{ad.month}</td><td>{ad.shop}</td><td>{getAdSourceLabel(ad.source)}</td><td>{ad.source === 'PERSONAL_ADVANCE' ? ad.advancedBy : ad.account || '-'}</td><td>{formatCurrency(ad.amount)}</td><td>{ad.note || '-'}</td><td><button type="button" className="btn" aria-label={`Xóa chi phí quảng cáo ${ad.shop} ${ad.month}`} onClick={() => deleteAd(ad.id)} style={{ padding: '4px', color: 'var(--color-danger)' }}><Trash2 size={16} /></button></td></tr>))}</tbody></table></div>)}
+
+        <div className="treasury-advance-section">
+          <div className="treasury-advance-heading">
+            <div>
+              <h4>Công nợ tạm ứng quảng cáo</h4>
+              <p>Theo dõi số cá nhân đã ứng, số đã hoàn và số shop còn phải trả.</p>
+            </div>
+            <span className="badge badge-warning">Còn phải trả {formatCurrency(advanceSummary.totalOutstanding)}</span>
+          </div>
+
+          <div className="table-responsive">
+            <table className="table treasury-advance-table">
+              <thead><tr><th>Người ứng</th><th>Ngày</th><th>Shop</th><th>Đã ứng</th><th>Đã hoàn</th><th>Còn phải trả</th><th>Trạng thái</th><th></th></tr></thead>
+              <tbody>
+                {advanceSummary.advances.length === 0 ? <tr><td colSpan="8" className="treasury-empty-cell">Chưa có khoản cá nhân ứng trước.</td></tr> : advanceSummary.advances.map(advance => (
+                  <React.Fragment key={advance.id}>
+                    <tr>
+                      <td><strong>{advance.advancedBy || 'Chưa xác định'}</strong></td>
+                      <td>{advance.date || `${advance.month}-01`}</td>
+                      <td>{advance.shop}</td>
+                      <td>{formatCurrency(advance.amount)}</td>
+                      <td>{formatCurrency(advance.reimbursed)}</td>
+                      <td><strong>{formatCurrency(advance.outstanding)}</strong></td>
+                      <td><span className={`badge ${advance.status === 'PAID' ? 'badge-success' : advance.status === 'PARTIAL' ? 'badge-info' : 'badge-warning'}`}>{advance.status === 'PAID' ? 'Đã hoàn đủ' : advance.status === 'PARTIAL' ? 'Hoàn một phần' : 'Chưa hoàn'}</span></td>
+                      <td>{advance.outstanding > 0 && <button type="button" className="btn btn-outline" onClick={() => openReimbursementForm(advance)}>Hoàn ứng</button>}</td>
+                    </tr>
+                    {repayingAdvanceId === advance.id && (
+                      <tr className="treasury-reimbursement-row"><td colSpan="8">
+                        <form className="treasury-reimbursement-form" onSubmit={handleSaveReimbursement}>
+                          <div>
+                            <label htmlFor={`reimbursement-amount-${advance.id}`}>Số tiền trả lần này</label>
+                            <input
+                              id={`reimbursement-amount-${advance.id}`}
+                              type="number"
+                              min="1"
+                              max={advance.outstanding}
+                              step="1"
+                              value={reimbursementAmount}
+                              onChange={event => setReimbursementAmount(event.target.value)}
+                              placeholder="Nhập số tiền muốn trả"
+                              aria-describedby={`reimbursement-amount-help-${advance.id}`}
+                              required
+                            />
+                            <small id={`reimbursement-amount-help-${advance.id}`} className="treasury-reimbursement-help">
+                              Còn nợ {formatCurrency(advance.outstanding)}. Có thể nhập số tiền trả một phần.
+                            </small>
+                          </div>
+                          <div><label htmlFor={`reimbursement-date-${advance.id}`}>Ngày hoàn</label><input id={`reimbursement-date-${advance.id}`} type="date" value={reimbursementDate} onChange={event => setReimbursementDate(event.target.value)} required /></div>
+                          <div><label htmlFor={`reimbursement-source-${advance.id}`}>Nguồn hoàn ứng</label><select id={`reimbursement-source-${advance.id}`} value={reimbursementSource} onChange={event => setReimbursementSource(event.target.value)}><option value="TREASURY_ACCOUNT">Từ tài khoản quỹ shop</option><option value="SHOPEE_WALLET">Trực tiếp từ Ví Shopee</option></select></div>
+                          {reimbursementSource === 'TREASURY_ACCOUNT' && <div><label htmlFor={`reimbursement-account-${advance.id}`}>Tài khoản trả</label><select id={`reimbursement-account-${advance.id}`} value={reimbursementAccount} onChange={event => setReimbursementAccount(event.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>}
+                          <div className="treasury-reimbursement-note"><label htmlFor={`reimbursement-note-${advance.id}`}>Ghi chú</label><input id={`reimbursement-note-${advance.id}`} type="text" value={reimbursementNote} onChange={event => setReimbursementNote(event.target.value)} placeholder="VD: Hoàn ứng QC tháng 7" /></div>
+                          <div className="treasury-reimbursement-actions"><button type="button" className="btn btn-outline" onClick={() => setReimbursementAmount(String(advance.outstanding))}>Điền toàn bộ</button><button type="button" className="btn btn-outline" onClick={closeReimbursementForm}>Hủy</button><button type="submit" className="btn btn-primary">Xác nhận hoàn ứng</button></div>
+                        </form>
+                        <p className="treasury-reimbursement-help">Hoàn từ tài khoản quỹ sẽ trừ số dư tài khoản. Hoàn trực tiếp từ Ví Shopee chỉ trừ số dư ví sàn tạm tính.</p>
+                      </td></tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {showForm && (

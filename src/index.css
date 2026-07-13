@@ -515,6 +515,131 @@ th {
   padding: 1rem;
 }
 
+.treasury-advance-card,
+.treasury-projected-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.treasury-advance-card {
+  border-left: 4px solid var(--color-warning);
+}
+
+.treasury-projected-card {
+  border-left: 4px solid var(--color-info);
+}
+
+.treasury-advance-card-icon,
+.treasury-projected-card-icon {
+  display: inline-flex;
+  padding: 1rem;
+  border-radius: var(--radius-full);
+}
+
+.treasury-advance-card-icon {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.treasury-projected-card-icon {
+  background: var(--color-info-light);
+  color: var(--color-info);
+}
+
+.treasury-balance-label {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.treasury-balance-value {
+  color: var(--color-text-base);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.treasury-debt-value {
+  color: var(--color-danger);
+}
+
+.treasury-balance-help,
+.treasury-reimbursement-help {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.treasury-source-note {
+  margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.treasury-source-note strong {
+  color: var(--color-text-base);
+}
+
+.treasury-advance-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.treasury-advance-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.treasury-advance-heading h4 {
+  font-size: 1rem;
+}
+
+.treasury-advance-heading p {
+  margin-top: 0.25rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.treasury-advance-table {
+  min-width: 980px;
+}
+
+.treasury-empty-cell {
+  padding: 2rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.treasury-reimbursement-row td {
+  background: var(--color-bg-subtle);
+}
+
+.treasury-reimbursement-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.treasury-reimbursement-note {
+  grid-column: span 2;
+}
+
+.treasury-reimbursement-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  grid-column: span 2;
+}
+
+.treasury-reimbursement-help {
+  margin-top: 0.75rem;
+}
+
 .treasury-lower-sections {
   display: contents !important;
 }
@@ -802,6 +927,15 @@ tbody tr:hover td {
     grid-template-columns: 1fr;
   }
 
+  .treasury-advance-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .treasury-reimbursement-form {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+
   .treasury-history-scroll {
     max-height: min(65vh, 620px);
   }
@@ -827,6 +961,19 @@ tbody tr:hover td {
 
   .dashboard-chart {
     height: 280px;
+  }
+
+  .treasury-reimbursement-form {
+    grid-template-columns: 1fr;
+  }
+
+  .treasury-reimbursement-note,
+  .treasury-reimbursement-actions {
+    grid-column: auto;
+  }
+
+  .treasury-reimbursement-actions {
+    flex-direction: column-reverse;
   }
 
   th,

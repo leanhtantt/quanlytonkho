@@ -118,15 +118,45 @@ const adExpenseSchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/),
   shop: z.string().trim().min(1),
   amount: z.number().positive(),
-  source: z.enum(['DEDUCTED_FROM_REVENUE', 'SHOPEE_WALLET', 'SELF_FUNDED']),
+  source: z.enum(['DEDUCTED_FROM_REVENUE', 'SHOPEE_WALLET', 'SELF_FUNDED', 'PERSONAL_ADVANCE']),
   account: z.string().trim().optional().nullable(),
+  advancedBy: z.string().trim().optional().nullable(),
   date: z.string().optional().nullable(),
   note: z.string().max(1000).optional().nullable(),
 }).superRefine((data, ctx) => {
   if (data.source === 'SELF_FUNDED' && !data.account) {
     ctx.addIssue({ code: 'custom', path: ['account'], message: 'Tài khoản chi là bắt buộc với quảng cáo tự nạp.' });
   }
+  if (data.source === 'PERSONAL_ADVANCE' && !data.advancedBy) {
+    ctx.addIssue({ code: 'custom', path: ['advancedBy'], message: 'Người ứng tiền là bắt buộc.' });
+  }
 });
+
+const adAdvanceReimbursementSchema = z.object({
+  amount: z.number().positive(),
+  source: z.enum(['TREASURY_ACCOUNT', 'SHOPEE_WALLET']),
+  account: z.string().trim().optional().nullable(),
+  date: z.string().min(1),
+  note: z.string().max(1000).optional().nullable(),
+}).superRefine((data, ctx) => {
+  if (data.source === 'TREASURY_ACCOUNT' && !data.account) {
+    ctx.addIssue({ code: 'custom', path: ['account'], message: 'Tài khoản hoàn ứng là bắt buộc.' });
+  }
+});
+
+function mapAdExpense(expense: any) {
+  return {
+    ...expense,
+    shop: expense.channel,
+    amount: Number(expense.amount),
+    date: expense.spentAt ? expense.spentAt.toISOString().split('T')[0] : null,
+    reimbursements: (expense.reimbursements || []).map((reimbursement: any) => ({
+      ...reimbursement,
+      amount: Number(reimbursement.amount),
+      date: reimbursement.date.toISOString().split('T')[0],
+    })),
+  };
+}
 
 function mapTreasuryTransaction(transaction: any) {
   return {
@@ -722,13 +752,11 @@ apiRouter.delete('/treasury/transactions/:id', async (req, res) => {
 
 // --- Advertising expenses ---
 apiRouter.get('/ads', async (req, res) => {
-  const expenses = await prisma.monthlyAdExpense.findMany({ orderBy: [{ month: 'desc' }, { createdAt: 'desc' }] });
-  res.json(expenses.map(expense => ({
-    ...expense,
-    shop: expense.channel,
-    amount: Number(expense.amount),
-    date: expense.spentAt ? expense.spentAt.toISOString().split('T')[0] : null,
-  })));
+  const expenses = await prisma.monthlyAdExpense.findMany({
+    include: { reimbursements: { orderBy: [{ date: 'desc' }, { createdAt: 'desc' }] } },
+    orderBy: [{ month: 'desc' }, { createdAt: 'desc' }]
+  });
+  res.json(expenses.map(mapAdExpense));
 });
 
 apiRouter.post('/ads', async (req, res) => {
@@ -760,6 +788,7 @@ apiRouter.post('/ads', async (req, res) => {
         amount: data.amount,
         source: data.source,
         account: data.source === 'SELF_FUNDED' ? data.account : null,
+        advancedBy: data.source === 'PERSONAL_ADVANCE' ? data.advancedBy : null,
         spentAt: data.date ? new Date(data.date) : null,
         note: data.note?.trim() || null,
         treasuryTransactionId,
@@ -767,24 +796,87 @@ apiRouter.post('/ads', async (req, res) => {
     });
   });
 
-  res.json({
-    ...expense,
-    shop: expense.channel,
-    amount: Number(expense.amount),
-    date: expense.spentAt ? expense.spentAt.toISOString().split('T')[0] : null,
-  });
+  res.json(mapAdExpense(expense));
+});
+
+apiRouter.post('/ads/:id/reimbursements', async (req, res) => {
+  const parsed = adAdvanceReimbursementSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  try {
+    const data = parsed.data;
+    await prisma.$transaction(async tx => {
+      const expense = await tx.monthlyAdExpense.findUnique({
+        where: { id: req.params.id },
+        include: { reimbursements: true }
+      });
+      if (!expense) throw new Error('Không tìm thấy khoản quảng cáo.');
+      if (expense.source !== 'PERSONAL_ADVANCE') throw new Error('Chỉ khoản cá nhân ứng trước mới được hoàn ứng.');
+
+      const reimbursed = expense.reimbursements.reduce((sum, item) => sum + Number(item.amount), 0);
+      const outstanding = Number(expense.amount) - reimbursed;
+      if (data.amount > outstanding) throw new Error(`Số tiền hoàn ứng vượt quá công nợ còn lại ${outstanding.toLocaleString('vi-VN')} VND.`);
+
+      let treasuryTransactionId: string | null = null;
+      if (data.source === 'TREASURY_ACCOUNT') {
+        const transaction = await tx.treasuryTransaction.create({
+          data: {
+            date: new Date(data.date),
+            type: 'CHI',
+            account: data.account,
+            category: 'Hoàn ứng quảng cáo',
+            person: expense.advancedBy,
+            shop: expense.channel,
+            amount: data.amount,
+            note: data.note?.trim() || `Hoàn ứng quảng cáo ${expense.month}`,
+          }
+        });
+        treasuryTransactionId = transaction.id;
+      }
+
+      await tx.adAdvanceReimbursement.create({
+        data: {
+          adExpenseId: expense.id,
+          amount: data.amount,
+          source: data.source,
+          account: data.source === 'TREASURY_ACCOUNT' ? data.account : null,
+          date: new Date(data.date),
+          note: data.note?.trim() || null,
+          treasuryTransactionId,
+        }
+      });
+    });
+
+    const updated = await prisma.monthlyAdExpense.findUnique({
+      where: { id: req.params.id },
+      include: { reimbursements: { orderBy: [{ date: 'desc' }, { createdAt: 'desc' }] } }
+    });
+    res.json(mapAdExpense(updated));
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 apiRouter.delete('/ads/:id', async (req, res) => {
-  await prisma.$transaction(async tx => {
-    const expense = await tx.monthlyAdExpense.findUnique({ where: { id: req.params.id } });
-    if (!expense) return;
-    await tx.monthlyAdExpense.delete({ where: { id: expense.id } });
-    if (expense.treasuryTransactionId) {
-      await tx.treasuryTransaction.delete({ where: { id: expense.treasuryTransactionId } });
-    }
-  });
-  res.json({ success: true });
+  try {
+    await prisma.$transaction(async tx => {
+      const expense = await tx.monthlyAdExpense.findUnique({
+        where: { id: req.params.id },
+        include: { reimbursements: true }
+      });
+      if (!expense) return;
+      if (expense.reimbursements.length > 0) {
+        throw new Error('Không thể xóa khoản quảng cáo đã có lịch sử hoàn ứng.');
+      }
+      await tx.monthlyAdExpense.delete({ where: { id: expense.id } });
+      if (expense.treasuryTransactionId) {
+        await tx.treasuryTransaction.delete({ where: { id: expense.treasuryTransactionId } });
+      }
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 // --- Dashboard Stats (simplified) ---

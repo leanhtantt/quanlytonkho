@@ -93,14 +93,19 @@ export function StoreProvider({ children }) {
   const addPurchase = async (purchase) => {
     const created = await api.createPurchase(purchase);
     setPurchases(prev => [...prev, created]);
+    setProducts(await api.getProducts());
+    return created;
   };
   const updatePurchase = async (purchaseId, updatedData) => {
     const updated = await api.updatePurchase(purchaseId, updatedData);
     setPurchases(prev => prev.map(p => p.id === purchaseId ? updated : p));
+    setProducts(await api.getProducts());
+    return updated;
   };
   const deletePurchase = async (purchaseId) => {
     await api.deletePurchase(purchaseId);
     setPurchases(prev => prev.filter(p => p.id !== purchaseId));
+    setProducts(await api.getProducts());
   };
   const addOrder = async (order) => {
     try {
@@ -181,6 +186,12 @@ export function StoreProvider({ children }) {
   const updateProduct = async (productId, updatedData) => {
     const updated = await api.updateProduct(productId, updatedData);
     setProducts(prev => prev.map(p => p.id === productId ? updated : p));
+    return updated;
+  };
+  const renameProductSku = async (productId, sku) => {
+    const updated = await api.renameProductSku(productId, sku);
+    setProducts(prev => prev.map(p => p.id === productId ? updated : p));
+    return updated;
   };
   const addTransaction = async (txn) => {
     const created = await api.createTransaction(txn);
@@ -207,6 +218,15 @@ export function StoreProvider({ children }) {
       setTransactions(refreshedTransactions);
     }
     return created;
+  };
+  const reimburseAdAdvance = async (adId, reimbursement) => {
+    const updated = await api.reimburseAdAdvance(adId, reimbursement);
+    setAds(prev => prev.map(ad => ad.id === adId ? updated : ad));
+    if (reimbursement.source === 'TREASURY_ACCOUNT') {
+      const refreshedTransactions = await api.getTransactions();
+      setTransactions(refreshedTransactions);
+    }
+    return updated;
   };
   const deleteAd = async (adId) => {
     const ad = ads.find(item => item.id === adId);
@@ -240,6 +260,7 @@ export function StoreProvider({ children }) {
     inventory: derivedState.inventory,
     ads,
     addAd,
+    reimburseAdAdvance,
     deleteAd,
     addPurchase,
     updatePurchase,
@@ -255,6 +276,7 @@ export function StoreProvider({ children }) {
     deleteInventoryAdjustment,
     addProduct,
     updateProduct,
+    renameProductSku,
     reorderProducts,
     transactions,
     addTransaction,

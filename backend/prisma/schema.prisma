@@ -171,26 +171,43 @@ model TreasuryTransaction {
 }
 
 model MonthlyAdExpense {
-  id          String   @id @default(uuid())
-  month       String   // "2026-07"
-  channel     String
-  amount      Decimal  @db.Decimal(15, 2)
-  source      String   @default("SELF_FUNDED")
-  account     String?
-  spentAt     DateTime?
-  note        String?
-  treasuryTransactionId String? @unique
-  createdAt   DateTime @default(now())
+  id                    String    @id @default(uuid())
+  month                 String // "2026-07"
+  channel               String
+  amount                Decimal   @db.Decimal(15, 2)
+  source                String    @default("SELF_FUNDED")
+  account               String?
+  spentAt               DateTime?
+  note                  String?
+  advancedBy            String?
+  treasuryTransactionId String?   @unique
+  createdAt             DateTime  @default(now())
+  reimbursements        AdAdvanceReimbursement[]
+}
+
+model AdAdvanceReimbursement {
+  id                    String           @id @default(uuid())
+  adExpenseId           String
+  amount                Decimal          @db.Decimal(15, 2)
+  source                String
+  account               String?
+  date                  DateTime
+  note                  String?
+  treasuryTransactionId String?          @unique
+  createdAt             DateTime         @default(now())
+  adExpense             MonthlyAdExpense @relation(fields: [adExpenseId], references: [id], onDelete: Restrict)
+
+  @@index([adExpenseId])
 }
 
 model InventoryAdjustment {
-  id                 String              @id @default(uuid())
-  productId          String
-  batchId            String              @unique
-  qty                Int
-  unitCost           Decimal             @db.Decimal(15, 2)
-  reason             String
-  occurredAt         DateTime            @default(now())
-  product            Product             @relation(fields: [productId], references: [id])
-  batch              InventoryBatch      @relation(fields: [batchId], references: [id])
+  id         String         @id @default(uuid())
+  productId  String
+  batchId    String         @unique
+  qty        Int
+  unitCost   Decimal        @db.Decimal(15, 2)
+  reason     String
+  occurredAt DateTime       @default(now())
+  product    Product        @relation(fields: [productId], references: [id])
+  batch      InventoryBatch @relation(fields: [batchId], references: [id])
 }

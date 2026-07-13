@@ -1,0 +1,265 @@
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.page-wrapper {
+  flex: 1;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: var(--space-8);
+  overflow-y: auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.page-title {
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  width: 264px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-6) var(--space-4);
+  background: var(--color-bg-surface);
+  border-right: 1px solid var(--color-border);
+}
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-2) var(--space-8);
+  color: var(--color-text-base);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.sidebar-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  flex: 0 0 auto;
+}
+
+.nav-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2.75rem;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.nav-item:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-base);
+}
+
+.nav-item.active {
+  background: var(--color-bg-selected);
+  color: var(--color-primary);
+}
+
+/* --- Sidebar footer --- */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sidebar-user-email {
+  padding: 0 var(--space-4);
+  font-size: 0.8rem;
+  color: var(--color-text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logout-btn {
+  background: none;
+  cursor: pointer;
+  color: var(--color-danger) !important;
+}
+
+.logout-btn:hover {
+  background: var(--color-danger-light) !important;
+}
+
+@media (max-width: 1280px) {
+  .treasury-history-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .app-container {
+    display: block;
+  }
+
+  .sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    padding: var(--space-4);
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .sidebar-logo {
+    padding-bottom: var(--space-4);
+  }
+
+  .nav-list {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .page-wrapper {
+    padding: var(--space-5);
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+
+  .dashboard-header {
+    align-items: stretch;
+  }
+
+  .dashboard-date-control {
+    width: 100%;
+  }
+
+  .header-actions,
+  .import-control,
+  .header-actions > .btn {
+    width: 100%;
+  }
+
+  .header-actions {
+    align-items: stretch;
+  }
+
+  .import-control {
+    min-width: 0;
+  }
+
+  .treasury-balances {
+    position: static;
+  }
+
+  .treasury-history-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .treasury-advance-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .treasury-reimbursement-form {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+
+  .treasury-history-scroll {
+    max-height: min(65vh, 620px);
+  }
+}
+
+@media (max-width: 560px) {
+  .page-wrapper {
+    padding: var(--space-4);
+  }
+
+  .card {
+    padding: var(--space-4);
+  }
+
+  .dashboard-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-stat-grid {
+    gap: var(--space-4);
+  }
+
+  .dashboard-chart {
+    height: 280px;
+  }
+
+  .treasury-reimbursement-form {
+    grid-template-columns: 1fr;
+  }
+
+  .treasury-reimbursement-note,
+  .treasury-reimbursement-actions {
+    grid-column: auto;
+  }
+
+  .treasury-reimbursement-actions {
+    flex-direction: column-reverse;
+  }
+
+  th,
+  td {
+    padding: 0.75rem;
+  }
+
+  .import-control {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .import-control select {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .import-control .btn {
+    justify-content: flex-start;
+  }
+}

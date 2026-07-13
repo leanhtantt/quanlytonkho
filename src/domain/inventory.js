@@ -37,6 +37,7 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
       sku: p.sku || p.id,
       name: p.name || p.id,
       imageId: p.imageId || null,
+      displayOrder: Number(p.displayOrder) || 0,
       totalImported: 0,
       totalSold: 0,
       totalLost: 0,
@@ -53,6 +54,7 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
           sku: item.productId,
           name: item.name || item.productId,
           imageId: null,
+          displayOrder: 0,
           totalImported: 0,
           totalSold: 0,
           totalLost: 0,
@@ -133,39 +135,28 @@ export function buildDerivedStore({ products, purchases, orders, losses }) {
       const order = event.data;
       let orderTotalCost = 0;
 
-      if (order.status !== 'Hoàn hàng') {
-        const enrichedItems = order.items.map((item) => {
-          if (item.isReturned) {
-            return { ...item, totalCostDeducted: 0, batchesDeducted: [] };
-          }
+      const enrichedItems = order.items.map((item) => {
+        if (item.isReturned) {
+          return { ...item, totalCostDeducted: 0, batchesDeducted: [] };
+        }
 
-          const { totalCostDeducted, batchesDeducted } = deductFifo(item.productId, item.qty);
-          orderTotalCost += totalCostDeducted;
+        const { totalCostDeducted, batchesDeducted } = deductFifo(item.productId, item.qty);
+        orderTotalCost += totalCostDeducted;
 
-          const inventoryItem = inv[item.productId];
-          if (inventoryItem) {
-            inventoryItem.totalSold += item.qty;
-            inventoryItem.stock -= item.qty;
-          }
+        const inventoryItem = inv[item.productId];
+        if (inventoryItem) {
+          inventoryItem.totalSold += item.qty;
+          inventoryItem.stock -= item.qty;
+        }
 
-          return { ...item, totalCostDeducted, batchesDeducted };
-        });
+        return { ...item, totalCostDeducted, batchesDeducted };
+      });
 
-        enrichedOrders.push({
-          ...order,
-          items: enrichedItems,
-          totalCost: orderTotalCost + (order.packagingFee || 0)
-        });
-        return;
-      }
-
-      const enrichedItems = order.items.map((item) => ({
-        ...item,
-        totalCostDeducted: 0,
-        batchesDeducted: []
-      }));
-
-      enrichedOrders.push({ ...order, items: enrichedItems, totalCost: order.packagingFee || 0 });
+      enrichedOrders.push({
+        ...order,
+        items: enrichedItems,
+        totalCost: orderTotalCost + (order.packagingFee || 0)
+      });
       return;
     }
 

@@ -3,8 +3,7 @@ import { useAppStore } from '../store/appStoreContext';
 import { Search, Plus, Save, X, Upload } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ProductImage from '../components/ProductImage';
-
-const SHOPS = ['Chà Tiktok', 'Chà Shopee', 'Lyn WD', 'Lyn - Phụ kiện', 'Lyn Tiktok'];
+import { calculateOrderGrossProfit } from '../domain/profitAnalytics';
 
 const normalizeExcelText = (value) => String(value ?? '')
   .normalize('NFD')
@@ -39,13 +38,21 @@ const parseExcelDate = (value) => {
   return `${year}-${vn[2].padStart(2, '0')}-${vn[1].padStart(2, '0')}`;
 };
 
+const isFullyReturned = (items = []) => items.length > 0 && items.every(item => item.isReturned);
+
 const findHeaderIndex = (headers, aliases) => headers.findIndex((header) => {
   const normalized = normalizeExcelText(header);
   return aliases.some(alias => normalized === alias || normalized.includes(alias));
 });
 
 export default function Orders() {
-  const { products, orders, addOrder, updateOrder, deleteOrder, defaultPackagingCost, defaultReturnFee } = useAppStore();
+  const { products, orders, shops, addOrder, updateOrder, deleteOrder, defaultPackagingCost, defaultReturnFee } = useAppStore();
+  const availableShops = React.useMemo(() => Array.from(new Set([
+    ...shops,
+    ...orders.map(order => order.shop).filter(Boolean)
+  ])), [shops, orders]);
+  const defaultShop = availableShops[0] || '';
+  const [activeShop, setActiveShop] = useState(defaultShop);
   const [showForm, setShowForm] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -55,11 +62,14 @@ export default function Orders() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reconFilter, setReconFilter] = useState('all'); // all | reconciled | unreconciled
+  const [profitFilter, setProfitFilter] = useState('all'); // all | negative
+  const [deliveryFilter, setDeliveryFilter] = useState('all'); // all | returned | delivered
+  const [dateSort, setDateSort] = useState('newest'); // newest | oldest
   
   // Form State
   const [orderId, setOrderId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [shop, setShop] = useState(SHOPS[0]);
+  const [shop, setShop] = useState(defaultShop);
   const [status, setStatus] = useState('Đang giao'); // Vẫn giữ để filter nhưng Hoàn hàng dùng item.isReturned
   const [packagingFee, setPackagingFee] = useState(defaultPackagingCost);
   const [returnFee, setReturnFee] = useState(0);
@@ -67,6 +77,7 @@ export default function Orders() {
   const [marketingFee, setMarketingFee] = useState(0);
   const [actualRevenue, setActualRevenue] = useState('');
   const [settlementDate, setSettlementDate] = useState('');
+  const [note, setNote] = useState('');
   const [items, setItems] = useState([]);
   
   // New Item State
@@ -76,8 +87,19 @@ export default function Orders() {
   const [sellingPrice, setSellingPrice] = useState(0);
   const [isReturned, setIsReturned] = useState(false);
   
-  const [importShop, setImportShop] = useState(SHOPS[0]);
+  const [importShop, setImportShop] = useState(defaultShop);
   const [importFixOrderId, setImportFixOrderId] = useState(null); // Đang sửa đơn nào từ danh sách "Đơn cần xử lý"
+
+  useEffect(() => {
+    if (!shop && defaultShop) setShop(defaultShop);
+    if (!importShop && defaultShop) setImportShop(defaultShop);
+  }, [defaultShop, shop, importShop]);
+
+  useEffect(() => {
+    if (!activeShop || !availableShops.includes(activeShop)) {
+      setActiveShop(defaultShop);
+    }
+  }, [activeShop, availableShops, defaultShop]);
 
   // Đơn import bị lỗi (SKU không khớp hoặc lưu thất bại), giữ lại để người dùng sửa nhanh.
   const [importIssues, setImportIssues] = useState(() => {
@@ -152,7 +174,7 @@ export default function Orders() {
     setItems([]);
     setOrderId('');
     setDate(new Date().toISOString().split('T')[0]);
-    setShop(SHOPS[0]);
+    setShop(defaultShop);
     setStatus('Đang giao');
     setPackagingFee(defaultPackagingCost);
     setReturnFee(0);
@@ -160,6 +182,7 @@ export default function Orders() {
     setMarketingFee(0);
     setActualRevenue('');
     setSettlementDate('');
+    setNote('');
   };
 
   // Mở form tạo đơn, điền sẵn dữ liệu từ một đơn import bị lỗi để sửa nhanh.
@@ -177,6 +200,7 @@ export default function Orders() {
     setMarketingFee(issue.marketingFee || 0);
     setActualRevenue(existingOrder?.actualRevenue !== null && existingOrder?.actualRevenue !== undefined ? existingOrder.actualRevenue : '');
     setSettlementDate(existingOrder?.settlementDate || '');
+    setNote(issue.note || existingOrder?.note || '');
     setItems(issue.items.map(it => ({
       productId: it.productId,
       sku: it.productId,
@@ -199,16 +223,20 @@ export default function Orders() {
       return;
     }
 
+    const resolvedStatus = isFullyReturned(items)
+      ? 'Hoàn hàng'
+      : actualRevenue !== '' ? 'Đã giao' : (status === 'Hoàn hàng' ? 'Đang giao' : status);
     const orderData = {
       date,
       shop,
-      status,
+      status: resolvedStatus,
       packagingFee: Number(packagingFee) || 0,
       returnFee: Number(returnFee) || 0,
       platformFee: Number(platformFee) || 0,
       marketingFee: Number(marketingFee) || 0,
       actualRevenue: actualRevenue !== '' ? Number(actualRevenue) : null,
       settlementDate: settlementDate !== '' ? settlementDate : null,
+      note: note.trim() || null,
       items,
       hasError: false // Đã sửa xong thì clear lỗi
     };
@@ -250,6 +278,7 @@ export default function Orders() {
     setMarketingFee(o.marketingFee || 0);
     setActualRevenue(o.actualRevenue !== null && o.actualRevenue !== undefined ? o.actualRevenue : '');
     setSettlementDate(o.settlementDate || '');
+    setNote(o.note || '');
     // Deep copy, and re-resolve each item's product so the code (SKU) always shows
     // correctly in the edit form even if the item's stored id/sku drifted.
     setItems(o.items.map(i => {
@@ -315,7 +344,10 @@ export default function Orders() {
             return;
           }
 
-          const updates = { actualRevenue };
+          const updates = {
+            actualRevenue,
+            status: isFullyReturned(existingOrder.items) ? 'Hoàn hàng' : 'Đã giao'
+          };
           const settlementDate = dateIndex >= 0 ? parseExcelDate(row[dateIndex]) : undefined;
           if (settlementDate) updates.settlementDate = settlementDate;
           if (returnFeeIndex >= 0) {
@@ -382,7 +414,7 @@ export default function Orders() {
           
           let mappedStatus = 'Đang giao';
           if (statusText.toLowerCase().includes('đã giao') || statusText.toLowerCase().includes('hoàn thành')) mappedStatus = 'Đã giao';
-          if (statusText.toLowerCase().includes('trả hàng') || statusText.toLowerCase().includes('hoàn tiền')) mappedStatus = 'Hoàn hàng';
+          if (statusText.toLowerCase().includes('trả hàng') || statusText.toLowerCase().includes('hoàn tiền')) mappedStatus = 'Đang giao';
           
           const dateRaw = getVal(['ngày đặt hàng', 'ngày đặt', 'thời gian']);
           let dateStr = new Date().toISOString().split('T')[0];
@@ -469,7 +501,7 @@ export default function Orders() {
             name: name,
             qty: qty,
             sellingPrice: price,
-            isReturned: mappedStatus === 'Hoàn hàng'
+            isReturned: false
           });
 
           // Đánh dấu lỗi nếu SKU rỗng hoặc SKU không khớp với sản phẩm nào trong kho
@@ -535,16 +567,33 @@ export default function Orders() {
     reader.readAsBinaryString(file);
   };
 
-  const filteredOrders = orders.filter(o => {
-    const matchSearch = o.id.toLowerCase().includes(search.toLowerCase()) || o.shop.toLowerCase().includes(search.toLowerCase());
+  const shopOrders = orders.filter(o => o.shop === activeShop);
+  const filteredOrders = shopOrders.filter(o => {
+    const normalizedSearch = search.toLocaleLowerCase('vi');
+    const matchSearch = o.id.toLocaleLowerCase('vi').includes(normalizedSearch)
+      || o.shop.toLocaleLowerCase('vi').includes(normalizedSearch)
+      || String(o.note || '').toLocaleLowerCase('vi').includes(normalizedSearch);
     let matchDate = true;
     if (startDate) matchDate = matchDate && o.date >= startDate;
     if (endDate) matchDate = matchDate && o.date <= endDate;
     let matchRecon = true;
     if (reconFilter === 'reconciled') matchRecon = o.actualRevenue !== null && o.actualRevenue !== undefined;
     if (reconFilter === 'unreconciled') matchRecon = o.actualRevenue === null || o.actualRevenue === undefined;
+    const matchProfit = profitFilter !== 'negative' || calculateOrderGrossProfit(o) < 0;
+    const fullReturn = isFullyReturned(o.items);
+    let matchDelivery = true;
+    if (deliveryFilter === 'returned') matchDelivery = fullReturn;
+    if (deliveryFilter === 'delivered') matchDelivery = !fullReturn && o.actualRevenue !== null && o.actualRevenue !== undefined;
     
-    return matchSearch && matchDate && matchRecon;
+    return matchSearch && matchDate && matchRecon && matchProfit && matchDelivery;
+  }).sort((a, b) => {
+    const dateCompare = dateSort === 'newest'
+      ? String(b.date || '').localeCompare(String(a.date || ''))
+      : String(a.date || '').localeCompare(String(b.date || ''));
+    if (dateCompare !== 0) return dateCompare;
+    return dateSort === 'newest'
+      ? String(b.id || '').localeCompare(String(a.id || ''))
+      : String(a.id || '').localeCompare(String(b.id || ''));
   });
 
   return (
@@ -561,7 +610,7 @@ export default function Orders() {
             
             <div className="import-control">
               <select value={importShop} onChange={e => setImportShop(e.target.value)}>
-                {SHOPS.map(s => <option key={s} value={s}>{s}</option>)}
+                {availableShops.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <button className="btn btn-outline" style={{ border: 'none', borderColor: 'transparent', color: 'var(--color-primary)' }} onClick={() => importInputRef.current.click()}>
                 <Upload size={18} /> Import Đơn Mới
@@ -597,7 +646,7 @@ export default function Orders() {
             <div>
               <label style={labelStyle}>Kênh Bán</label>
               <select value={shop} onChange={e => setShop(e.target.value)} style={inputStyle}>
-                {SHOPS.map(s => <option key={s} value={s}>{s}</option>)}
+                {availableShops.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
@@ -634,6 +683,17 @@ export default function Orders() {
             <div>
               <label style={{...labelStyle, color: 'var(--color-primary)'}}>Doanh thu Thực tế (VNĐ)</label>
               <input type="number" step="1000" placeholder="Chưa đối soát..." value={actualRevenue} onChange={e => setActualRevenue(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Ghi chú đơn hàng</label>
+              <textarea
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                maxLength={2000}
+                rows={3}
+                placeholder="Ghi lại vấn đề của đơn: thiếu hàng, khách đổi mẫu, cần theo dõi khiếu nại..."
+                style={{ ...inputStyle, resize: 'vertical', minHeight: '76px' }}
+              />
             </div>
           </div>
 
@@ -775,11 +835,35 @@ export default function Orders() {
 
       {/* Danh sách đơn hàng */}
       <div className="card" style={{ padding: 0 }}>
+        <div className="shop-tabs" role="tablist" aria-label="Đơn hàng theo shop">
+          {availableShops.map(shopName => {
+            const orderCount = orders.filter(order => order.shop === shopName).length;
+            const isActive = activeShop === shopName;
+            return (
+              <button
+                key={shopName}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`shop-tab${isActive ? ' active' : ''}`}
+                onClick={() => {
+                  setActiveShop(shopName);
+                  setShop(shopName);
+                  setImportShop(shopName);
+                  setExpandedOrderId(null);
+                }}
+              >
+                <span>{shopName}</span>
+                <span className="shop-tab-count">{orderCount}</span>
+              </button>
+            );
+          })}
+        </div>
         <div style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end', borderBottom: '1px solid var(--color-border)' }}>
           <div style={{ flex: '1 1 250px', position: 'relative' }}>
             <label style={labelStyle}>Tìm kiếm</label>
             <Search size={18} style={{ position: 'absolute', left: '1rem', bottom: '12px', color: 'var(--color-text-muted)' }} />
-            <input type="text" placeholder="Mã đơn, shop..." value={search} onChange={(e) => setSearch(e.target.value)} style={{...inputStyle, paddingLeft: '2.5rem'}} />
+            <input type="text" placeholder="Mã đơn, ghi chú..." value={search} onChange={(e) => setSearch(e.target.value)} style={{...inputStyle, paddingLeft: '2.5rem'}} />
           </div>
           <div>
             <label style={labelStyle}>Từ ngày</label>
@@ -797,9 +881,35 @@ export default function Orders() {
               <option value="reconciled">Đã đối soát</option>
             </select>
           </div>
+          <div>
+            <label style={labelStyle}>Lợi nhuận gộp</label>
+            <select value={profitFilter} onChange={e => setProfitFilter(e.target.value)} style={inputStyle}>
+              <option value="all">Tất cả</option>
+              <option value="negative">Chỉ đơn bị âm</option>
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Trạng thái giao hàng</label>
+            <select value={deliveryFilter} onChange={e => setDeliveryFilter(e.target.value)} style={inputStyle}>
+              <option value="all">Tất cả</option>
+              <option value="returned">Đơn bị hoàn</option>
+              <option value="delivered">Đơn đã giao</option>
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Sắp xếp theo ngày</label>
+            <select value={dateSort} onChange={e => setDateSort(e.target.value)} style={inputStyle}>
+              <option value="newest">Ngày mới nhất</option>
+              <option value="oldest">Ngày cũ nhất</option>
+            </select>
+          </div>
         </div>
 
-        <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+        <div aria-live="polite" style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-muted)', fontSize: '0.875rem', fontWeight: 600 }}>
+          Shop <span style={{ color: 'var(--color-text-base)' }}>{activeShop || 'Chưa cấu hình'}</span>: đang hiển thị <span style={{ color: 'var(--color-text-base)' }}>{filteredOrders.length}</span> / {shopOrders.length} đơn
+        </div>
+
+        <div className="table-container orders-table-container" style={{ border: 'none', borderRadius: 0 }}>
           <table>
             <thead>
               <tr>
@@ -826,8 +936,7 @@ export default function Orders() {
               )}
               {filteredOrders.map(o => {
                 const totalRevenue = o.items.reduce((sum, item) => sum + (item.isReturned ? 0 : (item.qty * item.sellingPrice)), 0);
-                const totalCost = o.totalCost || 0;
-                const profit = (o.actualRevenue !== null && o.actualRevenue !== undefined ? o.actualRevenue : totalRevenue) - totalCost;
+                const profit = calculateOrderGrossProfit(o);
                 const isExpanded = expandedOrderId === o.id;
 
                 return (
@@ -890,6 +999,11 @@ export default function Orders() {
                               <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Phí hoàn:</span> <span style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{(o.returnFee || 0).toLocaleString()} đ</span></div>
                               <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Tổng Giá Vốn (Gồm Đóng gói & Phí hoàn):</span> <span style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{(o.totalCost || 0).toLocaleString()} đ</span></div>
                             </div>
+                            {o.note && (
+                              <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-warning-light)', color: 'var(--color-text-base)', whiteSpace: 'pre-wrap' }}>
+                                <strong>Ghi chú:</strong> {o.note}
+                              </div>
+                            )}
                             
                             <table style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
                               <thead>

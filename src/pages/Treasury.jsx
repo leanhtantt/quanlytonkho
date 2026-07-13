@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { calculateProfitAnalytics } from '../domain/profitAnalytics';
+import { calculateMarketplaceWalletSummary, calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { Edit, Wallet, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Plus, Trash2, Filter } from 'lucide-react';
 
 function formatCurrency(value) {
@@ -8,23 +8,86 @@ function formatCurrency(value) {
 }
 
 export default function Treasury() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, accounts, partners } = useAppStore();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, addAd, deleteAd, accounts, partners, shops } = useAppStore();
 
   const [showForm, setShowForm] = useState(false);
   const [editingTxnId, setEditingTxnId] = useState(null);
+  const entryFormRef = useRef(null);
+
+  useEffect(() => {
+    if (!showForm || !entryFormRef.current) return;
+    entryFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [showForm]);
   
   // Filters
   const [filterMonth, setFilterMonth] = useState('');
-  const [filterAccount, setFilterAccount] = useState('');
+  const [filterType, setFilterType] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [type, setType] = useState('THU'); // THU, CHI, CHUYEN
   const [account, setAccount] = useState(accounts[0] || '');
   const [fromAccount, setFromAccount] = useState(accounts[0] || '');
   const [toAccount, setToAccount] = useState(accounts[1] || accounts[0] || '');
   const [category, setCategory] = useState('Rút tiền từ Sàn');
+  const [shop, setShop] = useState(shops[0] || '');
   const [person, setPerson] = useState(partners.length > 0 ? partners[0].name : ''); 
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [withdrawalDate, setWithdrawalDate] = useState(new Date().toISOString().split('T')[0]);
+  const [withdrawalShop, setWithdrawalShop] = useState('');
+  const [withdrawalAccount, setWithdrawalAccount] = useState(accounts[0] || '');
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
+  const [withdrawalNote, setWithdrawalNote] = useState('');
+  const [adMonth, setAdMonth] = useState('');
+  const [adShop, setAdShop] = useState('');
+  const [adAmount, setAdAmount] = useState('');
+  const [adSource, setAdSource] = useState('DEDUCTED_FROM_REVENUE');
+  const [adAccount, setAdAccount] = useState(accounts[0] || '');
+  const [adDate, setAdDate] = useState(new Date().toISOString().split('T')[0]);
+  const [adNote, setAdNote] = useState('');
+
+  const handleSaveWithdrawal = async (event) => {
+    event.preventDefault();
+    if (!withdrawalDate || !withdrawalShop || !withdrawalAccount || Number(withdrawalAmount) <= 0) return;
+
+    try {
+      await addTransaction({
+        date: withdrawalDate,
+        type: 'THU',
+        account: withdrawalAccount,
+        category: 'Rút tiền từ Sàn',
+        shop: withdrawalShop,
+        amount: Number(withdrawalAmount),
+        note: withdrawalNote.trim()
+      });
+      setWithdrawalAmount('');
+      setWithdrawalNote('');
+      alert('Đã ghi nhận tiền rút về tài khoản.');
+    } catch (error) {
+      alert(`Không thể lưu tiền rút về: ${error.message}`);
+    }
+  };
+
+  const handleSaveAd = async (event) => {
+    event.preventDefault();
+    if (!adMonth || !adShop || Number(adAmount) <= 0) return;
+    if (adSource === 'SELF_FUNDED' && !adAccount) return;
+
+    try {
+      await addAd({
+        month: adMonth,
+        shop: adShop,
+        amount: Number(adAmount),
+        source: adSource,
+        account: adSource === 'SELF_FUNDED' ? adAccount : null,
+        date: adSource !== 'DEDUCTED_FROM_REVENUE' ? adDate : null,
+        note: adNote.trim() || null,
+      });
+      setAdAmount('');
+      setAdNote('');
+    } catch (error) {
+      alert(`Không thể lưu chi phí quảng cáo: ${error.message}`);
+    }
+  };
 
   // 1. Calculate Balances dynamically based on accounts
   const balances = {};
@@ -56,6 +119,11 @@ export default function Treasury() {
 
   const totalFund = Object.values(balances).reduce((sum, b) => sum + b, 0);
 
+  const marketplaceWallets = useMemo(
+    () => calculateMarketplaceWalletSummary(orders, transactions, ads, shops),
+    [orders, transactions, ads, shops]
+  );
+
   // Calculate profit share using partners configuration
   const profitData = useMemo(() => calculateProfitAnalytics(orders, losses, ads, partners), [orders, losses, ads, partners]);
   
@@ -81,6 +149,52 @@ export default function Treasury() {
     };
   });
 
+  const transactionsWithBalance = useMemo(() => {
+    const sortedTransactions = [...(transactions || [])].sort((a, b) => {
+      const dateDiff = new Date(a.date) - new Date(b.date);
+      if (dateDiff !== 0) return dateDiff;
+      const createdDiff = new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+      if (createdDiff !== 0) return createdDiff;
+      return (a.id || '').localeCompare(b.id || '');
+    });
+    const runningBalances = Object.fromEntries(accounts.map(accountName => [accountName, 0]));
+
+    return sortedTransactions.map(transaction => {
+      const transactionAmount = Number(transaction.amount) || 0;
+      const balancesBefore = { ...runningBalances };
+
+      if (transaction.type === 'THU') {
+        runningBalances[transaction.account] = (runningBalances[transaction.account] || 0) + transactionAmount;
+      } else if (transaction.type === 'CHI') {
+        runningBalances[transaction.account] = (runningBalances[transaction.account] || 0) - transactionAmount;
+      } else if (transaction.type === 'CHUYEN') {
+        runningBalances[transaction.fromAccount] = (runningBalances[transaction.fromAccount] || 0) - transactionAmount;
+        runningBalances[transaction.toAccount] = (runningBalances[transaction.toAccount] || 0) + transactionAmount;
+      }
+
+      return {
+        ...transaction,
+        balancesBefore,
+        balancesAfter: { ...runningBalances },
+      };
+    });
+  }, [transactions, accounts]);
+
+  const visibleAccountHistories = useMemo(() => {
+    return accounts.map(accountName => ({
+      account: accountName,
+      transactions: transactionsWithBalance
+        .filter(transaction => !filterMonth || transaction.date.startsWith(filterMonth))
+        .filter(transaction => !filterType || transaction.type === filterType)
+        .filter(transaction => (
+          transaction.account === accountName
+          || transaction.fromAccount === accountName
+          || transaction.toAccount === accountName
+        ))
+        .reverse(),
+    }));
+  }, [accounts, filterMonth, filterType, transactionsWithBalance]);
+
   const handleSave = () => {
     if (!amount || Number(amount) <= 0) {
       alert('Vui lòng nhập số tiền hợp lệ.');
@@ -103,6 +217,7 @@ export default function Treasury() {
     } else {
       newTxn.account = account;
       newTxn.category = category;
+      if (category === 'Rút tiền từ Sàn') newTxn.shop = shop;
       if (category === 'Nhận vốn góp' || category === 'Rút vốn / Chia lợi nhuận') {
         newTxn.person = person;
       }
@@ -134,6 +249,7 @@ export default function Treasury() {
     }
     setAmount(t.amount);
     setNote(t.note || '');
+    setShop(t.shop || shops[0] || '');
     setShowForm(true);
   };
   
@@ -146,7 +262,7 @@ export default function Treasury() {
 
   const getCategoryOptions = () => {
     if (type === 'THU') return ['Rút tiền từ Sàn', 'Nhận vốn góp', 'Thu khác'];
-    if (type === 'CHI') return ['Tiền nhập hàng', 'Tiền quảng cáo (Ads)', 'Rút vốn / Chia lợi nhuận', 'Chi phí khác'];
+    if (type === 'CHI') return ['Tiền nhập hàng', 'Mua vật liệu đóng gói', 'Tiền quảng cáo (Ads)', 'Rút vốn / Chia lợi nhuận', 'Chi phí khác'];
     return [];
   };
 
@@ -155,7 +271,7 @@ export default function Treasury() {
   const bgColors = ['#eff6ff', '#ecfdf5', '#fef3c7', '#ccfbf1', '#ede9fe', '#fef2f2'];
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in treasury-page">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Sổ Quỹ & Dòng Tiền</h1>
@@ -166,7 +282,7 @@ export default function Treasury() {
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div className="treasury-balances" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         {accounts.map((acc, idx) => {
           const color = colors[idx % colors.length];
           const bg = bgColors[idx % bgColors.length];
@@ -197,8 +313,74 @@ export default function Treasury() {
         </div>
       </div>
 
+      <div className="card treasury-wallet" style={{ marginBottom: '2rem' }}>
+        <h3>Ví Sàn Theo Shop</h3>
+        <p style={{ color: 'var(--color-text-muted)', margin: '0.5rem 0 1rem' }}>
+          Sàn đã thanh toán lấy theo ngày hoàn tất thanh toán của từng đơn. Tiền rút về chỉ là chuyển từ ví sàn sang tài khoản nhận, không tạo thêm doanh thu.
+        </p>
+        <div className="table-responsive">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Shop</th>
+                <th>Sàn đã thanh toán</th>
+                <th>Đã rút về</th>
+                <th>Nạp QC từ Ví Shopee</th>
+                <th>Số dư ví sàn tạm tính</th>
+              </tr>
+            </thead>
+            <tbody>
+              {marketplaceWallets.map(wallet => (
+                <tr key={wallet.shop}>
+                  <td style={{ fontWeight: 600 }}>{wallet.shop}</td>
+                  <td style={{ color: 'var(--color-success)' }}>{formatCurrency(wallet.settledRevenue)}</td>
+                  <td style={{ color: 'var(--color-info)' }}>{formatCurrency(wallet.withdrawn)}</td>
+                  <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(wallet.walletAdSpend)}</td>
+                  <td style={{ fontWeight: 700, color: wallet.estimatedBalance < 0 ? 'var(--color-danger)' : 'var(--color-primary)' }}>
+                    {formatCurrency(wallet.estimatedBalance)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p style={{ color: 'var(--color-warning)', fontSize: '0.8rem', marginTop: '0.75rem' }}>
+          Số dư tạm tính chưa bao gồm số dư ví sàn đã có trước khi dữ liệu được nhập vào ứng dụng.
+        </p>
+      </div>
+
+      <div className="card treasury-withdrawal" style={{ marginBottom: '2rem' }}>
+        <h3>Nhập Tiền Rút Về Tài Khoản</h3>
+        <p style={{ color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
+          Ghi nhận tiền chuyển từ ví sàn về tài khoản nhận; khoản này không cộng lại vào doanh thu hoặc lợi nhuận.
+        </p>
+        <form onSubmit={handleSaveWithdrawal} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '1rem' }}>
+          <div style={{ flex: '1 1 160px' }}><label>Ngày rút</label><input type="date" value={withdrawalDate} onChange={e => setWithdrawalDate(e.target.value)} required /></div>
+          <div style={{ flex: '1 1 200px' }}><label>Shop</label><select value={withdrawalShop} onChange={e => setWithdrawalShop(e.target.value)} required><option value="">Chọn shop</option>{shops.map(shopName => <option key={shopName} value={shopName}>{shopName}</option>)}</select></div>
+          <div style={{ flex: '1 1 180px' }}><label>Tài khoản nhận</label><select value={withdrawalAccount} onChange={e => setWithdrawalAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>
+          <div style={{ flex: '1 1 180px' }}><label>Số tiền (VND)</label><input type="number" min="1" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} required /></div>
+          <div style={{ flex: '2 1 220px' }}><label>Ghi chú</label><input type="text" value={withdrawalNote} onChange={e => setWithdrawalNote(e.target.value)} placeholder="VD: Rút tiền Shopee tuần 2" /></div>
+          <button type="submit" className="btn btn-primary">Ghi nhận tiền về</button>
+        </form>
+      </div>
+
+      <div className="card treasury-ads" style={{ marginBottom: '2rem' }}>
+        <h3>Nhập Chi Phí Quảng Cáo</h3>
+        <form onSubmit={handleSaveAd} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '1rem' }}>
+          <div style={{ flex: '1 1 160px' }}><label>Tháng</label><input type="month" value={adMonth} onChange={e => setAdMonth(e.target.value)} required /></div>
+          <div style={{ flex: '1 1 220px' }}><label>Shop</label><input type="text" list="treasury-ad-shops" value={adShop} onChange={e => setAdShop(e.target.value)} placeholder="Chọn hoặc nhập shop..." required /><datalist id="treasury-ad-shops">{shops.map(shopName => <option key={shopName} value={shopName} />)}</datalist></div>
+          <div style={{ flex: '1 1 180px' }}><label>Chi phí (VND)</label><input type="number" min="1" value={adAmount} onChange={e => setAdAmount(e.target.value)} required /></div>
+          <div style={{ flex: '1 1 230px' }}><label>Nguồn quảng cáo</label><select value={adSource} onChange={e => setAdSource(e.target.value)}><option value="DEDUCTED_FROM_REVENUE">Shopee tự trừ trong đơn</option><option value="SHOPEE_WALLET">Nạp thủ công từ Ví Shopee</option><option value="SELF_FUNDED">Nạp từ tài khoản ngân hàng</option></select></div>
+          {adSource !== 'DEDUCTED_FROM_REVENUE' && <div style={{ flex: '1 1 180px' }}><label>Ngày chi</label><input type="date" value={adDate} onChange={e => setAdDate(e.target.value)} required /></div>}
+          {adSource === 'SELF_FUNDED' && <div style={{ flex: '1 1 180px' }}><label>Tài khoản chi</label><select value={adAccount} onChange={e => setAdAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>}
+          <div style={{ flex: '2 1 240px' }}><label>Ghi chú</label><input type="text" value={adNote} onChange={e => setAdNote(e.target.value)} placeholder="VD: QC Shopee tháng 7" /></div>
+          <button type="submit" className="btn btn-primary">Lưu chi phí</button>
+        </form>
+        {ads.length > 0 && (<div className="table-responsive" style={{ marginTop: '1rem', maxHeight: '260px' }}><table className="table"><thead><tr><th>Tháng</th><th>Shop</th><th>Nguồn</th><th>Tài khoản</th><th>Số tiền</th><th>Ghi chú</th><th></th></tr></thead><tbody>{ads.map(ad => (<tr key={ad.id}><td>{ad.month}</td><td>{ad.shop}</td><td>{ad.source === 'SELF_FUNDED' ? 'Tài khoản ngân hàng' : ad.source === 'SHOPEE_WALLET' ? 'Ví Shopee' : 'Shopee tự trừ trong đơn'}</td><td>{ad.account || '-'}</td><td>{formatCurrency(ad.amount)}</td><td>{ad.note || '-'}</td><td><button className="btn" aria-label={`Xóa chi phí quảng cáo ${ad.shop} ${ad.month}`} onClick={() => deleteAd(ad.id)} style={{ padding: '4px', color: 'var(--color-danger)' }}><Trash2 size={16} /></button></td></tr>))}</tbody></table></div>)}
+      </div>
+
       {showForm && (
-        <div className="card animate-fade-in" style={{ marginBottom: '2rem', border: '1px solid var(--color-primary)' }}>
+        <div ref={entryFormRef} className="card animate-fade-in treasury-entry-form" style={{ marginBottom: '2rem', border: '1px solid var(--color-primary)' }}>
           <h3 style={{ marginBottom: '1.5rem' }}>{editingTxnId ? 'Sửa Giao Dịch' : 'Ghi Nhận Dòng Tiền Mới'}</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
             <div>
@@ -236,6 +418,14 @@ export default function Treasury() {
                     </select>
                   </div>
                 )}
+                {category === 'Rút tiền từ Sàn' && (
+                  <div>
+                    <label style={labelStyle}>Shop</label>
+                    <select value={shop} onChange={e => setShop(e.target.value)} style={inputStyle}>
+                      {shops.map(shopName => <option key={shopName} value={shopName}>{shopName}</option>)}
+                    </select>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -270,8 +460,8 @@ export default function Treasury() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
-        <div className="card">
+      <div className="treasury-lower-sections" style={{ display: 'grid', gap: '1.5rem', alignItems: 'start' }}>
+        <div className="card treasury-capital">
           <h3 style={{ marginBottom: '1rem' }}>Báo Cáo Vốn & Cổ Tức</h3>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
             Lợi nhuận được chia theo tỷ lệ cấu hình trong phần Cài Đặt.<br/>
@@ -305,7 +495,7 @@ export default function Treasury() {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card treasury-history">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3>Lịch Sử Giao Dịch</h3>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -316,118 +506,103 @@ export default function Treasury() {
                 onChange={e => setFilterMonth(e.target.value)} 
                 style={{ ...inputStyle, width: '130px', padding: '0.25rem 0.5rem', fontSize: '0.875rem' }} 
               />
-              <select 
-                value={filterAccount} 
-                onChange={e => setFilterAccount(e.target.value)} 
+              <select
+                aria-label="Lọc theo loại giao dịch"
+                value={filterType}
+                onChange={e => setFilterType(e.target.value)}
                 style={{ ...inputStyle, width: '150px', padding: '0.25rem 0.5rem', fontSize: '0.875rem' }}
               >
-                <option value="">Tất cả tài khoản</option>
-                {accounts.map(a => <option key={a} value={a}>{a}</option>)}
+                <option value="">Tất cả Thu / Chi</option>
+                <option value="THU">Thu</option>
+                <option value="CHI">Chi</option>
+                <option value="CHUYEN">Chuyển nội bộ</option>
               </select>
             </div>
           </div>
           
-          <div className="table-responsive" style={{ maxHeight: '600px', overflowY: 'auto' }}>
-            <table className="table" style={{ fontSize: '0.875rem' }}>
-              <thead>
-                <tr>
-                  <th>Ngày</th>
-                  <th>Loại</th>
-                  <th>Tài khoản</th>
-                  <th>Nội dung</th>
-                  <th>Số tiền</th>
-                  <th>Số dư</th>
-                  <th style={{ width: '80px' }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  // 1. Sort ascending to calculate running balance
-                  const sortedTxns = [...(transactions || [])].sort((a, b) => {
-                    const dateDiff = new Date(a.date) - new Date(b.date);
-                    if (dateDiff !== 0) return dateDiff;
-                    // fallback to id if same date
-                    return (a.id || '').localeCompare(b.id || '');
-                  });
+          <div className="treasury-history-grid">
+            {visibleAccountHistories.map(({ account: accountName, transactions: accountTransactions }, accountIndex) => (
+              <section key={accountName} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '0.9rem 1rem', background: bgColors[accountIndex % bgColors.length] }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', color: colors[accountIndex % colors.length] }}>
+                    <Wallet size={20} />
+                    <strong>Tài khoản: {accountName}</strong>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Số dư hiện tại</div>
+                    <strong style={{ color: balances[accountName] < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>{formatCurrency(balances[accountName])}</strong>
+                  </div>
+                </div>
+                <div className="table-responsive treasury-history-scroll">
+                  <table className="table treasury-history-table" style={{ fontSize: '0.8rem', margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>Ngày</th>
+                        <th>Loại</th>
+                        <th>Nội dung</th>
+                        <th>Số tiền</th>
+                        <th>Số dư tài khoản</th>
+                        <th style={{ width: '80px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {accountTransactions.length === 0 ? (
+                        <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Không tìm thấy giao dịch nào</td></tr>
+                      ) : accountTransactions.map(transaction => {
+                        const isTransferOut = transaction.type === 'CHUYEN' && transaction.fromAccount === accountName;
+                        const isTransferIn = transaction.type === 'CHUYEN' && transaction.toAccount === accountName;
+                        const isExpense = transaction.type === 'CHI' || isTransferOut;
+                        const isIncome = transaction.type === 'THU' || isTransferIn;
+                        const accountBefore = transaction.balancesBefore[accountName] || 0;
+                        const accountAfter = transaction.balancesAfter[accountName] || 0;
 
-                  // 2. Track running balance
-                  let runningBalances = {};
-                  accounts.forEach(a => runningBalances[a] = 0);
-                  let totalFundBalance = 0;
-
-                  const txnsWithBalance = sortedTxns.map(t => {
-                    const amt = Number(t.amount) || 0;
-                    if (t.type === 'THU') {
-                      runningBalances[t.account] = (runningBalances[t.account] || 0) + amt;
-                      totalFundBalance += amt;
-                    } else if (t.type === 'CHI') {
-                      runningBalances[t.account] = (runningBalances[t.account] || 0) - amt;
-                      totalFundBalance -= amt;
-                    } else if (t.type === 'CHUYEN') {
-                      runningBalances[t.fromAccount] = (runningBalances[t.fromAccount] || 0) - amt;
-                      runningBalances[t.toAccount] = (runningBalances[t.toAccount] || 0) + amt;
-                    }
-                    
-                    return {
-                      ...t,
-                      balancesAfter: { ...runningBalances },
-                      totalBalanceAfter: totalFundBalance
-                    };
-                  });
-
-                  // 3. Filter and reverse
-                  let displayTxns = txnsWithBalance;
-                  if (filterMonth) displayTxns = displayTxns.filter(t => t.date.startsWith(filterMonth));
-                  if (filterAccount) displayTxns = displayTxns.filter(t => t.account === filterAccount || t.fromAccount === filterAccount || t.toAccount === filterAccount);
-                  
-                  displayTxns.reverse(); // Newest top
-                  
-                  if (displayTxns.length === 0) {
-                     return <tr><td colSpan="7" style={{ textAlign: 'center', padding: '2rem' }}>Không tìm thấy giao dịch nào</td></tr>;
-                  }
-
-                  return displayTxns.map(t => (
-                    <tr key={t.id}>
-                      <td>{t.date}</td>
-                      <td>
-                        {t.type === 'THU' && <span style={{ color: 'var(--color-success)' }}><ArrowDownRight size={16} /> Thu</span>}
-                        {t.type === 'CHI' && <span style={{ color: 'var(--color-danger)' }}><ArrowUpRight size={16} /> Chi</span>}
-                        {t.type === 'CHUYEN' && <span style={{ color: 'var(--color-primary)' }}><ArrowRightLeft size={16} /> Chuyển</span>}
-                      </td>
-                      <td>
-                        {t.type === 'CHUYEN' ? `${t.fromAccount} -> ${t.toAccount}` : t.account}
-                      </td>
-                      <td>
-                        <div style={{ fontWeight: 500 }}>{t.type === 'CHUYEN' ? 'Chuyển tiền nội bộ' : t.category}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                          {t.person && <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>[{t.person}] </span>}
-                          {t.note}
-                        </div>
-                      </td>
-                      <td style={{ fontWeight: 600, color: t.type === 'CHI' ? 'var(--color-danger)' : (t.type === 'THU' ? 'var(--color-success)' : 'var(--color-text-base)') }}>
-                        {t.type === 'CHI' ? '-' : (t.type === 'THU' ? '+' : '')}{formatCurrency(t.amount)}
-                      </td>
-                      <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
-                        {filterAccount 
-                          ? formatCurrency(t.balancesAfter[filterAccount])
-                          : formatCurrency(t.totalBalanceAfter)
-                        }
-                      </td>
-                      <td>
-                        <button className="btn" style={{ padding: '4px', color: 'var(--color-primary)' }} onClick={() => handleEdit(t)}>
-                          <Edit size={16} />
-                        </button>
-                        <button className="btn" style={{ padding: '4px', color: 'var(--color-danger)', marginLeft: '4px' }} onClick={() => {
-                          if (window.confirm('Bạn có chắc muốn xoá giao dịch này?')) deleteTransaction(t.id);
-                        }}>
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ));
-                })()}
-              </tbody>
-            </table>
+                        return (
+                          <tr key={transaction.id}>
+                            <td>{transaction.date}</td>
+                            <td>
+                              {transaction.type === 'THU' && <span style={{ color: 'var(--color-success)' }}><ArrowDownRight size={16} /> Thu</span>}
+                              {transaction.type === 'CHI' && <span style={{ color: 'var(--color-danger)' }}><ArrowUpRight size={16} /> Chi</span>}
+                              {transaction.type === 'CHUYEN' && <span style={{ color: isTransferOut ? 'var(--color-danger)' : 'var(--color-success)' }}><ArrowRightLeft size={16} /> {isTransferOut ? 'Chuyển đi' : 'Nhận chuyển'}</span>}
+                            </td>
+                            <td style={{ minWidth: '150px' }}>
+                              <div style={{ fontWeight: 600, color: 'var(--color-text-base)' }}>
+                                {transaction.type === 'CHUYEN' ? `${transaction.fromAccount} → ${transaction.toAccount}` : transaction.category}
+                              </div>
+                              {(transaction.person || transaction.shop || transaction.note) && (
+                                <div style={{ marginTop: '0.15rem', color: 'var(--color-text-muted)', fontSize: '0.72rem', lineHeight: 1.3 }}>
+                                  {transaction.person && <span style={{ color: 'var(--color-primary)' }}>{transaction.person} · </span>}
+                                  {transaction.shop && <span style={{ color: 'var(--color-primary)' }}>{transaction.shop} · </span>}
+                                  {transaction.note}
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <div style={{ fontWeight: 700, color: isExpense ? 'var(--color-danger)' : (isIncome ? 'var(--color-success)' : 'var(--color-text-base)') }}>
+                                {isExpense ? '-' : (isIncome ? '+' : '')}{formatCurrency(transaction.amount)}
+                              </div>
+                            </td>
+                            <td style={{ minWidth: '150px' }}>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Trước: {formatCurrency(accountBefore)}</div>
+                              <div style={{ fontWeight: 700, color: accountAfter < 0 ? 'var(--color-danger)' : 'var(--color-primary)', marginTop: '0.1rem' }}>Sau: {formatCurrency(accountAfter)}</div>
+                            </td>
+                            <td>
+                              <button className="btn" aria-label={`Sửa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-primary)' }} onClick={() => handleEdit(transaction)}>
+                                <Edit size={16} />
+                              </button>
+                              <button className="btn" aria-label={`Xóa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-danger)', marginLeft: '4px' }} onClick={() => {
+                                if (window.confirm('Bạn có chắc muốn xoá giao dịch này?')) deleteTransaction(transaction.id);
+                              }}>
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ))}
           </div>
         </div>
       </div>

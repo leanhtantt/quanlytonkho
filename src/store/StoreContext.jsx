@@ -3,6 +3,8 @@ import { buildDerivedStore, DEFAULT_PRODUCTS, repairProductNames } from '../doma
 import { StoreContext } from './appStoreContext';
 import { api } from '../lib/api';
 
+const DEFAULT_SHOPS = ['Chà Tiktok', 'Chà Shopee', 'Lyn WD', 'Lyn - Phụ kiện', 'Lyn Tiktok'];
+
 export function StoreProvider({ children }) {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [purchases, setPurchases] = useState([]);
@@ -11,6 +13,7 @@ export function StoreProvider({ children }) {
   const [ads, setAds] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState(['Hà', 'Luyến', 'Châu', 'Tiền mặt']);
+  const [shops, setShops] = useState(DEFAULT_SHOPS);
   const [partners, setPartners] = useState([
     { name: 'Quỹ Shop', share: 25 },
     { name: 'Hà', share: 25 },
@@ -24,12 +27,13 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     async function loadData() {
       try {
-        const [prodRes, purRes, ordRes, lossRes, txRes, setRes] = await Promise.all([
+        const [prodRes, purRes, ordRes, lossRes, txRes, adRes, setRes] = await Promise.all([
           api.getProducts().catch(() => []),
           api.getPurchases().catch(() => []),
           api.getOrders().catch(() => []),
           api.getLosses().catch(() => []),
           api.getTransactions().catch(() => []),
+          api.getAds().catch(() => []),
           api.getSettings().catch(() => ({}))
         ]);
         
@@ -41,9 +45,11 @@ export function StoreProvider({ children }) {
         setOrders(ordRes);
         setLosses(lossRes);
         setTransactions(txRes);
+        setAds(adRes);
         
-        if (setRes.accounts) setAccounts(setRes.accounts);
-        if (setRes.partners) setPartners(setRes.partners);
+        if (Array.isArray(setRes.accounts) && setRes.accounts.length > 0) setAccounts(setRes.accounts);
+        if (Array.isArray(setRes.shops) && setRes.shops.length > 0) setShops(setRes.shops);
+        if (Array.isArray(setRes.partners) && setRes.partners.length > 0) setPartners(setRes.partners);
         if (setRes.packagingCost !== undefined) setDefaultPackagingCost(setRes.packagingCost);
         if (setRes.returnFee !== undefined) setDefaultReturnFee(setRes.returnFee);
       } catch (err) {
@@ -59,6 +65,7 @@ export function StoreProvider({ children }) {
     try {
       const updated = await api.updateSettings(newSettings);
       if (updated.accounts) setAccounts(updated.accounts);
+      if (Array.isArray(updated.shops)) setShops(updated.shops);
       if (updated.partners) setPartners(updated.partners);
       if (updated.packagingCost !== undefined) setDefaultPackagingCost(updated.packagingCost);
       if (updated.returnFee !== undefined) setDefaultReturnFee(updated.returnFee);
@@ -110,8 +117,17 @@ export function StoreProvider({ children }) {
     }
   };
   const addLoss = async (loss) => {
-    const created = await api.createLoss(loss);
-    setLosses(prev => [...prev, created]);
+    const response = await api.createLoss(loss);
+    const createdLoss = response.loss || response;
+    const normalizedLoss = {
+      ...createdLoss,
+      name: loss.name,
+      sku: loss.sku,
+      date: createdLoss.occurredAt || loss.date,
+      totalCostDeducted: response.totalLossValue ?? createdLoss.totalCostDeducted ?? 0
+    };
+    setLosses(prev => [...prev, normalizedLoss]);
+    return normalizedLoss;
   };
   const addProduct = async (product) => {
     const created = await api.createProduct(product);
@@ -142,6 +158,29 @@ export function StoreProvider({ children }) {
     await api.deleteTransaction(txnId);
     setTransactions(prev => prev.filter(t => t.id !== txnId));
   };
+  const reorderProducts = async (productIds) => {
+    const reordered = await api.reorderProducts(productIds);
+    setProducts(reordered);
+    return reordered;
+  };
+  const addAd = async (ad) => {
+    const created = await api.createAd(ad);
+    setAds(prev => [created, ...prev]);
+    if (created.source === 'SELF_FUNDED') {
+      const refreshedTransactions = await api.getTransactions();
+      setTransactions(refreshedTransactions);
+    }
+    return created;
+  };
+  const deleteAd = async (adId) => {
+    const ad = ads.find(item => item.id === adId);
+    await api.deleteAd(adId);
+    setAds(prev => prev.filter(item => item.id !== adId));
+    if (ad?.source === 'SELF_FUNDED') {
+      const refreshedTransactions = await api.getTransactions();
+      setTransactions(refreshedTransactions);
+    }
+  };
 
   const derivedState = useMemo(() => buildDerivedStore({
     products,
@@ -157,7 +196,8 @@ export function StoreProvider({ children }) {
     losses: derivedState.enrichedLosses,
     inventory: derivedState.inventory,
     ads,
-    setAds,
+    addAd,
+    deleteAd,
     addPurchase,
     updatePurchase,
     deletePurchase,
@@ -167,12 +207,15 @@ export function StoreProvider({ children }) {
     addLoss,
     addProduct,
     updateProduct,
+    reorderProducts,
     transactions,
     addTransaction,
     updateTransaction,
     deleteTransaction,
     accounts,
     setAccounts: (acc) => updateSettings({ accounts: acc }),
+    shops,
+    setShops: (nextShops) => updateSettings({ shops: nextShops }),
     partners,
     setPartners: (ptn) => updateSettings({ partners: ptn }),
     defaultPackagingCost,

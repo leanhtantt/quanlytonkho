@@ -1,17 +1,22 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Search, X, PackageOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, X, PackageOpen, ChevronDown, ChevronUp, ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
 import ProductImage from '../components/ProductImage';
 import { processAndCompressImage } from '../domain/imageProcessor';
+import { deleteProductImage, uploadProductImage } from '../domain/imageStorage';
 
 export default function Products() {
-  const { inventory, updateProduct } = useAppStore();
+  const { inventory, updateProduct, reorderProducts } = useAppStore();
   const [search, setSearch] = useState('');
   const [filterStock, setFilterStock] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
   const [uploadingId, setUploadingId] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [sortMode, setSortMode] = useState('custom');
+  const [reorderBusy, setReorderBusy] = useState(false);
+  const [draggedProductId, setDraggedProductId] = useState(null);
+  const [dragOverProductId, setDragOverProductId] = useState(null);
 
   const handleImageUpload = async (productId, e) => {
     const file = e.target.files[0];
@@ -19,7 +24,15 @@ export default function Products() {
     try {
       setUploadingId(productId);
       const dataUrl = await processAndCompressImage(file);
-      await updateProduct(productId, { imageId: dataUrl });
+      const oldImageId = inventory.find(product => product.id === productId)?.imageId;
+      const imageUrl = await uploadProductImage(productId, dataUrl);
+      try {
+        await updateProduct(productId, { imageId: imageUrl });
+      } catch (error) {
+        await deleteProductImage(imageUrl).catch(() => {});
+        throw error;
+      }
+      await deleteProductImage(oldImageId).catch(error => console.warn('Không thể xóa ảnh cũ:', error));
     } catch (err) {
       console.error(err);
       alert('Lỗi khi tải ảnh');
@@ -37,6 +50,7 @@ export default function Products() {
       setUploadingId(product.id);
       setImagePreview(null);
       await updateProduct(product.id, { imageId: null });
+      await deleteProductImage(product.imageId);
     } catch (err) {
       console.error(err);
       alert('Không thể xóa hình sản phẩm');
@@ -57,8 +71,75 @@ export default function Products() {
     setImagePreview({ imageId: product.imageId, name: product.name, left, top });
   };
 
+  const compareBySku = (a, b) => {
+    const codeA = a.sku || a.id || '';
+    const codeB = b.sku || b.id || '';
+    if (codeA === codeB) return (a.name || '').localeCompare(b.name || '', 'vi', { sensitivity: 'base' });
+    return codeA.localeCompare(codeB, 'vi', { numeric: true, sensitivity: 'base' });
+  };
+
+  const orderedInventory = [...inventory].sort((a, b) => {
+    if (sortMode === 'sku') return compareBySku(a, b);
+    const orderA = Number(a.displayOrder) || Number.MAX_SAFE_INTEGER;
+    const orderB = Number(b.displayOrder) || Number.MAX_SAFE_INTEGER;
+    return orderA === orderB ? compareBySku(a, b) : orderA - orderB;
+  });
+
+  const handleMoveProduct = async (productId, direction, event) => {
+    event.stopPropagation();
+    const currentIndex = orderedInventory.findIndex(product => product.id === productId);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedInventory.length || reorderBusy) return;
+
+    const nextOrder = [...orderedInventory];
+    [nextOrder[currentIndex], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[currentIndex]];
+    try {
+      setReorderBusy(true);
+      await reorderProducts(nextOrder.map(product => product.id));
+    } catch (error) {
+      alert(`Không thể đổi thứ tự sản phẩm: ${error.message}`);
+    } finally {
+      setReorderBusy(false);
+    }
+  };
+
+  const handleDragStart = (productId, event) => {
+    if (sortMode !== 'custom' || reorderBusy) {
+      event.preventDefault();
+      return;
+    }
+    setDraggedProductId(productId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', productId);
+  };
+
+  const handleDropProduct = async (targetProductId, event) => {
+    event.preventDefault();
+    const sourceProductId = draggedProductId || event.dataTransfer.getData('text/plain');
+    setDragOverProductId(null);
+    setDraggedProductId(null);
+    if (!sourceProductId || sourceProductId === targetProductId || reorderBusy) return;
+
+    const sourceIndex = orderedInventory.findIndex(product => product.id === sourceProductId);
+    const targetIndex = orderedInventory.findIndex(product => product.id === targetProductId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const nextOrder = [...orderedInventory];
+    const [movedProduct] = nextOrder.splice(sourceIndex, 1);
+    nextOrder.splice(targetIndex, 0, movedProduct);
+
+    try {
+      setReorderBusy(true);
+      await reorderProducts(nextOrder.map(product => product.id));
+    } catch (error) {
+      alert(`Không thể đổi thứ tự sản phẩm: ${error.message}`);
+    } finally {
+      setReorderBusy(false);
+    }
+  };
+
   const normalizedSearch = search.trim().toLocaleLowerCase('vi');
-  let filteredProducts = inventory.filter(p => {
+  let filteredProducts = orderedInventory.filter(p => {
     if (!normalizedSearch) return true;
     const displayedSku = String(p.sku || p.id || '').toLocaleLowerCase('vi');
     const productName = String(p.name || '').toLocaleLowerCase('vi');
@@ -71,17 +152,6 @@ export default function Products() {
     if (filterStock === 'low') return p.stock > 0 && p.stock <= threshold;
     if (filterStock === 'out') return p.stock <= 0;
     return true;
-  });
-
-  filteredProducts.sort((a, b) => {
-    const codeA = a.sku || a.id || '';
-    const codeB = b.sku || b.id || '';
-    if (codeA === codeB) {
-      const nameA = a.name || '';
-      const nameB = b.name || '';
-      return nameA.localeCompare(nameB, 'vi', { sensitivity: 'base' });
-    }
-    return codeA.localeCompare(codeB, 'vi', { numeric: true, sensitivity: 'base' });
   });
 
   return (
@@ -154,6 +224,15 @@ export default function Products() {
                 <option value="out">Đã hết hàng</option>
               </select>
             </div>
+            <div style={{ flex: '0 1 210px' }}>
+              <label htmlFor="inventory-sort-mode" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-base)' }}>
+                Sắp xếp sản phẩm
+              </label>
+              <select id="inventory-sort-mode" value={sortMode} onChange={(e) => setSortMode(e.target.value)} style={{ width: '100%', padding: '0.8rem 1rem', backgroundColor: 'var(--color-bg-surface)' }}>
+                <option value="custom">Thứ tự tùy chỉnh</option>
+                <option value="sku">Theo mã SKU</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -170,12 +249,13 @@ export default function Products() {
                 <th>Hao hụt</th>
                 <th>Tổng Tồn (Thực)</th>
                 <th>Trạng thái</th>
+                <th style={{ width: '88px', textAlign: 'center' }}>Thứ tự</th>
               </tr>
             </thead>
             <tbody>
               {filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={9} style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+                  <td colSpan={10} style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
                     <PackageOpen size={36} aria-hidden="true" style={{ color: 'var(--color-text-muted)', marginBottom: '0.75rem' }} />
                     <div style={{ fontWeight: 600, color: 'var(--color-text-base)' }}>Không tìm thấy sản phẩm phù hợp</div>
                     <div style={{ marginTop: '0.35rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
@@ -190,7 +270,19 @@ export default function Products() {
                 
                 return (
                   <React.Fragment key={product.id}>
-                    <tr style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--color-bg-hover)' : '' }} onClick={() => setExpandedId(isExpanded ? null : product.id)}>
+                    <tr
+                      className={dragOverProductId === product.id ? 'inventory-row-drag-over' : ''}
+                      style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--color-bg-hover)' : '' }}
+                      onClick={() => setExpandedId(isExpanded ? null : product.id)}
+                      onDragOver={(event) => {
+                        if (sortMode !== 'custom' || reorderBusy) return;
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = 'move';
+                        setDragOverProductId(product.id);
+                      }}
+                      onDragLeave={() => setDragOverProductId(current => current === product.id ? null : current)}
+                      onDrop={(event) => handleDropProduct(product.id, event)}
+                    >
                       <td>
                         {remainingBatches.length > 0 ? (
                           isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />
@@ -256,12 +348,30 @@ export default function Products() {
                           }
                         })()}
                       </td>
+                      <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        {sortMode === 'custom' && (
+                          <>
+                            <span
+                              draggable={!reorderBusy}
+                              onDragStart={(event) => handleDragStart(product.id, event)}
+                              onDragEnd={() => { setDraggedProductId(null); setDragOverProductId(null); }}
+                              title="Nhấn giữ và kéo để đổi vị trí"
+                              aria-label={`Kéo ${product.sku || product.id} để đổi vị trí`}
+                              className="inventory-drag-handle"
+                            >
+                              <GripVertical size={17} />
+                            </span>
+                            <button type="button" className="btn" aria-label={`Đưa ${product.sku || product.id} lên`} disabled={reorderBusy || orderedInventory[0]?.id === product.id} onClick={(e) => handleMoveProduct(product.id, -1, e)} style={{ padding: '0.25rem', color: 'var(--color-primary)' }}><ArrowUp size={16} /></button>
+                            <button type="button" className="btn" aria-label={`Đưa ${product.sku || product.id} xuống`} disabled={reorderBusy || orderedInventory[orderedInventory.length - 1]?.id === product.id} onClick={(e) => handleMoveProduct(product.id, 1, e)} style={{ padding: '0.25rem', color: 'var(--color-primary)', marginLeft: '0.2rem' }}><ArrowDown size={16} /></button>
+                          </>
+                        )}
+                      </td>
                     </tr>
                     
                     {/* Expanded details showing batches */}
                     {isExpanded && remainingBatches.length > 0 && (
                       <tr>
-                        <td colSpan={8} style={{ padding: 0, backgroundColor: 'var(--color-bg-base)' }}>
+                        <td colSpan={10} style={{ padding: 0, backgroundColor: 'var(--color-bg-base)' }}>
                           <div style={{ padding: '1rem 3rem', borderLeft: '4px solid var(--color-primary)' }}>
                             <h5 style={{ marginBottom: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>
                               Chi tiết các lô hàng đang còn trong kho (Nhập trước -&gt; Xuất trước)

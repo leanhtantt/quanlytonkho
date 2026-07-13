@@ -1,0 +1,2 @@
+ALTER TABLE "AppSettings"
+ADD COLUMN "shops" JSONB NOT NULL DEFAULT '[]';

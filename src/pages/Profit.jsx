@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -9,30 +9,35 @@ function formatCurrency(value) {
 }
 
 export default function Profit() {
-  const { orders, losses, ads, setAds, partners, defaultPackagingCost } = useAppStore();
-
-  const [adMonth, setAdMonth] = useState('');
-  const [adShop, setAdShop] = useState('');
-  const [adAmount, setAdAmount] = useState('');
+  const {
+    orders, losses, ads, shops: configuredShops, partners,
+    defaultPackagingCost, transactions
+  } = useAppStore();
 
   // Extract unique shops from orders for the dropdown
   const shops = useMemo(() => {
-    const s = new Set(orders.map(o => o.shop).filter(Boolean));
+    const s = new Set([...configuredShops, ...orders.map(o => o.shop).filter(Boolean)]);
     return Array.from(s).sort();
-  }, [orders]);
+  }, [configuredShops, orders]);
 
-  const handleSaveAd = (e) => {
-    e.preventDefault();
-    if (!adMonth || !adShop || !adAmount) return;
+  const withdrawalsByMonthAndShop = useMemo(() => {
+    const map = {};
+    transactions
+      .filter(transaction => transaction.type === 'THU' && transaction.category === 'Rút tiền từ Sàn' && transaction.shop)
+      .forEach(transaction => {
+        const month = String(transaction.date || '').substring(0, 7);
+        if (!month) return;
+        const key = `${month}::${transaction.shop}`;
+        map[key] = (map[key] || 0) + (Number(transaction.amount) || 0);
+      });
+    return map;
+  }, [transactions]);
 
-    setAds(prev => {
-      const existing = prev.find(a => a.month === adMonth && a.shop === adShop);
-      if (existing) {
-        return prev.map(a => a.month === adMonth && a.shop === adShop ? { ...a, amount: Number(adAmount) } : a);
-      }
-      return [...prev, { month: adMonth, shop: adShop, amount: Number(adAmount) }];
-    });
-    setAdAmount('');
+  const getWithdrawnAmount = (row) => {
+    if (!row.isTotal) return withdrawalsByMonthAndShop[`${row.month}::${row.shop}`] || 0;
+    return Object.entries(withdrawalsByMonthAndShop)
+      .filter(([key]) => key.startsWith(`${row.month}::`))
+      .reduce((sum, [, amount]) => sum + amount, 0);
   };
 
   const data = useMemo(() => calculateProfitAnalytics(orders, losses, ads, partners, defaultPackagingCost), [orders, losses, ads, partners, defaultPackagingCost]);
@@ -66,37 +71,8 @@ export default function Profit() {
         <h1 className="page-title">Phân Tích Lợi Nhuận</h1>
       </div>
 
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <h3>Nhập Chi Phí Quảng Cáo</h3>
-        <form onSubmit={handleSaveAd} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '1rem' }}>
-          <div style={{ flex: '1 1 160px' }}>
-            <label>Tháng</label>
-            <input type="month" value={adMonth} onChange={e => setAdMonth(e.target.value)} required />
-          </div>
-          <div style={{ flex: '1 1 220px' }}>
-            <label>Shop</label>
-            <input
-              type="text"
-              list="ad-shops"
-              value={adShop}
-              onChange={e => setAdShop(e.target.value)}
-              placeholder="Chọn hoặc nhập shop..."
-              required
-            />
-            <datalist id="ad-shops">
-              {shops.map(s => <option key={s} value={s} />)}
-            </datalist>
-          </div>
-          <div style={{ flex: '1 1 180px' }}>
-            <label>Chi phí (VND)</label>
-            <input type="number" value={adAmount} onChange={e => setAdAmount(e.target.value)} required />
-          </div>
-          <button type="submit" className="btn btn-primary">Lưu chi phí</button>
-        </form>
-      </div>
-
       <div className="card" style={{ marginBottom: '1.5rem', height: '400px' }}>
-        <h3>Biểu đồ Lợi Nhuận Dòng Tiền (Cash-Month Profit)</h3>
+        <h3>Biểu đồ Lợi Nhuận Theo Tháng Sàn Thanh Toán</h3>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
@@ -116,7 +92,7 @@ export default function Profit() {
 
       <div className="card">
         <h3>Bảng Phân Tích Lợi Nhuận</h3>
-        <div className="table-responsive">
+        <div className="table-responsive profit-table-container profit-analysis-table-container">
           <table className="table">
             <thead>
               <tr>
@@ -125,13 +101,16 @@ export default function Profit() {
                 <th>Tổng đơn</th>
                 <th>Đã giao</th>
                 <th>Hoàn</th>
-                <th>Doanh thu (Thực)</th>
+                <th>Chưa đối soát</th>
+                <th>Doanh thu theo đơn</th>
+                <th>Sàn đã thanh toán</th>
                 <th>Vốn (Thực)</th>
-                <th>Vốn (+15d)</th>
+                <th>Vốn theo kỳ thanh toán</th>
                 <th>SL Hao hụt</th>
                 <th>Giá trị Hao hụt</th>
                 <th>Đóng gói</th>
-                <th>QC</th>
+                <th>QC nạp thủ công</th>
+                <th>Đã rút về</th>
                 <th>LN Đơn hàng</th>
                 <th>LN Dòng tiền</th>
                 {partners.map(p => (
@@ -141,19 +120,22 @@ export default function Profit() {
             </thead>
             <tbody>
               {data.map((row, i) => (
-                <tr key={i} style={{ fontWeight: row.isTotal ? 'bold' : 'normal', backgroundColor: row.isTotal ? 'var(--color-bg-subtle)' : 'transparent' }}>
+                <tr key={i} className={row.isTotal ? 'profit-total-row' : ''} style={{ fontWeight: row.isTotal ? 'bold' : 'normal', backgroundColor: row.isTotal ? 'var(--color-bg-subtle)' : 'transparent' }}>
                   <td>{row.month}</td>
                   <td>{row.shop}</td>
                   <td>{row.totalOrders}</td>
                   <td>{row.deliveredOrders}</td>
                   <td>{row.returnedOrders}</td>
+                  <td>{row.pendingOrders}</td>
                   <td style={{ color: 'var(--color-success)' }}>{formatCurrency(row.actualRevenue)}</td>
+                  <td style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{formatCurrency(row.settledRevenue)}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.orderProductCost)}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.estimatedMatchingCost)}</td>
                   <td>{row.monthlyLossQty}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.monthlyLossValue)}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.packagingCost)}</td>
                   <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.ads)}</td>
+                  <td style={{ color: 'var(--color-info)', fontWeight: 600 }}>{formatCurrency(getWithdrawnAmount(row))}</td>
                   <td style={{ color: row.orderMonthProfit < 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{formatCurrency(row.orderMonthProfit)}</td>
                   <td style={{ color: row.cashMonthProfit < 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{formatCurrency(row.cashMonthProfit)}</td>
                   {partners.map(p => (
@@ -165,7 +147,7 @@ export default function Profit() {
               ))}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={14 + partners.length} style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
+                  <td colSpan={17 + partners.length} style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
                 </tr>
               )}
             </tbody>
@@ -179,10 +161,10 @@ export default function Profit() {
             <TrendingUp size={24} style={{ color: 'var(--color-primary)' }} />
             Báo cáo Chi phí Ẩn
           </h2>
-          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>*(Chỉ mang tính chất theo dõi để tối ưu, không trừ vào lợi nhuận)*</span>
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>QC Shopee tự trừ trong đơn chỉ theo dõi; QC nạp từ Ví Shopee hoặc ngân hàng được trừ trong lợi nhuận.</span>
         </div>
         
-        <div className="table-responsive">
+        <div className="table-responsive profit-table-container">
           <table className="table">
             <thead>
               <tr>
@@ -192,12 +174,14 @@ export default function Profit() {
                 <th style={{ color: 'var(--color-danger)' }}>Phí Sàn</th>
                 <th style={{ color: 'var(--color-danger)' }}>Phí Khuyến Mãi</th>
                 <th style={{ color: 'var(--color-danger)' }}>Phí Hoàn Hàng</th>
+                <th style={{ color: 'var(--color-danger)' }}>QC trừ doanh thu</th>
+                <th style={{ color: 'var(--color-danger)' }}>Tổng QC</th>
                 <th style={{ color: 'var(--color-danger)' }}>Tỉ lệ Hút máu (%)</th>
               </tr>
             </thead>
             <tbody>
               {data.map((row, i) => {
-                const totalHidden = row.platformFee + row.marketingFee + row.returnCost;
+                const totalHidden = row.platformFee + row.marketingFee + row.returnCost + row.deductedAds;
                 const ratio = row.expectedRevenue > 0 ? (totalHidden / row.expectedRevenue * 100).toFixed(1) : 0;
                 
                 return (
@@ -208,13 +192,15 @@ export default function Profit() {
                     <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.platformFee)}</td>
                     <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.marketingFee)}</td>
                     <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.returnCost)}</td>
+                    <td style={{ color: 'var(--color-danger)' }}>{formatCurrency(row.deductedAds)}</td>
+                    <td style={{ color: 'var(--color-danger)', fontWeight: 600 }}>{formatCurrency(row.deductedAds + row.ads)}</td>
                     <td style={{ color: 'var(--color-danger)', fontWeight: 'bold' }}>{ratio}%</td>
                   </tr>
                 );
               })}
               {data.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
+                  <td colSpan={9} style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>Chưa có dữ liệu</td>
                 </tr>
               )}
             </tbody>

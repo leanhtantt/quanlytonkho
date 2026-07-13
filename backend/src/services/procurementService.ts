@@ -133,7 +133,9 @@ async function deletePurchaseOrderTx(tx: any, poId: string) {
   }
   
   // Extract productIds before deleting the items
-  const productIds = Array.from(new Set(po.purchaseItems.map(p => p.productId)));
+  const productIds: string[] = Array.from(new Set(
+    po.purchaseItems.map((p: { productId: string }) => p.productId)
+  ));
 
   await tx.purchaseItem.deleteMany({ where: { purchaseOrderId: po.id } });
   await tx.purchaseOrder.delete({ where: { id: po.id } });

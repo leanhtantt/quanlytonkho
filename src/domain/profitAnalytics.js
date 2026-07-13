@@ -1,3 +1,12 @@
+export function calculateOrderGrossProfit(order) {
+  const revenue = order.actualRevenue != null && order.actualRevenue !== ''
+    ? Number(order.actualRevenue)
+    : (order.items || []).reduce((sum, item) => (
+      sum + (item.isReturned ? 0 : (Number(item.qty) || 0) * (Number(item.sellingPrice) || 0))
+    ), 0);
+  return revenue - (Number(order.totalCost) || 0);
+}
+
 export function calculateProfitAnalytics(orders, losses, ads, partners = [], defaultPackagingCost = 1000) {
   const data = {};
   const globalLosses = {};
@@ -6,9 +15,9 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
     if (!data[month]) data[month] = {};
     if (!data[month][shop]) {
       data[month][shop] = {
-        totalOrders: 0, deliveredOrders: 0, returnedOrders: 0,
-        expectedRevenue: 0, actualRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
-        estimatedMatchingCost: 0, monthlyLossQty: 0, monthlyLossValue: 0, ads: 0,
+        totalOrders: 0, deliveredOrders: 0, returnedOrders: 0, pendingOrders: 0,
+        expectedRevenue: 0, actualRevenue: 0, settledRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
+        estimatedMatchingCost: 0, monthlyLossQty: 0, monthlyLossValue: 0, ads: 0, deductedAds: 0,
         packagingCost: 0, estimatedPackagingCost: 0,
         returnCost: 0, estimatedReturnCost: 0,
         platformFee: 0, marketingFee: 0
@@ -24,31 +33,36 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
     const stats = getStats(orderMonth, shop);
 
     stats.totalOrders += 1;
-    const status = order.status || '';
-    const norm = status.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/đ/g, 'd');
-    if (status === 'Đã giao' || norm.includes('da giao')) {
+    const hasActualRevenue = order.actualRevenue != null && order.actualRevenue !== '';
+    const hasReturnedItem = order.items?.some(item => item.isReturned) || false;
+    const isFullReturn = order.items?.length > 0 && order.items.every(item => item.isReturned);
+    if (hasActualRevenue && !isFullReturn) {
       stats.deliveredOrders += 1;
     }
-    if (status === 'Hoàn hàng' || norm.includes('hoan') || (order.items && order.items.length > 0 && order.items.every(item => item.isReturned))) {
+    if (isFullReturn) {
       stats.returnedOrders += 1;
+    } else if (!hasActualRevenue) {
+      stats.pendingOrders += 1;
     }
 
-    const hasActualRevenue = order.actualRevenue != null && order.actualRevenue !== '';
     const actualRevNum = hasActualRevenue ? Number(order.actualRevenue) : 0;
-    const costNum = Number(order.totalCost) || 0;
     const pkgCost = order.packagingFee !== undefined ? Number(order.packagingFee) : defaultPackagingCost;
+    // buildDerivedStore.totalCost includes packaging. Profit analytics shows
+    // packaging in its own column, so only the FIFO product cost belongs here.
+    const costNum = Math.max(0, (Number(order.totalCost) || 0) - pkgCost);
     const retCost = order.returnFee !== undefined ? Number(order.returnFee) : 0;
     const platFee = Number(order.platformFee) || 0;
     const mktFee = Number(order.marketingFee) || 0;
     
     // Tính doanh thu dự kiến (giá ưu đãi * số lượng)
-    const expectedRev = order.items.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0), 0);
+    const expectedRev = order.items.reduce((sum, item) => sum + (Number(item.sellingPrice) || 0) * (Number(item.qty) || 0), 0);
 
     stats.expectedRevenue += expectedRev;
     stats.actualRevenue += actualRevNum;
     stats.orderProductCost += costNum;
     stats.packagingCost += pkgCost;
-    stats.returnCost += retCost;
+    const returnedGrossLoss = hasReturnedItem ? Math.max(0, -calculateOrderGrossProfit(order)) : 0;
+    stats.returnCost += retCost + returnedGrossLoss;
     stats.platformFee += platFee;
     stats.marketingFee += mktFee;
 
@@ -63,13 +77,19 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
     }
     
     const cashStats = getStats(cashMonth, shop);
-    if (hasActualRevenue || (status === 'Hoàn hàng' && retCost > 0)) {
+    if (hasActualRevenue || (hasReturnedItem && retCost > 0)) {
       // Đối với đơn hoàn, khi xác nhận hoàn (hoặc có doanh thu thực tế = 0), ta ghi nhận phí hoàn vào dòng tiền tháng đối soát.
       // Tuy nhiên nếu đơn chưa đối soát (chưa về hàng/chưa trừ tiền), cashMonth sẽ là dự kiến.
       cashStats.withdrawableRevenue += actualRevNum;
       cashStats.estimatedMatchingCost += costNum;
       cashStats.estimatedPackagingCost += pkgCost;
       cashStats.estimatedReturnCost += retCost;
+    }
+
+    // Chỉ tiêu đối soát với màn "Đã thanh toán" của sàn: chỉ ghi nhận
+    // khi có ngày sàn thực sự hoàn tất chuyển tiền cho người bán.
+    if (order.settlementDate && hasActualRevenue) {
+      cashStats.settledRevenue += actualRevNum;
     }
   }
 
@@ -93,7 +113,11 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
   for (const ad of ads) {
     if (ad.month && ad.shop) {
       const stats = getStats(ad.month, ad.shop);
-      stats.ads += Number(ad.amount) || 0;
+      if (ad.source === 'DEDUCTED_FROM_REVENUE') {
+        stats.deductedAds += Number(ad.amount) || 0;
+      } else {
+        stats.ads += Number(ad.amount) || 0;
+      }
     }
   }
 
@@ -104,9 +128,9 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
     const totalStats = {
       month,
       shop: 'Tổng tất cả',
-      totalOrders: 0, deliveredOrders: 0, returnedOrders: 0,
-      expectedRevenue: 0, actualRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
-      estimatedMatchingCost: 0, monthlyLossQty: 0, monthlyLossValue: 0, ads: 0,
+      totalOrders: 0, deliveredOrders: 0, returnedOrders: 0, pendingOrders: 0,
+      expectedRevenue: 0, actualRevenue: 0, settledRevenue: 0, withdrawableRevenue: 0, orderProductCost: 0,
+      estimatedMatchingCost: 0, monthlyLossQty: 0, monthlyLossValue: 0, ads: 0, deductedAds: 0,
       packagingCost: 0, estimatedPackagingCost: 0,
       returnCost: 0, estimatedReturnCost: 0,
       platformFee: 0, marketingFee: 0,
@@ -134,13 +158,16 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
       totalStats.totalOrders += s.totalOrders;
       totalStats.deliveredOrders += s.deliveredOrders;
       totalStats.returnedOrders += s.returnedOrders;
+      totalStats.pendingOrders += s.pendingOrders;
       totalStats.actualRevenue += s.actualRevenue;
+      totalStats.settledRevenue += s.settledRevenue;
       totalStats.withdrawableRevenue += s.withdrawableRevenue;
       totalStats.orderProductCost += s.orderProductCost;
       totalStats.estimatedMatchingCost += s.estimatedMatchingCost;
       totalStats.monthlyLossQty += s.monthlyLossQty;
       totalStats.monthlyLossValue += s.monthlyLossValue;
       totalStats.ads += s.ads;
+      totalStats.deductedAds += s.deductedAds;
       totalStats.packagingCost += s.packagingCost;
       totalStats.estimatedPackagingCost += s.estimatedPackagingCost;
       totalStats.returnCost += s.returnCost;
@@ -168,3 +195,41 @@ export function calculateProfitAnalytics(orders, losses, ads, partners = [], def
   return results;
 }
 
+export function calculateMarketplaceWalletSummary(orders = [], transactions = [], ads = [], configuredShops = []) {
+  const summaries = new Map(configuredShops.map(shop => [shop, {
+    shop,
+    settledRevenue: 0,
+    withdrawn: 0,
+    walletAdSpend: 0,
+    estimatedBalance: 0
+  }]));
+
+  const getSummary = (shop) => {
+    if (!summaries.has(shop)) {
+      summaries.set(shop, { shop, settledRevenue: 0, withdrawn: 0, walletAdSpend: 0, estimatedBalance: 0 });
+    }
+    return summaries.get(shop);
+  };
+
+  orders.forEach(order => {
+    if (!order.shop || !order.settlementDate || order.actualRevenue == null || order.actualRevenue === '') return;
+    getSummary(order.shop).settledRevenue += Number(order.actualRevenue) || 0;
+  });
+
+  transactions.forEach(transaction => {
+    if (transaction.type !== 'THU' || transaction.category !== 'Rút tiền từ Sàn' || !transaction.shop) return;
+    getSummary(transaction.shop).withdrawn += Number(transaction.amount) || 0;
+  });
+
+  ads.forEach(ad => {
+    if (ad.source !== 'SHOPEE_WALLET' || !ad.shop) return;
+    getSummary(ad.shop).walletAdSpend += Number(ad.amount) || 0;
+  });
+
+  return Array.from(summaries.values())
+    .map(summary => ({
+      ...summary,
+      estimatedBalance: summary.settledRevenue - summary.withdrawn - summary.walletAdSpend
+    }))
+    .sort((a, b) => a.shop.localeCompare(b.shop, 'vi'));
+}

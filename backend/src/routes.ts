@@ -4,6 +4,13 @@ import { z } from 'zod';
 import { createPurchaseOrder, deletePurchaseOrder, replacePurchaseOrder } from './services/procurementService';
 import { recordLoss } from './services/financeService';
 import { createOrder, replaceOrder, deleteOrder, OrderInput } from './services/orderService';
+import { randomUUID } from 'crypto';
+import { getApps, initializeApp } from 'firebase-admin/app';
+import { getStorage } from 'firebase-admin/storage';
+
+if (!getApps().length) {
+  initializeApp({ projectId: 'tanle-dev', storageBucket: 'tanle-dev.firebasestorage.app' });
+}
 
 export const apiRouter = Router();
 
@@ -46,6 +53,7 @@ const orderSchema = z.object({
   marketingFee: z.number().nonnegative().optional().default(0),
   actualRevenue: z.number().nullable().optional(),
   settlementDate: z.string().nullable().optional(),
+  note: z.string().max(2000).nullable().optional(),
   items: z.array(z.object({
     productId: z.string(),
     name: z.string().optional(),
@@ -64,9 +72,59 @@ const lossSchema = z.object({
 const settingsSchema = z.object({
   partners: z.any().optional(),
   accounts: z.any().optional(),
+  shops: z.array(z.string().trim().min(1)).optional(),
   packagingCost: z.number().nonnegative().optional(),
   returnFee: z.number().nonnegative().optional(),
 });
+
+const productImageSchema = z.object({
+  productId: z.string().min(1),
+  dataUrl: z.string().startsWith('data:image/'),
+});
+
+const productOrderSchema = z.object({
+  productIds: z.array(z.string().uuid()).min(1).refine(
+    ids => new Set(ids).size === ids.length,
+    { message: 'Danh sách sản phẩm không được trùng mã.' }
+  ),
+});
+
+const treasuryTransactionSchema = z.object({
+  id: z.string().optional(),
+  date: z.string().or(z.date()),
+  type: z.enum(['THU', 'CHI', 'CHUYEN']),
+  account: z.string().optional().nullable(),
+  fromAccount: z.string().optional().nullable(),
+  toAccount: z.string().optional().nullable(),
+  category: z.string().optional().nullable(),
+  person: z.string().optional().nullable(),
+  shop: z.string().optional().nullable(),
+  amount: z.number().positive(),
+  description: z.string().optional().nullable(),
+  note: z.string().optional().nullable(),
+});
+
+const adExpenseSchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  shop: z.string().trim().min(1),
+  amount: z.number().positive(),
+  source: z.enum(['DEDUCTED_FROM_REVENUE', 'SHOPEE_WALLET', 'SELF_FUNDED']),
+  account: z.string().trim().optional().nullable(),
+  date: z.string().optional().nullable(),
+  note: z.string().max(1000).optional().nullable(),
+}).superRefine((data, ctx) => {
+  if (data.source === 'SELF_FUNDED' && !data.account) {
+    ctx.addIssue({ code: 'custom', path: ['account'], message: 'Tài khoản chi là bắt buộc với quảng cáo tự nạp.' });
+  }
+});
+
+function mapTreasuryTransaction(transaction: any) {
+  return {
+    ...transaction,
+    date: transaction.date.toISOString().split('T')[0],
+    amount: Number(transaction.amount),
+  };
+}
 
 // --- Products ---
 apiRouter.get('/products', async (req, res) => {
@@ -92,6 +150,23 @@ apiRouter.post('/products', async (req, res) => {
     console.error("Error upserting product:", error);
     res.status(500).json({ error: 'Failed to create/update product' });
   }
+});
+
+apiRouter.put('/products/reorder', async (req, res) => {
+  const parsed = productOrderSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const existingCount = await prisma.product.count({ where: { id: { in: parsed.data.productIds } } });
+  if (existingCount !== parsed.data.productIds.length) {
+    return res.status(400).json({ error: 'Danh sách có sản phẩm không tồn tại.' });
+  }
+
+  await prisma.$transaction(parsed.data.productIds.map((id, index) => (
+    prisma.product.update({ where: { id }, data: { displayOrder: index + 1 } })
+  )));
+
+  const products = await prisma.product.findMany({ orderBy: [{ displayOrder: 'asc' }, { sku: 'asc' }] });
+  res.json(products);
 });
 
 apiRouter.put('/products/:id', async (req, res) => {
@@ -277,6 +352,7 @@ function buildOrderInput(data: any, dbProducts: any[]): OrderInput {
     actualRevenue: (data.actualRevenue === null || data.actualRevenue === undefined || data.actualRevenue === '')
       ? null : Number(data.actualRevenue),
     settlementDate: data.settlementDate ? new Date(data.settlementDate) : null,
+    note: data.note?.trim() || null,
     items
   };
 }
@@ -383,6 +459,7 @@ apiRouter.put('/orders/:id', async (req, res) => {
       if (b.actualRevenue !== undefined) {
         data.actualRevenue = (b.actualRevenue === null || b.actualRevenue === '') ? null : Number(b.actualRevenue);
       }
+      if (b.note !== undefined) data.note = b.note == null ? null : (String(b.note).trim() || null);
       await prisma.order.update({ where: { id: existing.id }, data });
     }
 
@@ -479,24 +556,135 @@ apiRouter.put('/settings', async (req, res) => {
 // --- Treasury ---
 apiRouter.get('/treasury/transactions', async (req, res) => {
   const transactions = await prisma.treasuryTransaction.findMany();
-  res.json(transactions);
+  res.json(transactions.map(mapTreasuryTransaction));
+});
+
+apiRouter.post('/product-images', async (req, res) => {
+  const parsed = productImageSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const match = parsed.data.dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s);
+  if (!match) return res.status(400).json({ error: 'Invalid image data' });
+  const buffer = Buffer.from(match[2], 'base64');
+  if (buffer.length > 5 * 1024 * 1024) return res.status(400).json({ error: 'Image exceeds 5 MB' });
+
+  const safeProductId = parsed.data.productId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const objectPath = `product-images/${safeProductId}/${Date.now()}.webp`;
+  const downloadToken = randomUUID();
+  const file = getStorage().bucket('tanle-dev.firebasestorage.app').file(objectPath);
+  await file.save(buffer, {
+    resumable: false,
+    contentType: match[1],
+    metadata: { metadata: { firebaseStorageDownloadTokens: downloadToken, productId: parsed.data.productId } }
+  });
+
+  const imageUrl = `https://firebasestorage.googleapis.com/v0/b/tanle-dev.firebasestorage.app/o/${encodeURIComponent(objectPath)}?alt=media&token=${downloadToken}`;
+  res.json({ imageUrl });
+});
+
+apiRouter.delete('/product-images', async (req, res) => {
+  const imageUrl = String(req.body?.imageUrl || '');
+  const match = imageUrl.match(/\/o\/([^?]+)/);
+  if (!imageUrl.includes('/b/tanle-dev.firebasestorage.app/') || !match) {
+    return res.status(400).json({ error: 'Invalid Firebase Storage image URL' });
+  }
+  const objectPath = decodeURIComponent(match[1]);
+  if (!objectPath.startsWith('product-images/')) return res.status(400).json({ error: 'Invalid image path' });
+
+  await getStorage().bucket('tanle-dev.firebasestorage.app').file(objectPath).delete({ ignoreNotFound: true });
+  res.json({ success: true });
 });
 
 apiRouter.post('/treasury/transactions', async (req, res) => {
-  const transaction = await prisma.treasuryTransaction.create({ data: req.body });
-  res.json(transaction);
+  const parsed = treasuryTransactionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const { id: _clientId, date, ...data } = parsed.data;
+  const transaction = await prisma.treasuryTransaction.create({
+    data: { ...data, date: new Date(date) }
+  });
+  res.json(mapTreasuryTransaction(transaction));
 });
 
 apiRouter.put('/treasury/transactions/:id', async (req, res) => {
+  const parsed = treasuryTransactionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const { id: _clientId, date, ...data } = parsed.data;
   const transaction = await prisma.treasuryTransaction.update({
     where: { id: req.params.id },
-    data: req.body
+    data: { ...data, date: new Date(date) }
   });
-  res.json(transaction);
+  res.json(mapTreasuryTransaction(transaction));
 });
 
 apiRouter.delete('/treasury/transactions/:id', async (req, res) => {
   await prisma.treasuryTransaction.delete({ where: { id: req.params.id } });
+  res.json({ success: true });
+});
+
+// --- Advertising expenses ---
+apiRouter.get('/ads', async (req, res) => {
+  const expenses = await prisma.monthlyAdExpense.findMany({ orderBy: [{ month: 'desc' }, { createdAt: 'desc' }] });
+  res.json(expenses.map(expense => ({
+    ...expense,
+    shop: expense.channel,
+    amount: Number(expense.amount),
+    date: expense.spentAt ? expense.spentAt.toISOString().split('T')[0] : null,
+  })));
+});
+
+apiRouter.post('/ads', async (req, res) => {
+  const parsed = adExpenseSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const data = parsed.data;
+
+  const expense = await prisma.$transaction(async tx => {
+    let treasuryTransactionId: string | null = null;
+    if (data.source === 'SELF_FUNDED') {
+      const transaction = await tx.treasuryTransaction.create({
+        data: {
+          date: new Date(data.date || `${data.month}-01`),
+          type: 'CHI',
+          account: data.account,
+          category: 'Tiền quảng cáo (Ads)',
+          shop: data.shop,
+          amount: data.amount,
+          note: data.note?.trim() || null,
+        }
+      });
+      treasuryTransactionId = transaction.id;
+    }
+
+    return tx.monthlyAdExpense.create({
+      data: {
+        month: data.month,
+        channel: data.shop,
+        amount: data.amount,
+        source: data.source,
+        account: data.source === 'SELF_FUNDED' ? data.account : null,
+        spentAt: data.date ? new Date(data.date) : null,
+        note: data.note?.trim() || null,
+        treasuryTransactionId,
+      }
+    });
+  });
+
+  res.json({
+    ...expense,
+    shop: expense.channel,
+    amount: Number(expense.amount),
+    date: expense.spentAt ? expense.spentAt.toISOString().split('T')[0] : null,
+  });
+});
+
+apiRouter.delete('/ads/:id', async (req, res) => {
+  await prisma.$transaction(async tx => {
+    const expense = await tx.monthlyAdExpense.findUnique({ where: { id: req.params.id } });
+    if (!expense) return;
+    await tx.monthlyAdExpense.delete({ where: { id: expense.id } });
+    if (expense.treasuryTransactionId) {
+      await tx.treasuryTransaction.delete({ where: { id: expense.treasuryTransactionId } });
+    }
+  });
   res.json({ success: true });
 });
 

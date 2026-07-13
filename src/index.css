@@ -247,6 +247,99 @@ label {
   border-color: var(--color-border-strong);
 }
 
+.dashboard-header {
+  align-items: flex-end;
+}
+
+.dashboard-subtitle {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+.dashboard-date-control {
+  width: min(100%, 220px);
+}
+
+.dashboard-date-control label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dashboard-section {
+  margin-bottom: var(--space-8);
+}
+
+.dashboard-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.dashboard-section-heading h2 {
+  font-size: 1.125rem;
+}
+
+.dashboard-section-heading p {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.dashboard-summary-table {
+  min-width: 520px;
+}
+
+.dashboard-product-table {
+  min-width: 760px;
+}
+
+.dashboard-number-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-total-row td {
+  background: var(--color-bg-subtle);
+  font-weight: 800;
+}
+
+.dashboard-empty-state {
+  padding: var(--space-8);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.dashboard-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
+}
+
+.dashboard-stat-icon {
+  display: inline-flex;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-hover);
+  color: var(--color-primary);
+}
+
+.dashboard-chart-card {
+  margin-bottom: var(--space-8);
+}
+
+.dashboard-chart-card h3 {
+  margin-bottom: var(--space-6);
+  font-size: 1.125rem;
+}
+
+.dashboard-chart {
+  height: 340px;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -679,6 +772,14 @@ tbody tr:hover td {
     flex-direction: column;
   }
 
+  .dashboard-header {
+    align-items: stretch;
+  }
+
+  .dashboard-date-control {
+    width: 100%;
+  }
+
   .header-actions,
   .import-control,
   .header-actions > .btn {
@@ -713,6 +814,19 @@ tbody tr:hover td {
 
   .card {
     padding: var(--space-4);
+  }
+
+  .dashboard-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboard-stat-grid {
+    gap: var(--space-4);
+  }
+
+  .dashboard-chart {
+    height: 280px;
   }
 
   th,

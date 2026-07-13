@@ -117,8 +117,17 @@ export function StoreProvider({ children }) {
     }
   };
   const addLoss = async (loss) => {
-    const created = await api.createLoss(loss);
-    setLosses(prev => [...prev, created]);
+    const response = await api.createLoss(loss);
+    const createdLoss = response.loss || response;
+    const normalizedLoss = {
+      ...createdLoss,
+      name: loss.name,
+      sku: loss.sku,
+      date: createdLoss.occurredAt || loss.date,
+      totalCostDeducted: response.totalLossValue ?? createdLoss.totalCostDeducted ?? 0
+    };
+    setLosses(prev => [...prev, normalizedLoss]);
+    return normalizedLoss;
   };
   const addProduct = async (product) => {
     const created = await api.createProduct(product);

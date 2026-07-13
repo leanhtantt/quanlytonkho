@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { ShieldAlert, Plus, Save, X } from 'lucide-react';
+import { Plus, Save, X } from 'lucide-react';
 import ProductImage from '../components/ProductImage';
 
 export default function Losses() {
@@ -14,11 +14,19 @@ export default function Losses() {
   const [items, setItems] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [qty, setQty] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleAddItem = () => {
-    const product = inventory.find(p => p.id === searchQuery);
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase('vi');
+    const product = inventory.find(p => {
+      const sku = String(p.sku || '').trim().toLocaleLowerCase('vi');
+      const name = String(p.name || '').trim().toLocaleLowerCase('vi');
+      return sku === normalizedQuery
+        || name === normalizedQuery
+        || `${sku} - ${name}` === normalizedQuery;
+    });
     if (!product || qty <= 0) {
-      alert('Vui lòng chọn đúng mã sản phẩm và nhập số lượng > 0');
+      alert('Vui lòng chọn đúng SKU hoặc tên sản phẩm và nhập số lượng > 0');
       return;
     }
     setItems(prev => [...prev, { product, qty: Number(qty) }]);
@@ -30,32 +38,40 @@ export default function Losses() {
     setItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSaveLoss = () => {
+  const handleSaveLoss = async () => {
     if (items.length === 0) return;
-    
-    // Tạo 1 ID chung cho phiếu này nếu cần gom nhóm, hoặc mỗi dòng 1 ID
-    const batchId = `LOSS-${Date.now()}`;
-    
-    items.forEach((item, index) => {
-      addLoss({
-        id: `${batchId}-${index}`,
-        date,
-        productId: item.product.id,
-        name: item.product.name,
-        qty: item.qty,
-        reason
-      });
-    });
-    
-    setShowForm(false);
-    setItems([]);
-    setSearchQuery('');
-    setQty(1);
-    setReason('Kiểm kho hao hụt');
+
+    setIsSaving(true);
+    try {
+      for (const item of items) {
+        await addLoss({
+          date,
+          productId: item.product.id,
+          sku: item.product.sku,
+          name: item.product.name,
+          qty: item.qty,
+          reason
+        });
+      }
+
+      setShowForm(false);
+      setItems([]);
+      setSearchQuery('');
+      setQty(1);
+      setReason('Kiểm kho hao hụt');
+    } catch (error) {
+      console.error('Lưu phiếu hao hụt thất bại', error);
+      alert(`Không lưu được phiếu hao hụt: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // Sắp xếp sản phẩm theo chữ cái và số tự nhiên
-  const sortedInventory = [...inventory].sort((a, b) => a.id.localeCompare(b.id, 'vi', { numeric: true, sensitivity: 'base' }));
+  // Sắp xếp sản phẩm theo SKU và tên; ID nội bộ không dùng cho tìm kiếm.
+  const sortedInventory = [...inventory].sort((a, b) => {
+    const skuComparison = String(a.sku || '').localeCompare(String(b.sku || ''), 'vi', { numeric: true, sensitivity: 'base' });
+    return skuComparison || String(a.name || '').localeCompare(String(b.name || ''), 'vi', { sensitivity: 'base' });
+  });
 
   const getFifoEstimate = (productId, qtyToDeduct) => {
     const product = inventory.find(p => p.id === productId);
@@ -116,18 +132,18 @@ export default function Losses() {
           <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 300px' }}>
-                <label style={labelStyle}>Tìm Mã SP</label>
+                <label style={labelStyle}>Tìm SKU hoặc tên sản phẩm</label>
                 <input 
                   type="text" 
                   list="loss-products" 
                   value={searchQuery} 
-                  onChange={e => setSearchQuery(e.target.value.toUpperCase())} 
-                  placeholder="Gõ mã SP để tìm kiếm..." 
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Gõ SKU hoặc tên sản phẩm..."
                   style={inputStyle} 
                 />
                 <datalist id="loss-products">
                   {sortedInventory.map(p => (
-                    <option key={p.id} value={p.id}>{p.id} - {p.name} (Tồn: {p.stock})</option>
+                    <option key={p.id} value={`${p.sku || ''} - ${p.name}`}>{`Tồn: ${p.stock}`}</option>
                   ))}
                 </datalist>
               </div>
@@ -182,8 +198,8 @@ export default function Losses() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn btn-primary" onClick={handleSaveLoss} disabled={items.length === 0}>
-              <Save size={18} /> Lưu Phiếu
+            <button className="btn btn-primary" onClick={handleSaveLoss} disabled={items.length === 0 || isSaving}>
+              <Save size={18} /> {isSaving ? 'Đang lưu...' : 'Lưu Phiếu'}
             </button>
           </div>
         </div>

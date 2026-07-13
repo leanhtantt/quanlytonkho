@@ -3,3 +3,6 @@ node_modules
 .env
 
 /generated/prisma
+
+# Database backups contain real shop data and must stay outside git.
+/backups/

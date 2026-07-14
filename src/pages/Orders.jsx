@@ -9,6 +9,7 @@ import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useAuth } from '../lib/AuthContext';
+import PageHeader from '../components/ui/PageHeader';
 
 const normalizeExcelText = (value) => String(value ?? '')
   .normalize('NFD')
@@ -654,12 +655,10 @@ export default function Orders() {
 
   return (
     <div className="animate-fade-in">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Xuất Bán (Đơn hàng)</h1>
-          <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Quản lý đơn, hoàn hàng 1 phần và đối soát tự động qua Excel</p>
-        </div>
-        {!showForm && (
+      <PageHeader
+        title="Xuất Bán (Đơn hàng)"
+        description="Quản lý đơn, hoàn hàng 1 phần và đối soát tự động qua Excel"
+        actions={!showForm ? (
           <div className="header-actions">
             <input type="file" accept=".xlsx, .xls, .csv" style={{ display: 'none' }} ref={fileInputRef} onChange={handleExcelUpload} />
             <input type="file" accept=".xlsx, .xls, .csv" style={{ display: 'none' }} ref={importInputRef} onChange={handleExcelImportOrders} />
@@ -680,8 +679,8 @@ export default function Orders() {
               <Plus size={18} /> Nhập Đơn Tay
             </button>}
           </div>
-        )}
-      </div>
+        ) : null}
+      />
 
       {showForm && (
         <div className="card animate-fade-in" style={{ marginBottom: '2rem' }}>

@@ -6,6 +6,7 @@ import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useAuth } from '../lib/AuthContext';
+import PageHeader from '../components/ui/PageHeader';
 
 export default function Purchases() {
   const { purchases, addPurchase, updatePurchase, deletePurchase, products } = useAppStore();
@@ -205,17 +206,15 @@ export default function Purchases() {
 
   return (
     <div className="animate-fade-in">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Nhập Hàng</h1>
-          <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Quản lý lô hàng nhập, tự động chia cước và giảm giá</p>
-        </div>
-        {!showForm && can('purchases', 'create') && (
+      <PageHeader
+        title="Nhập Hàng"
+        description="Quản lý lô hàng nhập, tự động chia cước và giảm giá"
+        actions={!showForm && can('purchases', 'create') ? (
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>
             <Plus size={18} /> Nhập Lô Mới
           </button>
-        )}
-      </div>
+        ) : null}
+      />
 
       {showForm && (
         <div className="card animate-fade-in" style={{ marginBottom: '2rem' }}>

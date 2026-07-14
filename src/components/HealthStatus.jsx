@@ -27,19 +27,17 @@ export default function HealthStatus() {
   if (status.api === null) return null; // initial load
 
   return (
-    <div className="health-status-container" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+    <div className="health-status-container" aria-label="Trạng thái hệ thống">
       <div 
-        className="health-indicator" 
+        className={`health-indicator ${status.api ? 'is-online' : 'is-offline'}`}
         title={status.api ? "API Server: Connected" : "API Server: Disconnected"}
-        style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: status.api ? '#10b981' : '#ef4444' }}
       >
         <Server size={14} />
         <span>API</span>
       </div>
       <div 
-        className="health-indicator" 
+        className={`health-indicator ${status.db ? 'is-online' : 'is-offline'}`}
         title={status.db ? "Database: Connected" : "Database: Disconnected"}
-        style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: status.db ? '#10b981' : '#ef4444' }}
       >
         <Database size={14} />
         <span>DB</span>

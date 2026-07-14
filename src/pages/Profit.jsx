@@ -3,6 +3,7 @@ import { useAppStore } from '../store/appStoreContext';
 import { calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { IconTrendingUp as TrendingUp } from '@tabler/icons-react';
+import PageHeader from '../components/ui/PageHeader';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
@@ -67,9 +68,10 @@ export default function Profit() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Phân Tích Lợi Nhuận</h1>
-      </div>
+      <PageHeader
+        title="Phân Tích Lợi Nhuận"
+        description="Theo dõi lợi nhuận, dòng tiền và chi phí theo kỳ thanh toán"
+      />
 
       <div className="card" style={{ marginBottom: '1.5rem', height: '400px' }}>
         <h3>Biểu đồ Lợi Nhuận Theo Tháng Sàn Thanh Toán</h3>

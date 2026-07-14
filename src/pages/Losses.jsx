@@ -8,6 +8,7 @@ import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useAuth } from '../lib/AuthContext';
+import PageHeader from '../components/ui/PageHeader';
 
 export default function Losses() {
   const { inventory, losses, addLoss, updateLoss, deleteLoss } = useAppStore();
@@ -347,17 +348,15 @@ export default function Losses() {
 
   return (
     <div className="animate-fade-in">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Điều Chỉnh Kho</h1>
-          <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Ghi nhận hao hụt hoặc hàng kiểm kê dư mà không làm sai lịch sử nhập hàng</p>
-        </div>
-        {!showForm && (can('losses', 'create') || can('products', 'create')) && (
+      <PageHeader
+        title="Điều Chỉnh Kho"
+        description="Ghi nhận hao hụt hoặc hàng kiểm kê dư mà không làm sai lịch sử nhập hàng"
+        actions={!showForm && (can('losses', 'create') || can('products', 'create')) ? (
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>
             <Plus size={18} /> Ghi nhận điều chỉnh
           </button>
-        )}
-      </div>
+        ) : null}
+      />
 
       {showForm && (
         <div className="card animate-fade-in" style={{ marginBottom: '2rem' }}>

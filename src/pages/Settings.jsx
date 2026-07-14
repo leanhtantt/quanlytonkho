@@ -6,6 +6,7 @@ import { deleteProductImage, isRemoteImage, uploadProductImage } from '../domain
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import { useAuth } from '../lib/AuthContext';
+import PageHeader from '../components/ui/PageHeader';
 
 export default function Settings() {
   const { accounts, setAccounts, shops, setShops, partners, setPartners, products, updateProduct, defaultPackagingCost, setDefaultPackagingCost, defaultReturnFee, setDefaultReturnFee } = useAppStore();
@@ -138,15 +139,13 @@ export default function Settings() {
 
   return (
     <div className="animate-fade-in">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 className="page-title">Cài Đặt Hệ Thống</h1>
-          <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Quản lý shop, tài khoản và tỷ lệ chia lợi nhuận</p>
-        </div>
-        {can('settings', 'update') && <Button icon={Save} loading={isSaving} onClick={handleSave}>
+      <PageHeader
+        title="Cài Đặt Hệ Thống"
+        description="Quản lý shop, tài khoản và tỷ lệ chia lợi nhuận"
+        actions={can('settings', 'update') ? <Button icon={Save} loading={isSaving} onClick={handleSave}>
           {isSaving ? 'Đang lưu...' : 'Lưu Thay Đổi'}
-        </Button>}
-      </div>
+        </Button> : null}
+      />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
         

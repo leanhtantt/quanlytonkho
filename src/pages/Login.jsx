@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { IconPackage as Package } from '@tabler/icons-react';
+import Button from '../components/ui/Button';
 
 export default function Login() {
   const { login } = useAuth();
@@ -29,11 +30,21 @@ export default function Login() {
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
-        <div className="login-logo">
-          <Package size={32} />
-          <span>Phụ kiện Decor</span>
+        <div className="login-brand">
+          <span className="login-logo-mark" aria-hidden="true">
+            <Package size={28} />
+          </span>
+          <div>
+            <span className="login-brand-name">Phụ kiện Decor</span>
+            <span className="login-brand-caption">Quản lý bán hàng & tồn kho</span>
+          </div>
         </div>
-        <h2>Đăng nhập</h2>
+
+        <div className="login-heading">
+          <p className="login-eyebrow">Chào mừng trở lại</p>
+          <h1>Đăng nhập</h1>
+          <p>Truy cập không gian quản trị của cửa hàng.</p>
+        </div>
 
         {error && <div className="login-error">{error}</div>}
 
@@ -59,9 +70,9 @@ export default function Login() {
           />
         </label>
 
-        <button type="submit" className="btn btn-primary" disabled={loading}>
+        <Button type="submit" size="lg" loading={loading} className="login-submit">
           {loading ? 'Đang xử lý...' : 'Đăng nhập'}
-        </button>
+        </Button>
       </form>
     </div>
   );

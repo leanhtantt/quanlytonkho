@@ -280,6 +280,222 @@ th {
   background: var(--color-bg-selected) !important;
 }
 
+.inventory-card {
+  overflow: hidden;
+  padding: 0;
+}
+
+.inventory-toolbar {
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-subtle);
+}
+
+.inventory-toolbar-grid {
+  display: grid;
+  grid-template-columns: minmax(18rem, 1fr) repeat(2, minmax(11rem, 13rem));
+  align-items: end;
+  gap: var(--space-4);
+}
+
+.inventory-search-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.inventory-search-control .ui-search-input {
+  flex: 1 1 auto;
+}
+
+.inventory-search-meta,
+.inventory-sku-aliases,
+.inventory-batch-meta {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.inventory-table-container {
+  border: 0;
+  border-radius: 0;
+}
+
+.inventory-table-container table {
+  min-width: 960px;
+}
+
+.inventory-toggle-column {
+  width: 2.5rem;
+}
+
+.inventory-image-column {
+  width: 3.75rem;
+}
+
+.inventory-order-column {
+  width: 7rem;
+  text-align: center;
+}
+
+.inventory-empty-cell {
+  padding: var(--space-4);
+}
+
+.inventory-row {
+  cursor: pointer;
+}
+
+.inventory-row.is-expanded {
+  background: var(--color-bg-hover);
+}
+
+.inventory-image-control {
+  position: relative;
+  display: inline-block;
+}
+
+.inventory-upload-label {
+  display: block;
+  margin: 0;
+  cursor: pointer;
+}
+
+.inventory-upload-label.is-uploading {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.inventory-image-remove {
+  position: absolute;
+  top: calc(var(--space-1) * -1);
+  right: calc(var(--space-1) * -1);
+  width: 1.25rem;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.inventory-sku-cell {
+  color: var(--color-text-muted);
+}
+
+.inventory-sku-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 700;
+}
+
+.inventory-sku-aliases {
+  margin-top: var(--space-1);
+}
+
+.inventory-product-name {
+  font-weight: 600;
+}
+
+.inventory-value-success {
+  color: var(--color-success);
+}
+
+.inventory-value-primary {
+  color: var(--color-primary);
+}
+
+.inventory-value-danger {
+  color: var(--color-danger);
+}
+
+.inventory-stock-value {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.inventory-order-actions {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.inventory-order-actions .ui-button + .ui-button {
+  margin-left: var(--space-1);
+}
+
+.inventory-batches-cell {
+  padding: 0;
+  background: var(--color-bg-base);
+}
+
+.inventory-batches-panel {
+  padding: var(--space-4) var(--space-8);
+  border-left: 4px solid var(--color-primary);
+}
+
+.inventory-batches-title {
+  margin-bottom: var(--space-2);
+}
+
+.inventory-batch-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.inventory-batch-card {
+  min-width: 12.5rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+}
+
+.inventory-batch-header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.inventory-batch-badge {
+  font-size: 0.7rem;
+}
+
+.inventory-batch-cost,
+.inventory-batch-price {
+  margin-top: var(--space-2);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.inventory-batch-cost {
+  color: var(--color-primary);
+}
+
+.inventory-batch-price {
+  margin-top: var(--space-1);
+  color: var(--color-warning);
+}
+
+.inventory-image-preview {
+  position: fixed;
+  z-index: 1000;
+  top: var(--space-6);
+  right: var(--space-6);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+
 .profit-table-container {
   max-height: min(70vh, 680px);
   overflow: auto;
@@ -1199,6 +1415,32 @@ tbody tr:hover td {
 }
 
 @media (max-width: 640px) {
+  .inventory-toolbar {
+    padding: var(--space-4);
+  }
+
+  .inventory-toolbar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inventory-batches-panel {
+    padding: var(--space-4);
+  }
+
+  .inventory-batch-card {
+    min-width: 100%;
+  }
+
+  .inventory-image-preview {
+    right: var(--space-4);
+    left: var(--space-4);
+  }
+
+  .inventory-image-preview img {
+    width: 100% !important;
+    height: auto !important;
+  }
+
   .ui-page-header {
     align-items: stretch;
     flex-direction: column;

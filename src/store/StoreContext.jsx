@@ -87,6 +87,7 @@ export function StoreProvider({ children }) {
       if (updated.returnFee !== undefined) setDefaultReturnFee(updated.returnFee);
     } catch (error) {
       console.error(error);
+      throw error;
     }
   };
 
@@ -124,8 +125,7 @@ export function StoreProvider({ children }) {
       return updated;
     } catch (err) {
       console.error(err);
-      alert('Cập nhật đơn không thành công: ' + err.message);
-      return null;
+      throw err;
     }
   };
   const deleteOrder = async (orderId) => {
@@ -134,7 +134,7 @@ export function StoreProvider({ children }) {
       setOrders(prev => prev.filter(o => o.id !== orderId));
     } catch (err) {
       console.error(err);
-      alert('Xóa đơn không thành công: ' + err.message);
+      throw err;
     }
   };
   const addLoss = async (loss) => {

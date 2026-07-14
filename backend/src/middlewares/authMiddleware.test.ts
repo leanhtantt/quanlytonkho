@@ -21,6 +21,7 @@ vi.mock('../prismaClient', () => ({
 import {
   AuthRequest,
   clearUserAuthorizationCache,
+  requireAdmin,
   requireAuth,
   requirePermission,
 } from './authMiddleware';
@@ -165,5 +166,25 @@ describe('requirePermission', () => {
     expect(allowedNext).toHaveBeenCalledOnce();
     expect(deniedResponse.status).toHaveBeenCalledWith(403);
     expect(deniedNext).not.toHaveBeenCalled();
+  });
+});
+
+describe('requireAdmin', () => {
+  it('từ chối user thường với 403', () => {
+    const response = createResponse();
+    const next = vi.fn();
+
+    requireAdmin({ isAdmin: false } as AuthRequest, response as never, next);
+
+    expect(response.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('chỉ cho claim admin boolean true đi qua', () => {
+    const next = vi.fn();
+
+    requireAdmin({ isAdmin: true } as AuthRequest, createResponse() as never, next);
+
+    expect(next).toHaveBeenCalledOnce();
   });
 });

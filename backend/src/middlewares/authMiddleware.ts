@@ -139,3 +139,11 @@ export function requirePermission(resource: string, action: PermissionAction): R
     });
   };
 }
+
+export const requireAdmin: RequestHandler = (req, res, next) => {
+  if ((req as AuthRequest).isAdmin === true) return next();
+
+  return res.status(403).json({
+    error: 'Forbidden: Chỉ quản trị viên được phép thực hiện thao tác này.',
+  });
+};

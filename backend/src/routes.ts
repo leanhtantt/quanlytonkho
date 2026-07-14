@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { RequestHandler, Router } from 'express';
 import { prisma } from './prismaClient';
 import { z } from 'zod';
 import { createPurchaseOrder, deletePurchaseOrder, replacePurchaseOrder } from './services/procurementService';
@@ -8,12 +8,55 @@ import { createOrder, replaceOrder, deleteOrder, OrderInput } from './services/o
 import { randomUUID } from 'crypto';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getStorage } from 'firebase-admin/storage';
+import { AuthRequest, PermissionAction, requirePermission } from './middlewares/authMiddleware';
 
 if (!getApps().length) {
   initializeApp({ projectId: 'tanle-dev', storageBucket: 'tanle-dev.firebasestorage.app' });
 }
 
 export const apiRouter = Router();
+
+apiRouter.get('/me', (req, res) => {
+  const authReq = req as AuthRequest;
+  const isAdmin = authReq.isAdmin === true;
+  const userRecord = authReq.userRecord;
+
+  res.json({
+    uid: authReq.user?.uid,
+    email: authReq.user?.email ?? userRecord?.email ?? null,
+    role: isAdmin ? 'admin' : userRecord?.role,
+    isAdmin,
+    permissions: isAdmin ? {} : (userRecord?.permissions ?? {}),
+    isActive: isAdmin ? true : (userRecord?.isActive ?? false),
+  });
+});
+
+const actionsByMethod: Record<string, PermissionAction> = {
+  GET: 'view',
+  POST: 'create',
+  PUT: 'update',
+  DELETE: 'delete',
+};
+
+function requireResourcePermission(resource: string): RequestHandler {
+  return (req, res, next) => {
+    const action = actionsByMethod[req.method];
+    if (!action) return res.status(405).json({ error: 'Method not allowed' });
+    return requirePermission(resource, action)(req, res, next);
+  };
+}
+
+apiRouter.use('/products', requireResourcePermission('products'));
+apiRouter.use('/purchases', requireResourcePermission('purchases'));
+apiRouter.use('/orders', requireResourcePermission('orders'));
+apiRouter.use('/losses', requireResourcePermission('losses'));
+apiRouter.use('/inventory', requireResourcePermission('products'));
+apiRouter.use('/inventory-adjustments', requireResourcePermission('products'));
+apiRouter.use('/product-images', requireResourcePermission('products'));
+apiRouter.use('/settings', requireResourcePermission('settings'));
+apiRouter.use('/treasury', requireResourcePermission('treasury'));
+apiRouter.use('/ads', requireResourcePermission('treasury'));
+apiRouter.use('/dashboard', requireResourcePermission('dashboard'));
 
 // --- Zod Schemas ---
 const productSchema = z.object({

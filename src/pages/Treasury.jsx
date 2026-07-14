@@ -5,6 +5,7 @@ import { IconEdit as Edit, IconWallet as Wallet, IconArrowUpRight as ArrowUpRigh
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { useAuth } from '../lib/AuthContext';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
@@ -19,6 +20,7 @@ function getAdSourceLabel(source) {
 
 export default function Treasury() {
   const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, addAd, reimburseAdAdvance, deleteAd, accounts, partners, shops } = useAppStore();
+  const { can } = useAuth();
 
   const [showForm, setShowForm] = useState(false);
   const [editingTxnId, setEditingTxnId] = useState(null);
@@ -382,9 +384,9 @@ export default function Treasury() {
           <h1 className="page-title">Sổ Quỹ & Dòng Tiền</h1>
           <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Quản lý tiền mặt tại tài khoản ngân hàng và Vốn góp</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+        {can('treasury', 'create') && <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
           <Plus size={18} /> Thêm Giao Dịch
-        </button>
+        </button>}
       </div>
 
       <div className="treasury-balances" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
@@ -483,7 +485,7 @@ export default function Treasury() {
           <div style={{ flex: '1 1 180px' }}><label>Tài khoản nhận</label><select value={withdrawalAccount} onChange={e => setWithdrawalAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>
           <div style={{ flex: '1 1 180px' }}><label>Số tiền (VND)</label><input type="number" min="1" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} required /></div>
           <div style={{ flex: '2 1 220px' }}><label>Ghi chú</label><input type="text" value={withdrawalNote} onChange={e => setWithdrawalNote(e.target.value)} placeholder="VD: Rút tiền Shopee tuần 2" /></div>
-          <Button type="submit" loading={isSavingWithdrawal}>{isSavingWithdrawal ? 'Đang lưu...' : 'Ghi nhận tiền về'}</Button>
+          {can('treasury', 'create') && <Button type="submit" loading={isSavingWithdrawal}>{isSavingWithdrawal ? 'Đang lưu...' : 'Ghi nhận tiền về'}</Button>}
         </form>
       </div>
 
@@ -501,11 +503,11 @@ export default function Treasury() {
           {adSource === 'SELF_FUNDED' && <div style={{ flex: '1 1 180px' }}><label htmlFor="treasury-ad-account">Tài khoản quỹ chi</label><select id="treasury-ad-account" value={adAccount} onChange={e => setAdAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>}
           {adSource === 'PERSONAL_ADVANCE' && <div style={{ flex: '1 1 200px' }}><label htmlFor="treasury-ad-advanced-by">Người ứng tiền</label><input id="treasury-ad-advanced-by" type="text" list="treasury-ad-advance-people" value={adAdvancedBy} onChange={e => setAdAdvancedBy(e.target.value)} placeholder="Chọn hoặc nhập tên..." required /><datalist id="treasury-ad-advance-people">{partners.map(partner => <option key={partner.name} value={partner.name} />)}</datalist></div>}
           <div style={{ flex: '2 1 240px' }}><label>Ghi chú</label><input type="text" value={adNote} onChange={e => setAdNote(e.target.value)} placeholder="VD: QC Shopee tháng 7" /></div>
-          <Button type="submit" loading={isSavingAd}>{isSavingAd ? 'Đang lưu...' : 'Lưu chi phí'}</Button>
+          {can('treasury', 'create') && <Button type="submit" loading={isSavingAd}>{isSavingAd ? 'Đang lưu...' : 'Lưu chi phí'}</Button>}
         </form>
         {adSource === 'PERSONAL_ADVANCE' && <div className="surface-subtle treasury-source-note"><strong>Khoản này không trừ tài khoản quỹ.</strong> Hệ thống chỉ ghi nhận chi phí quảng cáo và công nợ phải hoàn cho người ứng.</div>}
         {adSource === 'SELF_FUNDED' && <div className="surface-subtle treasury-source-note"><strong>Khoản này sẽ trừ ngay tài khoản quỹ đã chọn</strong> và vẫn được tính là chi phí quảng cáo.</div>}
-        {ads.length > 0 && (<div className="table-responsive" style={{ marginTop: '1rem', maxHeight: '260px' }}><table className="table"><thead><tr><th>Tháng</th><th>Shop</th><th>Nguồn</th><th>Tài khoản / Người ứng</th><th>Số tiền</th><th>Ghi chú</th><th></th></tr></thead><tbody>{ads.map(ad => (<tr key={ad.id}><td>{ad.month}</td><td>{ad.shop}</td><td>{getAdSourceLabel(ad.source)}</td><td>{ad.source === 'PERSONAL_ADVANCE' ? ad.advancedBy : ad.account || '-'}</td><td>{formatCurrency(ad.amount)}</td><td>{ad.note || '-'}</td><td><button type="button" className="btn" aria-label={`Xóa chi phí quảng cáo ${ad.shop} ${ad.month}`} onClick={() => deleteAd(ad.id)} style={{ padding: '4px', color: 'var(--color-danger)' }}><Trash2 size={16} /></button></td></tr>))}</tbody></table></div>)}
+        {ads.length > 0 && (<div className="table-responsive" style={{ marginTop: '1rem', maxHeight: '260px' }}><table className="table"><thead><tr><th>Tháng</th><th>Shop</th><th>Nguồn</th><th>Tài khoản / Người ứng</th><th>Số tiền</th><th>Ghi chú</th><th></th></tr></thead><tbody>{ads.map(ad => (<tr key={ad.id}><td>{ad.month}</td><td>{ad.shop}</td><td>{getAdSourceLabel(ad.source)}</td><td>{ad.source === 'PERSONAL_ADVANCE' ? ad.advancedBy : ad.account || '-'}</td><td>{formatCurrency(ad.amount)}</td><td>{ad.note || '-'}</td><td>{can('treasury', 'delete') && <button type="button" className="btn" aria-label={`Xóa chi phí quảng cáo ${ad.shop} ${ad.month}`} onClick={() => deleteAd(ad.id)} style={{ padding: '4px', color: 'var(--color-danger)' }}><Trash2 size={16} /></button>}</td></tr>))}</tbody></table></div>)}
 
         <div className="treasury-advance-section">
           <div className="treasury-advance-heading">
@@ -530,7 +532,7 @@ export default function Treasury() {
                       <td>{formatCurrency(advance.reimbursed)}</td>
                       <td><strong>{formatCurrency(advance.outstanding)}</strong></td>
                       <td><span className={`badge ${advance.status === 'PAID' ? 'badge-success' : advance.status === 'PARTIAL' ? 'badge-info' : 'badge-warning'}`}>{advance.status === 'PAID' ? 'Đã hoàn đủ' : advance.status === 'PARTIAL' ? 'Hoàn một phần' : 'Chưa hoàn'}</span></td>
-                      <td>{advance.outstanding > 0 && <button type="button" className="btn btn-outline" onClick={() => openReimbursementForm(advance)}>Hoàn ứng</button>}</td>
+                      <td>{advance.outstanding > 0 && can('treasury', 'create') && <button type="button" className="btn btn-outline" onClick={() => openReimbursementForm(advance)}>Hoàn ứng</button>}</td>
                     </tr>
                     {repayingAdvanceId === advance.id && (
                       <tr className="treasury-reimbursement-row"><td colSpan="8">
@@ -557,7 +559,7 @@ export default function Treasury() {
                           <div><label htmlFor={`reimbursement-source-${advance.id}`}>Nguồn hoàn ứng</label><select id={`reimbursement-source-${advance.id}`} value={reimbursementSource} onChange={event => setReimbursementSource(event.target.value)}><option value="TREASURY_ACCOUNT">Từ tài khoản quỹ shop</option><option value="SHOPEE_WALLET">Trực tiếp từ Ví Shopee</option></select></div>
                           {reimbursementSource === 'TREASURY_ACCOUNT' && <div><label htmlFor={`reimbursement-account-${advance.id}`}>Tài khoản trả</label><select id={`reimbursement-account-${advance.id}`} value={reimbursementAccount} onChange={event => setReimbursementAccount(event.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>}
                           <div className="treasury-reimbursement-note"><label htmlFor={`reimbursement-note-${advance.id}`}>Ghi chú</label><input id={`reimbursement-note-${advance.id}`} type="text" value={reimbursementNote} onChange={event => setReimbursementNote(event.target.value)} placeholder="VD: Hoàn ứng QC tháng 7" /></div>
-                          <div className="treasury-reimbursement-actions"><button type="button" className="btn btn-outline" onClick={() => setReimbursementAmount(String(advance.outstanding))}>Điền toàn bộ</button><button type="button" className="btn btn-outline" onClick={closeReimbursementForm}>Hủy</button><Button type="submit" loading={isSavingReimbursement}>{isSavingReimbursement ? 'Đang lưu...' : 'Xác nhận hoàn ứng'}</Button></div>
+                          <div className="treasury-reimbursement-actions"><button type="button" className="btn btn-outline" onClick={() => setReimbursementAmount(String(advance.outstanding))}>Điền toàn bộ</button><button type="button" className="btn btn-outline" onClick={closeReimbursementForm}>Hủy</button>{can('treasury', 'create') && <Button type="submit" loading={isSavingReimbursement}>{isSavingReimbursement ? 'Đang lưu...' : 'Xác nhận hoàn ứng'}</Button>}</div>
                         </form>
                         <p className="treasury-reimbursement-help">Hoàn từ tài khoản quỹ sẽ trừ số dư tài khoản. Hoàn trực tiếp từ Ví Shopee chỉ trừ số dư ví sàn tạm tính.</p>
                       </td></tr>
@@ -646,7 +648,7 @@ export default function Treasury() {
           </div>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
             <button className="btn btn-outline" onClick={handleCancelEdit}>Hủy</button>
-            <Button loading={isSavingTransaction} onClick={handleSave}>{isSavingTransaction ? 'Đang lưu...' : editingTxnId ? 'Lưu Thay Đổi' : 'Lưu Giao Dịch'}</Button>
+            {can('treasury', editingTxnId ? 'update' : 'create') && <Button loading={isSavingTransaction} onClick={handleSave}>{isSavingTransaction ? 'Đang lưu...' : editingTxnId ? 'Lưu Thay Đổi' : 'Lưu Giao Dịch'}</Button>}
           </div>
         </div>
       )}
@@ -777,12 +779,12 @@ export default function Treasury() {
                               <div style={{ fontWeight: 700, color: accountAfter < 0 ? 'var(--color-danger)' : 'var(--color-primary)', marginTop: '0.1rem' }}>Sau: {formatCurrency(accountAfter)}</div>
                             </td>
                             <td>
-                              <button className="btn" aria-label={`Sửa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-primary)' }} onClick={() => handleEdit(transaction)}>
+                              {can('treasury', 'update') && <button className="btn" aria-label={`Sửa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-primary)' }} onClick={() => handleEdit(transaction)}>
                                 <Edit size={16} />
-                              </button>
-                              <button className="btn" aria-label={`Xóa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-danger)', marginLeft: '4px' }} onClick={() => handleDeleteTransaction(transaction)}>
+                              </button>}
+                              {can('treasury', 'delete') && <button className="btn" aria-label={`Xóa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-danger)', marginLeft: '4px' }} onClick={() => handleDeleteTransaction(transaction)}>
                                 <Trash2 size={16} />
-                              </button>
+                              </button>}
                             </td>
                           </tr>
                         );

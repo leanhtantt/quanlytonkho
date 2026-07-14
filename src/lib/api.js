@@ -19,12 +19,20 @@ async function authFetch(path, options = {}) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const errorMsg = typeof body.error === 'object' ? JSON.stringify(body.error) : (body.error || `HTTP ${res.status}`);
-    throw new Error(errorMsg);
+    const error = new Error(errorMsg);
+    error.status = res.status;
+    throw error;
   }
   return res.json();
 }
 
 export const api = {
+  getMe: () => authFetch('/api/me'),
+  getUsers: () => authFetch('/api/users'),
+  createUser: (data) => authFetch('/api/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (uid, data) => authFetch(`/api/users/${uid}`, { method: 'PUT', body: JSON.stringify(data) }),
+  resetUserPassword: (uid, password) => authFetch(`/api/users/${uid}/reset-password`, { method: 'POST', body: JSON.stringify({ password }) }),
+
   getProducts: () => authFetch('/api/products'),
   createProduct: (data) => authFetch('/api/products', { method: 'POST', body: JSON.stringify(data) }),
   updateProduct: (id, data) => authFetch(`/api/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

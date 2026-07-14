@@ -9,9 +9,12 @@ import { processAndCompressImage } from '../domain/imageProcessor';
 import { deleteProductImage, uploadProductImage } from '../domain/imageStorage';
 import { toast } from '../components/ui/toastHelper';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { useAuth } from '../lib/AuthContext';
 
 export default function Products() {
   const { inventory, inventoryAdjustments, updateProduct, renameProductSku, reorderProducts } = useAppStore();
+  const { can } = useAuth();
+  const canUpdateProducts = can('products', 'update');
   const [search, setSearch] = useState('');
   const [filterStock, setFilterStock] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
@@ -325,13 +328,16 @@ export default function Products() {
                       style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--color-bg-hover)' : '' }}
                       onClick={() => setExpandedId(isExpanded ? null : product.id)}
                       onDragOver={(event) => {
+                        if (!canUpdateProducts) return;
                         if (sortMode !== 'custom' || reorderBusy) return;
                         event.preventDefault();
                         event.dataTransfer.dropEffect = 'move';
                         setDragOverProductId(product.id);
                       }}
                       onDragLeave={() => setDragOverProductId(current => current === product.id ? null : current)}
-                      onDrop={(event) => handleDropProduct(product.id, event)}
+                      onDrop={(event) => {
+                        if (canUpdateProducts) handleDropProduct(product.id, event);
+                      }}
                     >
                       <td>
                         {remainingBatches.length > 0 ? (
@@ -352,7 +358,7 @@ export default function Products() {
                             if (!e.currentTarget.contains(e.relatedTarget)) setImagePreview(null);
                           }}
                         >
-                          <label
+                          {can('products', 'create') ? <label
                             tabIndex={0}
                             style={{ cursor: uploadingId === product.id ? 'wait' : 'pointer', display: 'block', margin: 0 }}
                             title="Bấm để tải ảnh mới"
@@ -360,8 +366,8 @@ export default function Products() {
                           >
                             <ProductImage imageId={product.imageId} alt={product.name} size={40} style={{ opacity: uploadingId === product.id ? 0.5 : 1 }} />
                             <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImageUpload(product.id, e)} disabled={uploadingId === product.id} />
-                          </label>
-                          {product.imageId && (
+                          </label> : <ProductImage imageId={product.imageId} alt={product.name} size={40} />}
+                          {product.imageId && can('products', 'delete') && (
                             <button
                               type="button"
                               onClick={(e) => handleRemoveImage(product, e)}
@@ -383,7 +389,7 @@ export default function Products() {
                       <td onClick={(event) => event.stopPropagation()} style={{ color: 'var(--color-text-muted)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                           <span style={{ fontWeight: 600 }}>{product.sku || product.id}</span>
-                          <button
+                          {canUpdateProducts && <button
                             type="button"
                             className="btn"
                             onClick={(event) => handleRenameSku(product, event)}
@@ -393,7 +399,7 @@ export default function Products() {
                             style={{ padding: '0.2rem', color: 'var(--color-primary)' }}
                           >
                             <Pencil size={14} aria-hidden="true" />
-                          </button>
+                          </button>}
                         </div>
                         {(product.aliases || []).length > 0 && (
                           <div style={{ marginTop: '0.2rem', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
@@ -419,7 +425,7 @@ export default function Products() {
                         })()}
                       </td>
                       <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        {sortMode === 'custom' && (
+                        {sortMode === 'custom' && canUpdateProducts && (
                           <>
                             <span
                               draggable={!reorderBusy}

@@ -5,9 +5,11 @@ import { deleteImage, getImage } from '../domain/imageDb';
 import { deleteProductImage, isRemoteImage, uploadProductImage } from '../domain/imageStorage';
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
+import { useAuth } from '../lib/AuthContext';
 
 export default function Settings() {
   const { accounts, setAccounts, shops, setShops, partners, setPartners, products, updateProduct, defaultPackagingCost, setDefaultPackagingCost, defaultReturnFee, setDefaultReturnFee } = useAppStore();
+  const { can } = useAuth();
 
   const [localAccounts, setLocalAccounts] = useState([...accounts]);
   const [localShops, setLocalShops] = useState([...shops]);
@@ -141,9 +143,9 @@ export default function Settings() {
           <h1 className="page-title">Cài Đặt Hệ Thống</h1>
           <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Quản lý shop, tài khoản và tỷ lệ chia lợi nhuận</p>
         </div>
-        <Button icon={Save} loading={isSaving} onClick={handleSave}>
+        {can('settings', 'update') && <Button icon={Save} loading={isSaving} onClick={handleSave}>
           {isSaving ? 'Đang lưu...' : 'Lưu Thay Đổi'}
-        </Button>
+        </Button>}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
@@ -188,9 +190,9 @@ export default function Settings() {
             Ảnh mới được lưu trên Firebase Storage. Công cụ này chuyển ảnh cũ ra khỏi database/trình duyệt mà không làm thay đổi sản phẩm hoặc tồn kho.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <Button variant="secondary" loading={imageMigration.running} onClick={handleMigrateImages} disabled={legacyImageProducts.length === 0}>
+            {can('products', 'create') && can('products', 'update') && <Button variant="secondary" loading={imageMigration.running} onClick={handleMigrateImages} disabled={legacyImageProducts.length === 0}>
               {imageMigration.running ? 'Đang chuyển ảnh...' : `Chuyển ${legacyImageProducts.length} ảnh cũ lên Storage`}
-            </Button>
+            </Button>}
             <span style={{ color: legacyImageProducts.length === 0 ? 'var(--color-success)' : 'var(--color-text-muted)', fontWeight: 600 }}>
               {imageMigration.running
                 ? `${imageMigration.completed}/${imageMigration.total} hoàn tất${imageMigration.failed ? `, ${imageMigration.failed} lỗi` : ''}`
@@ -212,17 +214,17 @@ export default function Settings() {
               onChange={e => setNewShop(e.target.value)}
               placeholder="Nhập tên shop mới..."
               style={inputStyle}
-              onKeyDown={e => e.key === 'Enter' && handleAddShop()}
+              onKeyDown={e => can('settings', 'update') && e.key === 'Enter' && handleAddShop()}
             />
-            <button className="btn btn-outline" onClick={handleAddShop}><Plus size={18} /> Thêm</button>
+            {can('settings', 'update') && <button className="btn btn-outline" onClick={handleAddShop}><Plus size={18} /> Thêm</button>}
           </div>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {localShops.map(shop => (
               <li key={shop} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', marginBottom: '0.5rem', backgroundColor: 'var(--color-bg-surface)' }}>
                 <span style={{ fontWeight: 500 }}>{shop}</span>
-                <button className="btn" aria-label={`Xóa shop ${shop}`} style={{ padding: '4px', color: 'var(--color-danger)' }} onClick={() => setLocalShops(localShops.filter(item => item !== shop))}>
+                {can('settings', 'update') && <button className="btn" aria-label={`Xóa shop ${shop}`} style={{ padding: '4px', color: 'var(--color-danger)' }} onClick={() => setLocalShops(localShops.filter(item => item !== shop))}>
                   <Trash2 size={16} />
-                </button>
+                </button>}
               </li>
             ))}
             {localShops.length === 0 && <li style={{ color: 'var(--color-text-muted)' }}>Chưa có shop nào.</li>}
@@ -241,18 +243,18 @@ export default function Settings() {
               onChange={e => setNewAccount(e.target.value)} 
               placeholder="Nhập tên tài khoản (VD: Momo, Tiền mặt)..." 
               style={inputStyle}
-              onKeyDown={e => e.key === 'Enter' && handleAddAccount()}
+              onKeyDown={e => can('settings', 'update') && e.key === 'Enter' && handleAddAccount()}
             />
-            <button className="btn btn-outline" onClick={handleAddAccount}><Plus size={18} /> Thêm</button>
+            {can('settings', 'update') && <button className="btn btn-outline" onClick={handleAddAccount}><Plus size={18} /> Thêm</button>}
           </div>
           
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {localAccounts.map((acc, idx) => (
               <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', marginBottom: '0.5rem', backgroundColor: 'var(--color-bg-surface)' }}>
                 <span style={{ fontWeight: 500 }}>{acc}</span>
-                <button className="btn" style={{ padding: '4px', color: 'var(--color-danger)' }} onClick={() => handleRemoveAccount(acc)}>
+                {can('settings', 'update') && <button className="btn" style={{ padding: '4px', color: 'var(--color-danger)' }} onClick={() => handleRemoveAccount(acc)}>
                   <Trash2 size={16} />
-                </button>
+                </button>}
               </li>
             ))}
             {localAccounts.length === 0 && <div style={{ color: 'var(--color-text-muted)' }}>Chưa có tài khoản nào.</div>}
@@ -278,16 +280,16 @@ export default function Settings() {
                   <input type="number" min="0" max="100" value={p.share} onChange={e => handleUpdatePartner(idx, 'share', e.target.value)} style={{...inputStyle, textAlign: 'right'}} />
                   <span>%</span>
                 </div>
-                <button className="btn" style={{ padding: '4px', color: 'var(--color-danger)' }} onClick={() => handleRemovePartner(idx)}>
+                {can('settings', 'update') && <button className="btn" style={{ padding: '4px', color: 'var(--color-danger)' }} onClick={() => handleRemovePartner(idx)}>
                   <Trash2 size={16} />
-                </button>
+                </button>}
               </div>
             ))}
           </div>
           
-          <button className="btn btn-outline" style={{ width: '100%' }} onClick={handleAddPartner}>
+          {can('settings', 'update') && <button className="btn btn-outline" style={{ width: '100%' }} onClick={handleAddPartner}>
             <Plus size={18} /> Thêm Cổ Đông
-          </button>
+          </button>}
           
           <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
             <span>Tổng cộng:</span>

@@ -496,6 +496,134 @@ th {
   pointer-events: none;
 }
 
+.loss-form-card {
+  margin-bottom: var(--space-8);
+}
+
+.loss-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.loss-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.loss-reason-field {
+  grid-column: 1 / -1;
+}
+
+.loss-item-panel {
+  margin-bottom: var(--space-6);
+  padding: var(--space-6);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-base);
+}
+
+.loss-item-controls {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) 6.25rem 10.625rem auto;
+  align-items: end;
+  gap: var(--space-4);
+}
+
+.loss-item-table-wrap {
+  margin-top: var(--space-6);
+}
+
+.loss-item-table {
+  min-width: 720px;
+  background: var(--color-bg-surface);
+  font-size: 0.875rem;
+}
+
+.loss-item-image-column {
+  width: 3rem;
+}
+
+.loss-code,
+.loss-product-name,
+.loss-value-success,
+.loss-value-danger,
+.loss-net-value {
+  font-weight: 700;
+}
+
+.loss-value-success,
+.loss-heading-success,
+.loss-net-value.is-positive {
+  color: var(--color-success);
+}
+
+.loss-value-danger,
+.loss-heading-danger,
+.loss-net-value.is-negative {
+  color: var(--color-danger);
+}
+
+.loss-action-cell {
+  text-align: center;
+}
+
+.loss-form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.loss-data-card {
+  overflow: hidden;
+  margin-bottom: var(--space-6);
+  padding: 0;
+}
+
+.loss-card-header {
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.loss-card-description {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.loss-stats-search {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 36rem;
+  margin-top: var(--space-4);
+}
+
+.loss-search-meta,
+.loss-product-meta {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.loss-table-container {
+  border: 0;
+  border-radius: 0;
+}
+
+.loss-table-container table {
+  min-width: 760px;
+}
+
+.loss-empty-cell {
+  padding: var(--space-4);
+}
+
+.loss-row-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
 .profit-table-container {
   max-height: min(70vh, 680px);
   overflow: auto;
@@ -1415,6 +1543,25 @@ tbody tr:hover td {
 }
 
 @media (max-width: 640px) {
+  .loss-form-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .loss-form-grid,
+  .loss-item-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .loss-item-panel,
+  .loss-card-header {
+    padding: var(--space-4);
+  }
+
+  .loss-form-actions .ui-button {
+    width: 100%;
+  }
+
   .inventory-toolbar {
     padding: var(--space-4);
   }

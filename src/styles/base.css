@@ -6,6 +6,7 @@
 
 html {
   background: var(--color-bg-base);
+  overflow-x: hidden;
 }
 
 body {

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { calculateAdAdvanceSummary, calculateMarketplaceWalletSummary, calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { IconEdit as Edit, IconWallet as Wallet, IconArrowUpRight as ArrowUpRight, IconArrowDownRight as ArrowDownRight, IconArrowsExchange as ArrowRightLeft, IconPlus as Plus, IconTrash as Trash2, IconFilter as Filter } from '@tabler/icons-react';
+import { toast } from '../components/ui/toastHelper';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
@@ -75,9 +76,9 @@ export default function Treasury() {
       });
       setWithdrawalAmount('');
       setWithdrawalNote('');
-      alert('Đã ghi nhận tiền rút về tài khoản.');
+      toast.success('Đã ghi nhận tiền rút về tài khoản.');
     } catch (error) {
-      alert(`Không thể lưu tiền rút về: ${error.message}`);
+      toast.error(`Không thể lưu tiền rút về: ${error.message}`);
     }
   };
 
@@ -100,8 +101,9 @@ export default function Treasury() {
       });
       setAdAmount('');
       setAdNote('');
+      toast.success('Đã lưu chi phí quảng cáo.');
     } catch (error) {
-      alert(`Không thể lưu chi phí quảng cáo: ${error.message}`);
+      toast.error(`Không thể lưu chi phí quảng cáo: ${error.message}`);
     }
   };
 
@@ -125,7 +127,7 @@ export default function Treasury() {
     const advance = calculateAdAdvanceSummary(ads).advances.find(item => item.id === repayingAdvanceId);
     const amountToReimburse = Number(reimbursementAmount);
     if (!advance || amountToReimburse <= 0 || amountToReimburse > advance.outstanding) {
-      alert('Số tiền hoàn ứng không hợp lệ hoặc vượt quá công nợ còn lại.');
+      toast.error('Số tiền hoàn ứng không hợp lệ hoặc vượt quá công nợ còn lại.');
       return;
     }
     if (reimbursementSource === 'TREASURY_ACCOUNT' && !reimbursementAccount) return;
@@ -139,8 +141,9 @@ export default function Treasury() {
         note: reimbursementNote.trim() || null,
       });
       closeReimbursementForm();
+      toast.success('Đã ghi nhận hoàn ứng chi phí quảng cáo.');
     } catch (error) {
-      alert(`Không thể hoàn ứng: ${error.message}`);
+      toast.error(`Không thể hoàn ứng: ${error.message}`);
     }
   };
 
@@ -253,9 +256,9 @@ export default function Treasury() {
     }));
   }, [accounts, filterMonth, filterType, transactionsWithBalance]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!amount || Number(amount) <= 0) {
-      alert('Vui lòng nhập số tiền hợp lệ.');
+      toast.error('Vui lòng nhập số tiền hợp lệ.');
       return;
     }
     const newTxn = {
@@ -267,7 +270,7 @@ export default function Treasury() {
     };
     if (type === 'CHUYEN') {
       if (fromAccount === toAccount) {
-        alert('Tài khoản gửi và nhận phải khác nhau.');
+        toast.error('Tài khoản gửi và nhận phải khác nhau.');
         return;
       }
       newTxn.fromAccount = fromAccount;
@@ -281,16 +284,21 @@ export default function Treasury() {
       }
     }
 
-    if (editingTxnId) {
-      updateTransaction(editingTxnId, newTxn);
-    } else {
-      addTransaction(newTxn);
+    try {
+      if (editingTxnId) {
+        await updateTransaction(editingTxnId, newTxn);
+      } else {
+        await addTransaction(newTxn);
+      }
+
+      toast.success(editingTxnId ? 'Đã cập nhật giao dịch.' : 'Đã lưu giao dịch.');
+      setShowForm(false);
+      setEditingTxnId(null);
+      setAmount('');
+      setNote('');
+    } catch (error) {
+      toast.error(`Không thể lưu giao dịch: ${error.message}`);
     }
-    
-    setShowForm(false);
-    setEditingTxnId(null);
-    setAmount('');
-    setNote('');
   };
 
   const handleEdit = (t) => {

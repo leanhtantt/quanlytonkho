@@ -7,6 +7,7 @@ import { normalizeProductSku, productMatchesSearch } from '../domain/productSku'
 import ProductImage from '../components/ProductImage';
 import { processAndCompressImage } from '../domain/imageProcessor';
 import { deleteProductImage, uploadProductImage } from '../domain/imageStorage';
+import { toast } from '../components/ui/toastHelper';
 
 export default function Products() {
   const { inventory, inventoryAdjustments, updateProduct, renameProductSku, reorderProducts } = useAppStore();
@@ -48,9 +49,10 @@ export default function Products() {
         throw error;
       }
       await deleteProductImage(oldImageId).catch(error => console.warn('Không thể xóa ảnh cũ:', error));
+      toast.success('Đã cập nhật ảnh sản phẩm.');
     } catch (err) {
       console.error(err);
-      alert('Lỗi khi tải ảnh');
+      toast.error('Lỗi khi tải ảnh.');
     } finally {
       setUploadingId(null);
     }
@@ -66,9 +68,10 @@ export default function Products() {
       setImagePreview(null);
       await updateProduct(product.id, { imageId: null });
       await deleteProductImage(product.imageId);
+      toast.success('Đã xóa ảnh sản phẩm.');
     } catch (err) {
       console.error(err);
-      alert('Không thể xóa hình sản phẩm');
+      toast.error('Không thể xóa hình sản phẩm.');
     } finally {
       setUploadingId(null);
     }
@@ -112,7 +115,7 @@ export default function Products() {
       setReorderBusy(true);
       await reorderProducts(nextOrder.map(product => product.id));
     } catch (error) {
-      alert(`Không thể đổi thứ tự sản phẩm: ${error.message}`);
+      toast.error(`Không thể đổi thứ tự sản phẩm: ${error.message}`);
     } finally {
       setReorderBusy(false);
     }
@@ -147,7 +150,7 @@ export default function Products() {
       setReorderBusy(true);
       await reorderProducts(nextOrder.map(product => product.id));
     } catch (error) {
-      alert(`Không thể đổi thứ tự sản phẩm: ${error.message}`);
+      toast.error(`Không thể đổi thứ tự sản phẩm: ${error.message}`);
     } finally {
       setReorderBusy(false);
     }
@@ -168,9 +171,9 @@ export default function Products() {
     try {
       setRenamingProductId(product.id);
       await renameProductSku(product.id, newSku);
-      alert(`Đã đổi SKU thành ${newSku}. Tồn kho và lịch sử bán hàng vẫn được giữ nguyên.`);
+      toast.success(`Đã đổi SKU thành ${newSku}. Tồn kho và lịch sử bán hàng vẫn được giữ nguyên.`);
     } catch (error) {
-      alert(`Không thể đổi SKU: ${error.message}`);
+      toast.error(`Không thể đổi SKU: ${error.message}`);
     } finally {
       setRenamingProductId(null);
     }

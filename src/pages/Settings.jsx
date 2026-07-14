@@ -3,6 +3,7 @@ import { useAppStore } from '../store/appStoreContext';
 import { IconPlus as Plus, IconTrash as Trash2, IconDeviceFloppy as Save } from '@tabler/icons-react';
 import { deleteImage, getImage } from '../domain/imageDb';
 import { deleteProductImage, isRemoteImage, uploadProductImage } from '../domain/imageStorage';
+import { toast } from '../components/ui/toastHelper';
 
 export default function Settings() {
   const { accounts, setAccounts, shops, setShops, partners, setPartners, products, updateProduct, defaultPackagingCost, setDefaultPackagingCost, defaultReturnFee, setDefaultReturnFee } = useAppStore();
@@ -20,7 +21,7 @@ export default function Settings() {
 
   const handleMigrateImages = async () => {
     if (legacyImageProducts.length === 0) {
-      alert('Tất cả ảnh sản phẩm đã nằm trên Firebase Storage.');
+      toast.success('Tất cả ảnh sản phẩm đã nằm trên Firebase Storage.');
       return;
     }
     setImageMigration({ running: true, completed: 0, total: legacyImageProducts.length, failed: 0 });
@@ -48,16 +49,18 @@ export default function Settings() {
     }
 
     setImageMigration({ running: false, completed, total: legacyImageProducts.length, failed });
-    alert(failed === 0
-      ? `Đã chuyển thành công ${completed} ảnh lên Firebase Storage.`
-      : `Đã chuyển ${completed} ảnh; ${failed} ảnh lỗi và vẫn được giữ nguyên.`);
+    if (failed === 0) {
+      toast.success(`Đã chuyển thành công ${completed} ảnh lên Firebase Storage.`);
+    } else {
+      toast.error(`Đã chuyển ${completed} ảnh; ${failed} ảnh lỗi và vẫn được giữ nguyên.`);
+    }
   };
 
   const handleAddShop = () => {
     const name = newShop.trim();
     if (!name) return;
     if (localShops.some(shop => shop.toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'))) {
-      alert('Tên shop đã tồn tại.');
+      toast.error('Tên shop đã tồn tại.');
       return;
     }
     setLocalShops([...localShops, name]);
@@ -95,29 +98,35 @@ export default function Settings() {
     setLocalPartners(newP);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (localShops.length === 0) {
-      alert('Cần giữ lại ít nhất một shop để tạo và import đơn hàng.');
+      toast.error('Cần giữ lại ít nhất một shop để tạo và import đơn hàng.');
       return;
     }
     const totalShare = localPartners.reduce((sum, p) => sum + p.share, 0);
     if (totalShare !== 100) {
-      alert(`Tổng tỷ lệ chia lợi nhuận phải bằng 100%. Hiện tại đang là ${totalShare}%`);
+      toast.error(`Tổng tỷ lệ chia lợi nhuận phải bằng 100%. Hiện tại đang là ${totalShare}%`);
       return;
     }
     // Prevent duplicate partner names or empty names
     const names = localPartners.map(p => p.name.trim()).filter(Boolean);
     if (new Set(names).size !== names.length || names.length !== localPartners.length) {
-      alert('Tên thành viên không được để trống và không được trùng lặp.');
+      toast.error('Tên thành viên không được để trống và không được trùng lặp.');
       return;
     }
 
-    setAccounts(localAccounts);
-    setShops(localShops);
-    setPartners(localPartners);
-    setDefaultPackagingCost(Number(localPkgCost) || 0);
-    setDefaultReturnFee(Number(localReturnFee) || 0);
-    alert('Đã lưu cấu hình thành công!');
+    try {
+      await Promise.all([
+        setAccounts(localAccounts),
+        setShops(localShops),
+        setPartners(localPartners),
+        setDefaultPackagingCost(Number(localPkgCost) || 0),
+        setDefaultReturnFee(Number(localReturnFee) || 0)
+      ]);
+      toast.success('Đã lưu cấu hình thành công.');
+    } catch (error) {
+      toast.error(`Không thể lưu cấu hình: ${error.message}`);
+    }
   };
 
   return (

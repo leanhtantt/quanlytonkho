@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { IconPlus as Plus, IconDeviceFloppy as Save, IconX as X } from '@tabler/icons-react';
 import { findProductByCode, productMatchesSearch } from '../domain/productSku';
+import { toast } from '../components/ui/toastHelper';
 
 export default function Purchases() {
   const { purchases, addPurchase, updatePurchase, deletePurchase, products } = useAppStore();
@@ -81,7 +82,7 @@ export default function Purchases() {
     return Math.round(totalVndCost / item.qty);
   };
 
-  const handleSavePurchase = () => {
+  const handleSavePurchase = async () => {
     if (items.length === 0) return;
     
     const purchaseData = {
@@ -103,13 +104,18 @@ export default function Purchases() {
       }))
     };
     
-    if (editingPurchaseId) {
-      updatePurchase(editingPurchaseId, { id: purchaseId || editingPurchaseId, ...purchaseData });
-    } else {
-      addPurchase({ id: purchaseId || `PO-${Date.now()}`, ...purchaseData });
+    try {
+      if (editingPurchaseId) {
+        await updatePurchase(editingPurchaseId, { id: purchaseId || editingPurchaseId, ...purchaseData });
+      } else {
+        await addPurchase({ id: purchaseId || `PO-${Date.now()}`, ...purchaseData });
+      }
+
+      toast.success(editingPurchaseId ? 'Đã cập nhật phiếu nhập.' : 'Đã tạo phiếu nhập.');
+      closeForm();
+    } catch (error) {
+      toast.error(`Không thể lưu phiếu nhập: ${error.message}`);
     }
-    
-    closeForm();
   };
 
   const closeForm = () => {
@@ -145,7 +151,7 @@ export default function Purchases() {
     try {
       await deletePurchase(p.id);
     } catch (err) {
-      alert(`Không xóa được phiếu nhập: ${err.message}`);
+      toast.error(`Không xóa được phiếu nhập: ${err.message}`);
     }
   };
 

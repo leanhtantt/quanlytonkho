@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import ProductImage from '../components/ProductImage';
 import { calculateOrderGrossProfit } from '../domain/profitAnalytics';
 import { findProductByCode } from '../domain/productSku';
+import { toast } from '../components/ui/toastHelper';
 
 const normalizeExcelText = (value) => String(value ?? '')
   .normalize('NFD')
@@ -220,7 +221,7 @@ export default function Orders() {
     // Validate manual save: ensure all products exist in inventory
     const invalidItems = items.filter(item => !products.find(p => p.id === item.productId));
     if (invalidItems.length > 0) {
-      alert(`Lỗi: Các mã SP sau không có trong kho: ${invalidItems.map(i => i.productId).join(', ')}. Vui lòng chọn lại mã đúng!`);
+      toast.error(`Các mã SP sau không có trong kho: ${invalidItems.map(i => i.productId).join(', ')}. Vui lòng chọn lại mã đúng!`);
       return;
     }
 
@@ -256,9 +257,10 @@ export default function Orders() {
       if (importFixOrderId) {
         setImportIssues(prev => prev.filter(issue => issue.id !== importFixOrderId));
       }
+      toast.success(targetOrderId ? `Đã cập nhật đơn ${orderId}.` : `Đã tạo đơn ${orderId}.`);
       closeForm();
     } catch (err) {
-      alert(`${targetOrderId ? 'Cập nhật' : 'Tạo'} đơn không thành công: ${err.message}`);
+      toast.error(`${targetOrderId ? 'Cập nhật' : 'Tạo'} đơn không thành công: ${err.message}`);
     }
   };
 
@@ -359,7 +361,7 @@ export default function Orders() {
 
         for (const [id, updates] of updatesByOrderId) await updateOrder(id, updates);
 
-        alert(
+        toast.success(
           `Hoàn tất đối soát!\n` +
           `- Cập nhật Thực tế (Nhận): ${updatesByOrderId.size} đơn\n` +
           `- Không tìm thấy mã đơn: ${notFoundCount} đơn\n` +
@@ -368,7 +370,7 @@ export default function Orders() {
         );
       } catch (err) {
         console.error(err);
-        alert(`❌ Không thể đối soát file Excel: ${err.message}`);
+        toast.error(`Không thể đối soát file Excel: ${err.message}`);
       } finally {
         if (fileInputRef.current) {
           fileInputRef.current.value = null;
@@ -558,10 +560,10 @@ export default function Orders() {
         if (newIssues.length > 0) {
           msg += `\n⚠️ ${newIssues.length} đơn cần xử lý (mã SP không khớp hoặc lưu thất bại). Xem danh sách "Đơn cần xử lý" bên dưới để sửa nhanh.`;
         }
-        alert(msg);
+        toast.success(msg);
       } catch (err) {
         console.error(err);
-        alert('❌ Có lỗi xảy ra khi đọc file Excel. Đảm bảo đây là file xuất chuẩn từ sàn.');
+        toast.error('Có lỗi xảy ra khi đọc file Excel. Đảm bảo đây là file xuất chuẩn từ sàn.');
       }
       e.target.value = null;
     };

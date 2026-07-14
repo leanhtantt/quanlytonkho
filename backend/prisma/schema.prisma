@@ -182,17 +182,17 @@ model TreasuryTransaction {
 }
 
 model MonthlyAdExpense {
-  id                    String    @id @default(uuid())
+  id                    String                   @id @default(uuid())
   month                 String // "2026-07"
   channel               String
-  amount                Decimal   @db.Decimal(15, 2)
-  source                String    @default("SELF_FUNDED")
+  amount                Decimal                  @db.Decimal(15, 2)
+  source                String                   @default("SELF_FUNDED")
   account               String?
   spentAt               DateTime?
   note                  String?
   advancedBy            String?
-  treasuryTransactionId String?   @unique
-  createdAt             DateTime  @default(now())
+  treasuryTransactionId String?                  @unique
+  createdAt             DateTime                 @default(now())
   reimbursements        AdAdvanceReimbursement[]
 }
 
@@ -221,4 +221,33 @@ model InventoryAdjustment {
   occurredAt DateTime       @default(now())
   product    Product        @relation(fields: [productId], references: [id])
   batch      InventoryBatch @relation(fields: [batchId], references: [id])
+}
+
+model User {
+  id          String   @id
+  email       String   @unique
+  displayName String?
+  role        String   @default("staff")
+  permissions Json     @default("{}")
+  isActive    Boolean  @default(true)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  actorUid    String
+  actorEmail  String
+  action      String
+  resource    String
+  targetId    String?
+  targetLabel String?
+  before      Json?
+  after       Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUid, createdAt])
+  @@index([resource, createdAt])
 }

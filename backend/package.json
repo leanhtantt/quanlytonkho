@@ -13,6 +13,7 @@
     "db:backup:dump": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/backup-dump.ps1",
     "db:backup:verify": "tsx scripts/verifyBackup.ts",
     "db:restore": "tsx scripts/restore.ts",
+    "set-admin": "tsx scripts/setAdminClaim.ts",
     "test": "vitest run"
   },
   "keywords": [],

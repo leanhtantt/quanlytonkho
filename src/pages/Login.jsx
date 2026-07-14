@@ -3,10 +3,9 @@ import { useAuth } from '../lib/AuthContext';
 import { IconPackage as Package } from '@tabler/icons-react';
 
 export default function Login() {
-  const { login, register } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -15,20 +14,12 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      if (isRegister) {
-        await register(email, password);
-      } else {
-        await login(email, password);
-      }
+      await login(email, password);
     } catch (err) {
       setError(
         err.code === 'auth/invalid-credential'
           ? 'Email hoặc mật khẩu không đúng'
-          : err.code === 'auth/email-already-in-use'
-            ? 'Email đã được sử dụng'
-            : err.code === 'auth/weak-password'
-              ? 'Mật khẩu phải ít nhất 6 ký tự'
-              : err.message
+          : err.message
       );
     } finally {
       setLoading(false);
@@ -42,7 +33,7 @@ export default function Login() {
           <Package size={32} />
           <span>Phụ kiện Decor</span>
         </div>
-        <h2>{isRegister ? 'Tạo tài khoản' : 'Đăng nhập'}</h2>
+        <h2>Đăng nhập</h2>
 
         {error && <div className="login-error">{error}</div>}
 
@@ -69,15 +60,8 @@ export default function Login() {
         </label>
 
         <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? 'Đang xử lý...' : isRegister ? 'Đăng ký' : 'Đăng nhập'}
+          {loading ? 'Đang xử lý...' : 'Đăng nhập'}
         </button>
-
-        <p className="login-toggle">
-          {isRegister ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}{' '}
-          <button type="button" onClick={() => { setIsRegister(!isRegister); setError(''); }}>
-            {isRegister ? 'Đăng nhập' : 'Đăng ký'}
-          </button>
-        </p>
       </form>
     </div>
   );

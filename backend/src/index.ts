@@ -1,3 +1,6 @@
+// Sentry phải import trước mọi module khác
+import './instrument';
+import { Sentry } from './instrument';
 import express from 'express';
 import cors from 'cors';
 import { apiRouter } from './routes';
@@ -20,6 +23,15 @@ app.get('/health', async (req, res) => {
 
 // Use the API router for all /api routes
 app.use('/api', requireAuth, apiRouter);
+
+// Sentry error handler — SAU routes, TRƯỚC error handler cuối
+Sentry.setupExpressErrorHandler(app);
+
+// Error handler cuối cùng
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('Unhandled error:', err.message);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

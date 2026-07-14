@@ -75,23 +75,32 @@ export default function Profit() {
 
       <section className="card profit-chart-card" aria-labelledby="profit-chart-title">
         <h2 id="profit-chart-title" className="h3">Biểu đồ Lợi Nhuận Theo Tháng Sàn Thanh Toán</h2>
-        <div className="profit-chart">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
-            <XAxis dataKey="name" axisLine={false} tickLine={false} />
-            <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(val)} />
-            <Tooltip
-              formatter={(value) => formatCurrency(value)}
-              wrapperClassName="profit-chart-tooltip"
-            />
-            <Legend />
-            {shops.map((s, idx) => (
-              <Bar key={s} dataKey={s} fill={chartTokens[idx % chartTokens.length]} />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-        </div>
+        {chartData.length > 0 ? (
+          <div className="profit-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => new Intl.NumberFormat('vi-VN', { notation: 'compact', compactDisplay: 'short' }).format(val)} />
+                <Tooltip
+                  formatter={(value) => formatCurrency(value)}
+                  wrapperClassName="profit-chart-tooltip"
+                />
+                <Legend />
+                {shops.map((s, idx) => (
+                  <Bar key={s} dataKey={s} fill={chartTokens[idx % chartTokens.length]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <EmptyState
+            className="profit-chart-empty"
+            icon={TrendingUp}
+            title="Chưa có dữ liệu biểu đồ lợi nhuận"
+            description="Biểu đồ sẽ xuất hiện khi có đơn hàng và kỳ thanh toán."
+          />
+        )}
       </section>
 
       <section className="card profit-analysis-card" aria-labelledby="profit-analysis-title">

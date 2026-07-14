@@ -86,18 +86,32 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {dailySummary.shops.map(shop => (
-                <tr key={shop.shop}>
-                  <td>{shop.shop}</td>
-                  <td className="dashboard-number-cell num">{formatCurrency(shop.revenue)}</td>
-                  <td className="dashboard-number-cell num">{shop.orderCount}</td>
+              {dailySummary.shops.length > 0 ? (
+                <>
+                  {dailySummary.shops.map(shop => (
+                    <tr key={shop.shop}>
+                      <td>{shop.shop}</td>
+                      <td className="dashboard-number-cell num">{formatCurrency(shop.revenue)}</td>
+                      <td className="dashboard-number-cell num">{shop.orderCount}</td>
+                    </tr>
+                  ))}
+                  <tr className="dashboard-total-row">
+                    <td>{dailySummary.total.shop}</td>
+                    <td className="dashboard-number-cell num">{formatCurrency(dailySummary.total.revenue)}</td>
+                    <td className="dashboard-number-cell num">{dailySummary.total.orderCount}</td>
+                  </tr>
+                </>
+              ) : (
+                <tr>
+                  <td colSpan="3" className="dashboard-empty-cell">
+                    <EmptyState
+                      icon={ShoppingCart}
+                      title="Chưa có dữ liệu đơn theo shop"
+                      description="Cấu hình shop và ghi nhận đơn hàng để xem tổng hợp trong ngày."
+                    />
+                  </td>
                 </tr>
-              ))}
-              <tr className="dashboard-total-row">
-                <td>{dailySummary.total.shop}</td>
-                <td className="dashboard-number-cell num">{formatCurrency(dailySummary.total.revenue)}</td>
-                <td className="dashboard-number-cell num">{dailySummary.total.orderCount}</td>
-              </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -155,25 +169,34 @@ export default function Dashboard() {
         <StatCard label="Sắp Hết Hàng" value={lowStockCount} icon={AlertCircle} description="Tồn kho < 10" trend={<Badge variant="danger">Cảnh báo</Badge>} />
       </div>
 
-      <div className="card dashboard-chart-card">
-        <h3>Biểu đồ Doanh thu & Đơn hàng theo tháng</h3>
-        <div className="dashboard-chart">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} />
-              <YAxis yAxisId="left" orientation="left" stroke="var(--chart-1)" axisLine={false} tickLine={false} />
-              <YAxis yAxisId="right" orientation="right" stroke="var(--chart-2)" axisLine={false} tickLine={false} />
-              <Tooltip
-                wrapperClassName="dashboard-chart-tooltip"
-                formatter={(value, name) => [name === 'revenue' ? formatCurrency(value) : value, name === 'revenue' ? 'Doanh thu' : 'Đơn hàng']}
-              />
-              <Bar yAxisId="left" name="revenue" dataKey="revenue" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
-              <Bar yAxisId="right" name="orders" dataKey="orders" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <section className="card dashboard-chart-card" aria-labelledby="dashboard-chart-title">
+        <h2 id="dashboard-chart-title" className="h3">Biểu đồ Doanh thu & Đơn hàng theo tháng</h2>
+        {chartData.length > 0 ? (
+          <div className="dashboard-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                <YAxis yAxisId="left" orientation="left" stroke="var(--chart-1)" axisLine={false} tickLine={false} />
+                <YAxis yAxisId="right" orientation="right" stroke="var(--chart-2)" axisLine={false} tickLine={false} />
+                <Tooltip
+                  wrapperClassName="dashboard-chart-tooltip"
+                  formatter={(value, name) => [name === 'revenue' ? formatCurrency(value) : value, name === 'revenue' ? 'Doanh thu' : 'Đơn hàng']}
+                />
+                <Bar yAxisId="left" name="revenue" dataKey="revenue" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="right" name="orders" dataKey="orders" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <EmptyState
+            className="dashboard-chart-empty"
+            icon={DollarSign}
+            title="Chưa có dữ liệu biểu đồ"
+            description="Biểu đồ sẽ xuất hiện khi có đơn hàng đã ghi nhận doanh thu."
+          />
+        )}
+      </section>
     </div>
   );
 }

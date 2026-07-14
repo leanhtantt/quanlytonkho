@@ -641,18 +641,41 @@ th {
 }
 
 .treasury-balances {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-4);
   position: sticky;
   top: 0;
   z-index: 20;
   order: 1;
   padding: 0.75rem 0;
   background: var(--color-bg-base);
-  box-shadow: 0 8px 16px -16px rgb(15 23 42 / 45%);
+  box-shadow: var(--shadow-sm);
 }
 
 .treasury-balances .card {
   padding: 1rem;
 }
+
+.treasury-balance-card {
+  border-left: 4px solid var(--treasury-tone, var(--color-primary));
+}
+
+.treasury-balance-card .ui-stat-card__icon,
+.treasury-account-history__name {
+  color: var(--treasury-tone, var(--color-primary));
+}
+
+.treasury-balance-card.is-negative .ui-stat-card__value {
+  color: var(--color-danger);
+}
+
+.treasury-tone-0 { --treasury-tone: var(--chart-1); }
+.treasury-tone-1 { --treasury-tone: var(--chart-2); }
+.treasury-tone-2 { --treasury-tone: var(--chart-3); }
+.treasury-tone-3 { --treasury-tone: var(--chart-4); }
+.treasury-tone-4 { --treasury-tone: var(--chart-5); }
+.treasury-tone-5 { --treasury-tone: var(--chart-6); }
 
 .treasury-advance-card,
 .treasury-projected-card {
@@ -717,6 +740,62 @@ th {
 
 .treasury-source-note strong {
   color: var(--color-text-base);
+}
+
+.treasury-section,
+.treasury-entry-form {
+  margin-bottom: var(--space-8);
+}
+
+.treasury-section > .h3,
+.treasury-entry-form__title,
+.treasury-section-title {
+  margin-bottom: var(--space-4);
+}
+
+.treasury-section__description {
+  margin: var(--space-2) 0 var(--space-4);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.treasury-section__warning {
+  margin-top: var(--space-3);
+  color: var(--color-warning);
+  font-size: 0.8rem;
+}
+
+.treasury-name-cell,
+.treasury-value--strong {
+  font-weight: 700;
+}
+
+.treasury-value--income { color: var(--color-success); }
+.treasury-value--expense { color: var(--color-danger); }
+.treasury-value--info { color: var(--color-info); }
+.treasury-value--primary { color: var(--color-primary); }
+
+.treasury-form-grid,
+.treasury-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  align-items: end;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.treasury-form-grid__wide,
+.treasury-entry-grid__wide {
+  grid-column: span 2;
+}
+
+.treasury-form-grid > .ui-button {
+  margin-bottom: var(--space-1);
+}
+
+.treasury-ads-table {
+  max-height: 16.25rem;
+  margin-top: var(--space-4);
 }
 
 .treasury-advance-section {
@@ -802,7 +881,15 @@ th {
 
 .treasury-entry-form {
   order: 2;
+  border: 1px solid var(--color-primary);
   scroll-margin-top: 9rem;
+}
+
+.treasury-entry-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
 }
 
 .treasury-capital {
@@ -818,6 +905,105 @@ th {
 
 .treasury-history-grid section {
   min-width: 0;
+}
+
+.treasury-history-heading,
+.treasury-history-filters,
+.treasury-account-history__header,
+.treasury-account-history__name,
+.treasury-row-actions {
+  display: flex;
+  align-items: center;
+}
+
+.treasury-history-heading,
+.treasury-account-history__header {
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.treasury-history-heading {
+  margin-bottom: var(--space-4);
+}
+
+.treasury-history-filters,
+.treasury-account-history__name,
+.treasury-row-actions {
+  gap: var(--space-2);
+}
+
+.treasury-history-filters {
+  color: var(--color-text-muted);
+}
+
+.treasury-history-filters input,
+.treasury-history-filters select {
+  width: auto;
+  min-width: 8rem;
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.875rem;
+}
+
+.treasury-account-history {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.treasury-account-history__header {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-subtle);
+}
+
+.treasury-account-history__balance {
+  display: grid;
+  text-align: right;
+}
+
+.treasury-account-history__balance span,
+.treasury-balance-change div {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.treasury-history-table {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.treasury-actions-column {
+  width: 5rem;
+}
+
+.treasury-transaction-content,
+.treasury-balance-change {
+  min-width: 9.5rem;
+}
+
+.treasury-transaction-content__title,
+.treasury-transaction-amount,
+.treasury-balance-change strong {
+  font-weight: 700;
+}
+
+.treasury-transaction-content__meta {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.treasury-transaction-content__meta span {
+  color: var(--color-primary);
+}
+
+.treasury-balance-change strong {
+  display: block;
+  margin-top: var(--space-1);
+}
+
+.treasury-capital-table {
+  font-size: 0.875rem;
 }
 
 .treasury-history-table th,
@@ -1613,5 +1799,313 @@ tbody tr:hover td {
 
   .activity-pagination > div {
     justify-content: space-between;
+  }
+}
+
+/* Profit */
+.profit-chart-card,
+.profit-analysis-card,
+.profit-hidden-cost-card {
+  margin-bottom: var(--space-6);
+}
+
+.profit-chart-card > .h3,
+.profit-analysis-card > .h3 {
+  margin-bottom: var(--space-4);
+}
+
+.profit-chart {
+  height: 22rem;
+}
+
+.profit-chart .recharts-cartesian-axis-tick-value {
+  fill: var(--color-text-muted);
+}
+
+.profit-chart-tooltip .recharts-default-tooltip {
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface) !important;
+  color: var(--color-text-base) !important;
+  box-shadow: var(--shadow-md);
+}
+
+.profit-total-row {
+  background: var(--color-bg-subtle);
+  font-weight: 700;
+}
+
+.profit-value--income {
+  color: var(--color-success);
+}
+
+.profit-value--expense,
+.profit-heading--expense {
+  color: var(--color-danger);
+}
+
+.profit-value--primary {
+  color: var(--color-primary);
+}
+
+.profit-value--info {
+  color: var(--color-info);
+}
+
+.profit-value--primary,
+.profit-value--info,
+.profit-value--strong {
+  font-weight: 600;
+}
+
+.profit-empty-cell {
+  min-width: 18rem;
+  padding: var(--space-6) !important;
+  text-align: center;
+}
+
+.profit-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.profit-section-heading__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-primary);
+}
+
+.profit-section-heading p {
+  max-width: 48rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 900px) {
+  .profit-chart {
+    height: 20rem;
+  }
+
+  .profit-section-heading {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+}
+
+@media (max-width: 640px) {
+  .profit-chart {
+    height: 18rem;
+  }
+}
+
+/* Settings */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-6);
+}
+
+.settings-card--wide {
+  grid-column: 1 / -1;
+}
+
+.settings-card__title {
+  margin-bottom: var(--space-4);
+}
+
+.settings-card__description,
+.settings-card__help {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.settings-card__description {
+  margin-bottom: var(--space-5);
+}
+
+.settings-card__help {
+  max-width: 72rem;
+  margin-top: var(--space-2);
+}
+
+.settings-fee-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  max-width: 38rem;
+}
+
+.settings-migration,
+.settings-add-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.settings-migration {
+  flex-wrap: wrap;
+}
+
+.settings-add-row {
+  margin-bottom: var(--space-5);
+}
+
+.settings-add-row input {
+  min-width: 0;
+}
+
+.settings-list {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.settings-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+}
+
+.settings-list__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+
+.settings-partners {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.settings-partner-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7rem auto;
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.settings-partner-row__share input {
+  text-align: right;
+}
+
+.settings-partner-row__remove {
+  margin-bottom: var(--space-1);
+}
+
+.settings-add-partner {
+  width: 100%;
+}
+
+.settings-share-total {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  font-weight: 600;
+}
+
+.settings-share-total .is-valid {
+  color: var(--color-success);
+}
+
+.settings-share-total .is-invalid {
+  color: var(--color-danger);
+}
+
+@media (max-width: 900px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-card--wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .settings-fee-grid,
+  .settings-partner-row {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-migration,
+  .settings-add-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-migration .ui-button,
+  .settings-add-row .ui-button {
+    width: 100%;
+  }
+
+  .settings-partner-row__remove {
+    justify-self: end;
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .treasury-history-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .treasury-reimbursement-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .treasury-history-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .treasury-balances,
+  .treasury-form-grid,
+  .treasury-entry-grid,
+  .treasury-reimbursement-form {
+    grid-template-columns: 1fr;
+  }
+
+  .treasury-balances {
+    position: static;
+  }
+
+  .treasury-form-grid__wide,
+  .treasury-entry-grid__wide,
+  .treasury-reimbursement-note,
+  .treasury-reimbursement-actions {
+    grid-column: auto;
+  }
+
+  .treasury-history-filters,
+  .treasury-entry-actions,
+  .treasury-reimbursement-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .treasury-history-filters input,
+  .treasury-history-filters select,
+  .treasury-entry-actions .ui-button,
+  .treasury-reimbursement-actions .ui-button {
+    width: 100%;
   }
 }

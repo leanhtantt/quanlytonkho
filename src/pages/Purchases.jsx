@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { IconPlus as Plus, IconDeviceFloppy as Save, IconX as X } from '@tabler/icons-react';
+import { IconPackageImport, IconPlus as Plus, IconDeviceFloppy as Save, IconTrash as Trash2, IconEdit as Edit, IconX as X } from '@tabler/icons-react';
 import { findProductByCode, productMatchesSearch } from '../domain/productSku';
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useAuth } from '../lib/AuthContext';
 import PageHeader from '../components/ui/PageHeader';
+import EmptyState from '../components/ui/EmptyState';
+import FormField from '../components/ui/FormField';
+import SearchInput from '../components/ui/SearchInput';
 
 export default function Purchases() {
   const { purchases, addPurchase, updatePurchase, deletePurchase, products } = useAppStore();
@@ -120,7 +123,8 @@ export default function Purchases() {
         await addPurchase({ id: purchaseId || `PO-${Date.now()}`, ...purchaseData });
       }
 
-      toast.success(editingPurchaseId ? 'Đã cập nhật phiếu nhập.' : 'Đã tạo phiếu nhập.');
+      const savedPurchaseId = purchaseId || editingPurchaseId || purchaseData.orderName;
+      toast.success(editingPurchaseId ? `Đã cập nhật phiếu nhập ${savedPurchaseId}.` : `Đã tạo phiếu nhập ${savedPurchaseId}.`);
       closeForm();
     } catch (error) {
       toast.error(`Không thể lưu phiếu nhập: ${error.message}`);
@@ -210,71 +214,41 @@ export default function Purchases() {
         title="Nhập Hàng"
         description="Quản lý lô hàng nhập, tự động chia cước và giảm giá"
         actions={!showForm && can('purchases', 'create') ? (
-          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-            <Plus size={18} /> Nhập Lô Mới
-          </button>
+          <Button icon={Plus} onClick={() => setShowForm(true)}>Nhập Lô Mới</Button>
         ) : null}
       />
 
       {showForm && (
-        <div className="card animate-fade-in" style={{ marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h3>{editingPurchaseId ? `Sửa Phiếu Nhập: ${editingPurchaseId}` : 'Tạo Lô Nhập Hàng Mới'}</h3>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <section className="card animate-fade-in purchase-form" aria-labelledby="purchase-form-title">
+          <div className="purchase-form__header">
+            <h2 id="purchase-form-title" className="h3">{editingPurchaseId ? `Sửa Phiếu Nhập: ${editingPurchaseId}` : 'Tạo Lô Nhập Hàng Mới'}</h2>
+            <div className="purchase-form__actions">
             {can('purchases', editingPurchaseId ? 'update' : 'create') && <Button icon={Save} loading={isSavingPurchase} onClick={handleSavePurchase} disabled={items.length === 0}>
                 {isSavingPurchase ? 'Đang lưu...' : 'Lưu Phiếu Nhập'}
               </Button>}
-              <button className="btn btn-outline" onClick={closeForm}><X size={16} /> Hủy</button>
+              <Button variant="secondary" icon={X} onClick={closeForm}>Hủy</Button>
             </div>
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <label style={labelStyle}>Mã Lô Hàng / Mã Tracking</label>
-              <input type="text" placeholder="Để trống sẽ tự tạo" className="form-input" value={purchaseId} onChange={e => setPurchaseId(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Tên/Ghi chú đơn hàng</label>
-              <input type="text" placeholder="Ví dụ: Đơn nhập túi xách tháng 10" className="form-input" value={orderName} onChange={e => setOrderName(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Ngày nhập</label>
-              <input type="date" className="form-input" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Ghi chú thêm (Nếu có)</label>
-              <input type="text" placeholder="Báo mất hàng, sai mẫu..." className="form-input" value={notes} onChange={e => setNotes(e.target.value)} style={inputStyle} />
-            </div>
+          <div className="purchase-form-grid">
+            <FormField label="Mã Lô Hàng / Mã Tracking"><input type="text" placeholder="Để trống sẽ tự tạo" value={purchaseId} onChange={e => setPurchaseId(e.target.value)} /></FormField>
+            <FormField label="Tên/Ghi chú đơn hàng"><input type="text" placeholder="Ví dụ: Đơn nhập túi xách tháng 10" value={orderName} onChange={e => setOrderName(e.target.value)} /></FormField>
+            <FormField label="Ngày nhập"><input type="date" value={date} onChange={e => setDate(e.target.value)} /></FormField>
+            <FormField label="Ghi chú thêm (Nếu có)" className="purchase-form-grid__wide"><input type="text" placeholder="Báo mất hàng, sai mẫu..." value={notes} onChange={e => setNotes(e.target.value)} /></FormField>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-            <div>
-              <label style={labelStyle}>Phí mua hàng (VNĐ)</label>
-              <input type="number" step="1000" className="form-input" value={purchasingFee} onChange={e => setPurchasingFee(Number(e.target.value))} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Phí ship nội địa TQ (VNĐ)</label>
-              <input type="number" step="1000" className="form-input" value={domesticShipping} onChange={e => setDomesticShipping(Number(e.target.value))} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Giảm giá tổng (VNĐ)</label>
-              <input type="number" step="1000" className="form-input" value={discountVnd} onChange={e => setDiscountVnd(Number(e.target.value))} style={inputStyle} />
-            </div>
-            <div>
-              <label style={{...labelStyle, color: 'var(--color-primary)'}}>Shop bồi thường (VNĐ)</label>
-              <input type="number" step="1000" className="form-input" value={compensationVnd} onChange={e => setCompensationVnd(Number(e.target.value))} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Tổng Cước VC về VN (VNĐ)</label>
-              <input type="number" step="1000" className="form-input" value={totalIntlShipping} onChange={e => setTotalIntlShipping(Number(e.target.value))} style={inputStyle} />
-            </div>
+          <div className="purchase-fee-grid">
+            <FormField label="Phí mua hàng (VNĐ)"><input className="num" type="number" step="1000" value={purchasingFee} onChange={e => setPurchasingFee(Number(e.target.value))} /></FormField>
+            <FormField label="Phí ship nội địa TQ (VNĐ)"><input className="num" type="number" step="1000" value={domesticShipping} onChange={e => setDomesticShipping(Number(e.target.value))} /></FormField>
+            <FormField label="Giảm giá tổng (VNĐ)"><input className="num" type="number" step="1000" value={discountVnd} onChange={e => setDiscountVnd(Number(e.target.value))} /></FormField>
+            <FormField label="Shop bồi thường (VNĐ)" className="purchase-field--primary"><input className="num" type="number" step="1000" value={compensationVnd} onChange={e => setCompensationVnd(Number(e.target.value))} /></FormField>
+            <FormField label="Tổng Cước VC về VN (VNĐ)"><input className="num" type="number" step="1000" value={totalIntlShipping} onChange={e => setTotalIntlShipping(Number(e.target.value))} /></FormField>
           </div>
 
-          <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
-            <h4 style={{ marginBottom: '1rem' }}>Thêm Sản Phẩm (Nhập Tổng VNĐ)</h4>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 120px' }}>
-                <label style={labelStyle}>Mã SP</label>
+          <div className="purchase-item-editor">
+            <h3 className="h4 purchase-item-editor__title">Thêm Sản Phẩm (Nhập Tổng VNĐ)</h3>
+            <div className="purchase-item-grid">
+              <FormField label="Mã SP">
                 <input 
                   type="text" 
                   placeholder="VD: SP01" 
@@ -284,31 +258,18 @@ export default function Purchases() {
                     const existingProd = findProductByCode(products, newId);
                     setNewItem({...newItem, id: newId, name: existingProd ? existingProd.name : newItem.name});
                   }} 
-                  style={inputStyle} 
                 />
-              </div>
-              <div style={{ flex: '2 1 180px' }}>
-                <label style={labelStyle}>Tên SP</label>
-                <input type="text" placeholder="Tên sản phẩm" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} style={inputStyle} />
-              </div>
-              <div style={{ width: '80px' }}>
-                <label style={labelStyle}>Tổng SL</label>
-                <input type="number" value={newItem.qty} onChange={e => setNewItem({...newItem, qty: e.target.value})} style={inputStyle} />
-              </div>
-              <div style={{ width: '150px' }}>
-                <label style={labelStyle}>Tổng Tiền Mua (VNĐ)</label>
-                <input type="number" step="1000" value={newItem.totalVndPrice} onChange={e => setNewItem({...newItem, totalVndPrice: e.target.value})} style={inputStyle} />
-              </div>
-              <div style={{ width: '150px' }}>
-                <label style={labelStyle}>Tổng Cân Nặng (Kg)</label>
-                <input type="number" step="0.01" value={newItem.totalWeightKg} onChange={e => setNewItem({...newItem, totalWeightKg: e.target.value})} style={inputStyle} />
-              </div>
-              {can('purchases', editingPurchaseId ? 'update' : 'create') && <button className="btn btn-outline" onClick={handleAddItem} style={{ height: '42px' }}><Plus size={16} /> Thêm</button>}
+              </FormField>
+              <FormField label="Tên SP" className="purchase-item-grid__name"><input type="text" placeholder="Tên sản phẩm" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} /></FormField>
+              <FormField label="Tổng SL"><input className="num" type="number" value={newItem.qty} onChange={e => setNewItem({...newItem, qty: e.target.value})} /></FormField>
+              <FormField label="Tổng Tiền Mua (VNĐ)"><input className="num" type="number" step="1000" value={newItem.totalVndPrice} onChange={e => setNewItem({...newItem, totalVndPrice: e.target.value})} /></FormField>
+              <FormField label="Tổng Cân Nặng (Kg)"><input className="num" type="number" step="0.01" value={newItem.totalWeightKg} onChange={e => setNewItem({...newItem, totalWeightKg: e.target.value})} /></FormField>
+              {can('purchases', editingPurchaseId ? 'update' : 'create') && <Button className="purchase-item-grid__add" variant="secondary" icon={Plus} onClick={handleAddItem}>Thêm</Button>}
             </div>
           </div>
 
           {items.length > 0 && (
-            <div className="table-container" style={{ marginBottom: '1.5rem' }}>
+            <div className="table-container purchase-items-table">
               <table>
                 <thead>
                   <tr>
@@ -316,8 +277,8 @@ export default function Purchases() {
                     <th>SL</th>
                     <th>Tổng Tiền</th>
                     <th>Tổng Cân Nặng</th>
-                    <th style={{ color: 'var(--color-primary)' }}>Giá Vốn Đơn Vị (VNĐ/1 cái)</th>
-                    <th style={{ width: '100px', textAlign: 'center' }}>Thao tác</th>
+                    <th className="purchase-heading--primary num">Giá Vốn Đơn Vị (VNĐ/1 cái)</th>
+                    <th className="purchase-actions-column">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -325,23 +286,21 @@ export default function Purchases() {
                     return (
                       <tr key={idx}>
                         <td>
-                          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                            <div>
-                              <div style={{ fontWeight: 600 }}>{item.name}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.id}</div>
-                            </div>
+                          <div className="purchase-product-cell">
+                            <div className="purchase-product-cell__name">{item.name}</div>
+                            <div className="purchase-product-cell__sku">{item.id}</div>
                           </div>
                         </td>
-                        <td>{item.qty}</td>
-                        <td>{Math.round(item.totalVndPrice).toLocaleString()} đ</td>
-                        <td>{item.totalWeightKg} kg</td>
-                        <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
+                        <td className="num">{item.qty}</td>
+                        <td className="num">{Math.round(item.totalVndPrice).toLocaleString()} đ</td>
+                        <td className="num">{item.totalWeightKg} kg</td>
+                        <td className="num purchase-value--primary purchase-value--strong">
                           {Math.round(calculateCost(item)).toLocaleString()} đ
                         </td>
-                        <td style={{ textAlign: 'center' }}>
-                          {can('purchases', editingPurchaseId ? 'update' : 'create') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleEditItem(idx)}>Sửa</button>}
-                          {can('purchases', editingPurchaseId ? 'update' : 'create') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={() => handleRemoveItem(idx)}>Xoá</button>}
-                        </td>
+                        <td><div className="purchase-row-actions">
+                          {can('purchases', editingPurchaseId ? 'update' : 'create') && <Button variant="ghost" size="sm" icon={Edit} iconOnly aria-label={`Sửa sản phẩm ${item.id}`} onClick={() => handleEditItem(idx)} />}
+                          {can('purchases', editingPurchaseId ? 'update' : 'create') && <Button variant="danger-ghost" size="sm" icon={Trash2} iconOnly aria-label={`Xóa sản phẩm ${item.id} khỏi phiếu`} onClick={() => handleRemoveItem(idx)} />}
+                        </div></td>
                       </tr>
                     );
                   })}
@@ -350,53 +309,47 @@ export default function Purchases() {
             </div>
           )}
 
-        </div>
+        </section>
       )}
 
       {/* Danh sách lô hàng đã nhập */}
-      <div className="card" style={{ padding: 0 }}>
-        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--color-border)' }}>
-          <h3 style={{ margin: 0, marginBottom: '1rem' }}>Lịch sử nhập hàng</h3>
-          <label style={labelStyle}>Tìm đơn theo SKU hoặc tên sản phẩm</label>
-          <input
-            type="search"
+      <section className="card purchase-history" aria-labelledby="purchase-history-title">
+        <div className="purchase-history__header">
+          <h2 id="purchase-history-title" className="h3">Lịch sử nhập hàng</h2>
+          <SearchInput
+            label="Tìm đơn theo SKU hoặc tên sản phẩm"
             value={productSearch}
             onChange={e => setProductSearch(e.target.value)}
             placeholder="Nhập SKU hoặc tên sản phẩm để xem đã nhập ở đơn nào..."
-            style={inputStyle}
           />
           {normalizedProductSearch && (
-            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+            <div className="purchase-search-result">
               Tìm thấy {filteredPurchases.length} đơn nhập phù hợp
             </div>
           )}
         </div>
-        <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+        <div className="table-container purchase-history__table">
           <table>
             <thead>
               <tr>
-                <th style={{ width: '40px' }}></th>
+                <th className="purchase-expand-column"></th>
                 <th>Mã Lô</th>
                 <th>Tên Đơn Hàng</th>
                 <th>Ngày Nhập</th>
                 <th>Tổng SP</th>
                 <th>Tổng Tiền Nhập (VNĐ)</th>
-                <th style={{ width: '80px' }}>Hành động</th>
+                <th className="purchase-history-actions-column">Hành động</th>
               </tr>
             </thead>
             <tbody>
               {purchases.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
-                    Chưa có lô hàng nào. Hãy nhập lô mới!
-                  </td>
+                  <td colSpan={7} className="purchase-empty-cell"><EmptyState icon={IconPackageImport} title="Chưa có lô hàng nào" description="Nhập lô mới để bắt đầu theo dõi tồn kho FIFO." /></td>
                 </tr>
               )}
               {purchases.length > 0 && filteredPurchases.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
-                    Không tìm thấy đơn nhập nào chứa SKU hoặc tên sản phẩm này.
-                  </td>
+                  <td colSpan={7} className="purchase-empty-cell"><EmptyState icon={IconPackageImport} title="Không tìm thấy đơn nhập phù hợp" description="Thử tìm bằng SKU hoặc tên sản phẩm khác." /></td>
                 </tr>
               )}
               {[...filteredPurchases].sort((a, b) => {
@@ -413,42 +366,40 @@ export default function Purchases() {
 
                 return (
                   <React.Fragment key={p.id}>
-                    <tr style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--color-bg-hover)' : '' }} onClick={() => setExpandedPurchaseId(isExpanded ? null : p.id)}>
+                    <tr className={`purchase-history-row ${isExpanded ? 'is-expanded' : ''}`} onClick={() => setExpandedPurchaseId(isExpanded ? null : p.id)}>
                       <td>
-                        {isExpanded ? <span style={{fontSize: '12px'}}>▼</span> : <span style={{fontSize: '12px'}}>▶</span>}
+                        <span className="purchase-expand-indicator">{isExpanded ? '▼' : '▶'}</span>
                       </td>
-                      <td style={{ fontWeight: 600 }}>{p.id}</td>
-                      <td style={{ fontWeight: 500, color: 'var(--color-primary)' }}>{p.orderName}</td>
+                      <td className="purchase-id-cell">{p.id}</td>
+                      <td className="purchase-value--primary">{p.orderName}</td>
                       <td>{p.date}</td>
-                      <td>{totalQty}</td>
-                      <td style={{ fontWeight: 600, color: 'var(--color-success)' }}>{totalVnd.toLocaleString()} đ</td>
+                      <td className="num">{totalQty}</td>
+                      <td className="num purchase-value--income purchase-value--strong">{totalVnd.toLocaleString()} đ</td>
                       <td>
-                        {can('purchases', 'update') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={(e) => { e.stopPropagation(); handleEditPurchase(p); }}>
-                          Sửa
-                        </button>}
-                        {can('purchases', 'delete') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={(e) => { e.stopPropagation(); handleDeletePurchase(p); }}>
-                          Xóa
-                        </button>}
+                        <div className="purchase-row-actions">
+                          {can('purchases', 'update') && <Button variant="ghost" size="sm" icon={Edit} iconOnly aria-label={`Sửa phiếu nhập ${p.id}`} onClick={(e) => { e.stopPropagation(); handleEditPurchase(p); }} />}
+                          {can('purchases', 'delete') && <Button variant="danger-ghost" size="sm" icon={Trash2} iconOnly aria-label={`Xóa phiếu nhập ${p.id}`} onClick={(e) => { e.stopPropagation(); handleDeletePurchase(p); }} />}
+                        </div>
                       </td>
                     </tr>
                     {isExpanded && (
                       <tr>
-                        <td colSpan={7} style={{ padding: 0, backgroundColor: 'var(--color-bg-base)' }}>
-                          <div style={{ padding: '1rem 3rem', borderLeft: '4px solid var(--color-primary)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <h5 style={{ marginBottom: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                        <td colSpan={7} className="purchase-detail-cell">
+                          <div className="purchase-detail">
+                            <div className="purchase-detail__header">
+                              <h3 className="h4">
                                 Chi tiết mã hàng đã nhập trong đơn này
-                              </h5>
-                              {p.notes && <div style={{ fontSize: '0.8rem', color: 'var(--color-warning)', fontWeight: 500 }}>Ghi chú: {p.notes}</div>}
+                              </h3>
+                              {p.notes && <div className="purchase-detail__note">Ghi chú: {p.notes}</div>}
                             </div>
-                            <table style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+                            <table className="purchase-detail-table">
                               <thead>
                                 <tr>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Sản phẩm</th>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>SL</th>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Tiền Nhập Gốc (Tổng)</th>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Cân nặng (1c)</th>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Giá Vốn Cuối (1c)</th>
+                                  <th>Sản phẩm</th>
+                                  <th className="num">SL</th>
+                                  <th className="num">Tiền Nhập Gốc (Tổng)</th>
+                                  <th className="num">Cân nặng (1c)</th>
+                                  <th className="num">Giá Vốn Cuối (1c)</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -456,18 +407,16 @@ export default function Purchases() {
                                   const prod = products.find(p => p.id === item.productId);
                                   return (
                                     <tr key={idx}>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
-                                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                          <div>
-                                            <div style={{ fontWeight: 500 }}>{prod?.name || item.name || 'Sản phẩm không xác định'}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{prod?.sku || item.productId}</div>
-                                          </div>
+                                      <td>
+                                        <div className="purchase-product-cell">
+                                          <div className="purchase-product-cell__name">{prod?.name || item.name || 'Sản phẩm không xác định'}</div>
+                                          <div className="purchase-product-cell__sku">{prod?.sku || item.productId}</div>
                                         </div>
                                       </td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.qty}</td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.totalVndPrice ? Math.round(item.totalVndPrice).toLocaleString() + ' đ' : '-'}</td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.weightKg > 0 ? (item.weightKg * item.qty).toFixed(2) : '-'} kg</td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'var(--color-primary)' }}>{Math.round(item.finalCostVnd).toLocaleString()} đ</td>
+                                      <td className="num">{item.qty}</td>
+                                      <td className="num">{item.totalVndPrice ? Math.round(item.totalVndPrice).toLocaleString() + ' đ' : '-'}</td>
+                                      <td className="num">{item.weightKg > 0 ? (item.weightKg * item.qty).toFixed(2) : '-'} kg</td>
+                                      <td className="num purchase-value--primary purchase-value--strong">{Math.round(item.finalCostVnd).toLocaleString()} đ</td>
                                     </tr>
                                   );
                                 })}
@@ -483,7 +432,7 @@ export default function Purchases() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
       <ConfirmDialog
         open={Boolean(pendingPurchaseDelete)}
         onClose={() => !isDeletingPurchase && setPendingPurchaseDelete(null)}
@@ -496,21 +445,3 @@ export default function Purchases() {
     </div>
   );
 }
-
-const inputStyle = {
-  width: '100%',
-  padding: '0.75rem 1rem',
-  borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-bg-surface)',
-  color: 'var(--color-text-base)',
-  outline: 'none',
-  boxSizing: 'border-box'
-};
-
-const labelStyle = {
-  display: 'block', 
-  fontSize: '0.875rem', 
-  marginBottom: '0.5rem',
-  fontWeight: 500
-};

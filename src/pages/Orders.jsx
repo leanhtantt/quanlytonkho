@@ -1,13 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { IconSearch as Search, IconPlus as Plus, IconDeviceFloppy as Save, IconX as X, IconUpload as Upload } from '@tabler/icons-react';
+import { IconAlertTriangle, IconEdit as Edit, IconPlus as Plus, IconDeviceFloppy as Save, IconTrash as Trash2, IconUpload as Upload, IconX as X } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import ProductImage from '../components/ProductImage';
 import { calculateOrderGrossProfit } from '../domain/profitAnalytics';
 import { findProductByCode } from '../domain/productSku';
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
+import Badge from '../components/ui/Badge';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import EmptyState from '../components/ui/EmptyState';
+import FormField from '../components/ui/FormField';
+import SearchInput from '../components/ui/SearchInput';
 import { useAuth } from '../lib/AuthContext';
 import PageHeader from '../components/ui/PageHeader';
 
@@ -66,6 +70,7 @@ export default function Orders() {
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [pendingOrderDelete, setPendingOrderDelete] = useState(null);
   const [isDeletingOrder, setIsDeletingOrder] = useState(false);
+  const [updatingFeeKey, setUpdatingFeeKey] = useState(null);
   const [showClearImportIssuesDialog, setShowClearImportIssuesDialog] = useState(false);
   
   // Filters
@@ -301,6 +306,19 @@ export default function Orders() {
     setImportIssues([]);
     setShowClearImportIssuesDialog(false);
     toast.success('Đã xóa danh sách đơn cần xử lý.');
+  };
+
+  const handleInlineFeeUpdate = async (order, field, value) => {
+    const feeKey = `${order.id}-${field}`;
+    setUpdatingFeeKey(feeKey);
+    try {
+      await updateOrder(order.id, { [field]: Number(value) || 0 });
+      toast.success(`Đã cập nhật ${field === 'packagingFee' ? 'phí đóng gói' : 'phí hoàn'} của đơn ${order.id}.`);
+    } catch (error) {
+      toast.error(`Không thể cập nhật đơn ${order.id}: ${error.message}`);
+    } finally {
+      setUpdatingFeeKey(null);
+    }
   };
 
   const handleEditOrder = (o) => {
@@ -654,141 +672,99 @@ export default function Orders() {
   });
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in orders-page">
       <PageHeader
         title="Xuất Bán (Đơn hàng)"
         description="Quản lý đơn, hoàn hàng 1 phần và đối soát tự động qua Excel"
         actions={!showForm ? (
           <div className="header-actions">
-            <input type="file" accept=".xlsx, .xls, .csv" style={{ display: 'none' }} ref={fileInputRef} onChange={handleExcelUpload} />
-            <input type="file" accept=".xlsx, .xls, .csv" style={{ display: 'none' }} ref={importInputRef} onChange={handleExcelImportOrders} />
+            <input className="ui-visually-hidden" type="file" accept=".xlsx, .xls, .csv" ref={fileInputRef} onChange={handleExcelUpload} />
+            <input className="ui-visually-hidden" type="file" accept=".xlsx, .xls, .csv" ref={importInputRef} onChange={handleExcelImportOrders} />
             
             <div className="import-control">
               <select value={importShop} onChange={e => setImportShop(e.target.value)}>
                 {availableShops.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              {can('orders', 'create') && <Button variant="secondary" icon={Upload} loading={isImportingOrders} style={{ border: 'none', borderColor: 'transparent', color: 'var(--color-primary)' }} onClick={() => importInputRef.current.click()}>
+              {can('orders', 'create') && <Button variant="secondary" icon={Upload} loading={isImportingOrders} onClick={() => importInputRef.current.click()}>
                 {isImportingOrders ? 'Đang nhập...' : 'Import Đơn Mới'}
               </Button>}
             </div>
 
-            {can('orders', 'update') && <Button variant="secondary" icon={Upload} loading={isReconciling} style={{ borderColor: 'var(--color-success)', color: 'var(--color-success)' }} onClick={() => fileInputRef.current.click()}>
+            {can('orders', 'update') && <Button variant="secondary" icon={Upload} loading={isReconciling} onClick={() => fileInputRef.current.click()}>
               {isReconciling ? 'Đang đối soát...' : 'Đối Soát (Excel)'}
             </Button>}
-            {can('orders', 'create') && <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-              <Plus size={18} /> Nhập Đơn Tay
-            </button>}
+            {can('orders', 'create') && <Button icon={Plus} onClick={() => setShowForm(true)}>Nhập Đơn Tay</Button>}
           </div>
         ) : null}
       />
 
       {showForm && (
-        <div className="card animate-fade-in" style={{ marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+        <section className="card animate-fade-in orders-form-card">
+          <div className="orders-section-heading">
             <h3>{editingOrderId ? `Sửa Đơn Hàng: ${editingOrderId}` : importFixOrderId ? `Xử Lý Đơn Lỗi Import: ${importFixOrderId}` : 'Tạo Đơn Hàng Mới'}</h3>
-            <button className="btn btn-outline" onClick={closeForm}><X size={16} /> Hủy</button>
+            <Button variant="secondary" icon={X} onClick={closeForm}>Hủy</Button>
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-            <div>
-              <label style={labelStyle}>Mã Đơn Hàng</label>
-              <input type="text" placeholder="VD: ORD-001" value={orderId} onChange={e => setOrderId(e.target.value)} disabled={!!editingOrderId} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Ngày Bán</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Kênh Bán</label>
-              <select value={shop} onChange={e => setShop(e.target.value)} style={inputStyle}>
+          <div className="orders-form-grid">
+            <FormField label="Mã Đơn Hàng"><input type="text" placeholder="VD: ORD-001" value={orderId} onChange={e => setOrderId(e.target.value)} disabled={!!editingOrderId} /></FormField>
+            <FormField label="Ngày Bán"><input type="date" value={date} onChange={e => setDate(e.target.value)} /></FormField>
+            <FormField label="Kênh Bán">
+              <select value={shop} onChange={e => setShop(e.target.value)}>
                 {availableShops.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Trạng thái (Cả đơn)</label>
+            </FormField>
+            <FormField label="Trạng thái (Cả đơn)">
               <select value={status} onChange={e => {
                 setStatus(e.target.value);
                 if (e.target.value === 'Hoàn hàng' && returnFee === 0) setReturnFee(defaultReturnFee);
-              }} style={inputStyle}>
+              }}>
                 <option value="Đang giao">Đang giao</option>
                 <option value="Đã giao">Đã giao</option>
                 <option value="Hoàn hàng">Hoàn hàng toàn bộ</option>
               </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Phí đóng gói (VNĐ)</label>
-              <input type="number" step="1000" value={packagingFee} onChange={e => setPackagingFee(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Phí hoàn (VNĐ)</label>
-              <input type="number" step="1000" value={returnFee} onChange={e => setReturnFee(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Phí sàn (VNĐ) <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>(Tự động đọc)</span></label>
-              <input type="number" step="1000" value={platformFee} onChange={e => setPlatformFee(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Phí Marketing (VNĐ) <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>(Tự động đọc)</span></label>
-              <input type="number" step="1000" value={marketingFee} onChange={e => setMarketingFee(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={{...labelStyle, color: 'var(--color-primary)'}}>Ngày nhận tiền</label>
-              <input type="date" value={settlementDate} onChange={e => setSettlementDate(e.target.value)} style={inputStyle} />
-            </div>
-            <div>
-              <label style={{...labelStyle, color: 'var(--color-primary)'}}>Doanh thu Thực tế (VNĐ)</label>
-              <input type="number" step="1000" placeholder="Chưa đối soát..." value={actualRevenue} onChange={e => setActualRevenue(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Ghi chú đơn hàng</label>
+            </FormField>
+            <FormField label="Phí đóng gói (VNĐ)"><input className="num" type="number" step="1000" value={packagingFee} onChange={e => setPackagingFee(e.target.value)} /></FormField>
+            <FormField label="Phí hoàn (VNĐ)"><input className="num" type="number" step="1000" value={returnFee} onChange={e => setReturnFee(e.target.value)} /></FormField>
+            <FormField label="Phí sàn (VNĐ)" helpText="Tự động đọc"><input className="num" type="number" step="1000" value={platformFee} onChange={e => setPlatformFee(e.target.value)} /></FormField>
+            <FormField label="Phí Marketing (VNĐ)" helpText="Tự động đọc"><input className="num" type="number" step="1000" value={marketingFee} onChange={e => setMarketingFee(e.target.value)} /></FormField>
+            <FormField label="Ngày nhận tiền" className="orders-form-field--settlement"><input type="date" value={settlementDate} onChange={e => setSettlementDate(e.target.value)} /></FormField>
+            <FormField label="Doanh thu Thực tế (VNĐ)" className="orders-form-field--settlement"><input className="num" type="number" step="1000" placeholder="Chưa đối soát..." value={actualRevenue} onChange={e => setActualRevenue(e.target.value)} /></FormField>
+            <FormField label="Ghi chú đơn hàng" className="orders-form-grid__wide">
               <textarea
                 value={note}
                 onChange={e => setNote(e.target.value)}
                 maxLength={2000}
                 rows={3}
                 placeholder="Ghi lại vấn đề của đơn: thiếu hàng, khách đổi mẫu, cần theo dõi khiếu nại..."
-                style={{ ...inputStyle, resize: 'vertical', minHeight: '76px' }}
               />
-            </div>
+            </FormField>
           </div>
 
-          <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
-            <h4 style={{ marginBottom: '1rem' }}>Thêm Sản Phẩm</h4>
+          <div className="orders-item-editor">
+            <h4>Thêm Sản Phẩm</h4>
             <datalist id="products-list">
               {products.map(p => (
                 <option key={p.id} value={p.sku || p.id}>{p.name}</option>
               ))}
             </datalist>
             
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 120px' }}>
-                <label style={labelStyle}>Mã SP</label>
-                <input list="products-list" type="text" placeholder="Gõ để chọn" value={selectedProductId} onChange={e => handleProductSelect(e.target.value)} style={inputStyle} />
-              </div>
-              <div style={{ flex: '2 1 180px' }}>
-                <label style={labelStyle}>Tên SP</label>
-                <input type="text" value={selectedProductName} onChange={e => setSelectedProductName(e.target.value)} style={inputStyle} />
-              </div>
-              <div style={{ width: '80px' }}>
-                <label style={labelStyle}>SL</label>
-                <input type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} style={inputStyle} />
-              </div>
-              <div style={{ width: '130px' }}>
-                <label style={labelStyle}>Giá Bán (VNĐ)</label>
-                <input type="number" step="1000" value={sellingPrice} onChange={e => setSellingPrice(e.target.value)} style={inputStyle} />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', height: '42px', padding: '0 0.5rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontWeight: 500, color: 'var(--color-danger)' }}>
-                  <input type="checkbox" checked={isReturned} onChange={e => setIsReturned(e.target.checked)} style={{ marginRight: '0.5rem' }} />
+            <div className="orders-item-editor__grid">
+              <FormField label="Mã SP"><input list="products-list" type="text" placeholder="Gõ để chọn" value={selectedProductId} onChange={e => handleProductSelect(e.target.value)} /></FormField>
+              <FormField label="Tên SP" className="orders-item-editor__name"><input type="text" value={selectedProductName} onChange={e => setSelectedProductName(e.target.value)} /></FormField>
+              <FormField label="SL"><input className="num" type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} /></FormField>
+              <FormField label="Giá Bán (VNĐ)"><input className="num" type="number" step="1000" value={sellingPrice} onChange={e => setSellingPrice(e.target.value)} /></FormField>
+              <div className="orders-return-toggle">
+                <label>
+                  <input type="checkbox" checked={isReturned} onChange={e => setIsReturned(e.target.checked)} />
                   Bị hoàn trả
                 </label>
               </div>
-              {can('orders', editingOrderId || importFixOrderId ? 'update' : 'create') && <button className="btn btn-outline" onClick={handleAddItem} style={{ height: '42px' }}><Plus size={16} /> Thêm</button>}
+              {can('orders', editingOrderId || importFixOrderId ? 'update' : 'create') && <Button variant="secondary" icon={Plus} onClick={handleAddItem}>Thêm</Button>}
             </div>
           </div>
 
           {items.length > 0 && (
-            <div className="table-container" style={{ marginBottom: '1.5rem' }}>
+            <div className="table-container orders-form-items">
               <table>
                 <thead>
                   <tr>
@@ -797,34 +773,36 @@ export default function Orders() {
                     <th>Giá Bán</th>
                     <th>Doanh thu</th>
                     <th>Trạng thái</th>
-                    <th style={{ textAlign: 'center' }}>Thao tác</th>
+                    <th className="orders-actions-cell">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item, idx) => {
                     const prod = products.find(p => p.id === item.productId);
                     return (
-                    <tr key={idx} style={{ opacity: item.isReturned ? 0.6 : 1 }}>
+                    <tr key={idx} className={item.isReturned ? 'is-returned' : ''}>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                        <div className="orders-product-cell">
                           <ProductImage imageId={prod?.imageId} size={32} />
                           <div>
-                            <div style={{ fontWeight: 600 }}>{prod?.name || item.name || 'Sản phẩm không xác định'}</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.sku || prod?.sku || item.productId}</div>
+                            <div className="orders-product-name">{prod?.name || item.name || 'Sản phẩm không xác định'}</div>
+                            <div className="orders-product-code">{item.sku || prod?.sku || item.productId}</div>
                           </div>
                         </div>
                       </td>
-                      <td>{item.qty}</td>
-                      <td>{item.sellingPrice.toLocaleString()} đ</td>
-                      <td style={{ fontWeight: 700 }}>
+                      <td className="num">{item.qty}</td>
+                      <td className="num">{item.sellingPrice.toLocaleString()} đ</td>
+                      <td className="num orders-value-strong">
                         {(item.qty * item.sellingPrice).toLocaleString()} đ
                       </td>
                       <td>
-                        {item.isReturned ? <span className="badge badge-danger">Đã hoàn trả</span> : <span className="badge badge-success">Đã bán</span>}
+                        {item.isReturned ? <Badge variant="danger">Đã hoàn trả</Badge> : <Badge variant="success">Đã bán</Badge>}
                       </td>
-                      <td style={{ textAlign: 'center' }}>
-                        {can('orders', editingOrderId || importFixOrderId ? 'update' : 'create') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleEditItem(idx)}>Sửa</button>}
-                        {can('orders', editingOrderId || importFixOrderId ? 'update' : 'create') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={() => handleRemoveItem(idx)}>Xoá</button>}
+                      <td className="orders-actions-cell">
+                        <div className="orders-row-actions">
+                          {can('orders', editingOrderId || importFixOrderId ? 'update' : 'create') && <Button variant="ghost" size="sm" icon={Edit} onClick={() => handleEditItem(idx)}>Sửa</Button>}
+                          {can('orders', editingOrderId || importFixOrderId ? 'update' : 'create') && <Button variant="danger" size="sm" icon={Trash2} onClick={() => handleRemoveItem(idx)}>Xoá</Button>}
+                        </div>
                       </td>
                     </tr>
                     );
@@ -834,25 +812,19 @@ export default function Orders() {
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <div className="orders-form-actions">
             {can('orders', editingOrderId || importFixOrderId ? 'update' : 'create') && <Button icon={Save} loading={isSavingOrder} onClick={handleSaveOrder} disabled={items.length === 0 || !orderId}>
               {isSavingOrder ? 'Đang lưu...' : 'Lưu Đơn Hàng'}
             </Button>}
           </div>
-        </div>
+        </section>
       )}
 
       {importIssues.length > 0 && !showForm && (
-        <div className="card" style={{ padding: 0, marginBottom: '2rem', border: '1px solid var(--color-danger)' }}>
-          <div style={{ padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)' }}>
-            <h3 style={{ color: 'var(--color-danger)', margin: 0 }}>⚠️ {importIssues.length} đơn cần xử lý từ lần import gần nhất</h3>
-            <button
-              className="btn btn-outline"
-              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-              onClick={() => setShowClearImportIssuesDialog(true)}
-            >
-              Xóa danh sách
-            </button>
+        <section className="card orders-import-issues">
+          <div className="orders-import-issues__heading">
+            <h3><IconAlertTriangle size={22} aria-hidden="true" /> {importIssues.length} đơn cần xử lý từ lần import gần nhất</h3>
+            <Button variant="danger" size="sm" icon={Trash2} onClick={() => setShowClearImportIssuesDialog(true)}>Xóa danh sách</Button>
           </div>
           <div className="table-container">
             <table>
@@ -861,45 +833,43 @@ export default function Orders() {
                   <th>Mã đơn</th>
                   <th>Ngày</th>
                   <th>Lý do</th>
-                  <th style={{ width: '140px', textAlign: 'center' }}>Thao tác</th>
+                  <th className="orders-actions-cell">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {importIssues.map(issue => (
                   <tr key={issue.id}>
-                    <td style={{ fontWeight: 600 }}>{issue.id}</td>
+                    <td className="orders-value-strong">{issue.id}</td>
                     <td>{issue.date}</td>
-                    <td style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{issue.reason}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      {can('orders', 'update') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleFixImportIssue(issue)}>Sửa</button>}
-                      <button
-                        className="btn btn-outline"
-                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}
-                        onClick={() => setImportIssues(prev => prev.filter(i => i.id !== issue.id))}
-                      >
-                        Bỏ qua
-                      </button>
+                    <td className="orders-import-issues__reason">{issue.reason}</td>
+                    <td className="orders-actions-cell">
+                      <div className="orders-row-actions">
+                        {can('orders', 'update') && <Button variant="ghost" size="sm" icon={Edit} onClick={() => handleFixImportIssue(issue)}>Sửa</Button>}
+                        <Button variant="danger" size="sm" icon={Trash2} onClick={() => setImportIssues(prev => prev.filter(i => i.id !== issue.id))}>Bỏ qua</Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
       )}
 
       {/* Danh sách đơn hàng */}
-      <div className="card" style={{ padding: 0 }}>
+      <section className="card orders-list-card">
         <div className="shop-tabs" role="tablist" aria-label="Đơn hàng theo shop">
           {availableShops.map(shopName => {
             const orderCount = orders.filter(order => order.shop === shopName).length;
             const isActive = activeShop === shopName;
             return (
-              <button
+              <Button
                 key={shopName}
                 type="button"
                 role="tab"
                 aria-selected={isActive}
+                variant="ghost"
+                size="sm"
                 className={`shop-tab${isActive ? ' active' : ''}`}
                 onClick={() => {
                   setActiveShop(shopName);
@@ -910,83 +880,67 @@ export default function Orders() {
               >
                 <span>{shopName}</span>
                 <span className="shop-tab-count">{orderCount}</span>
-              </button>
+              </Button>
             );
           })}
         </div>
-        <div style={{ padding: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end', borderBottom: '1px solid var(--color-border)' }}>
-          <div style={{ flex: '1 1 250px', position: 'relative' }}>
-            <label style={labelStyle}>Tìm kiếm</label>
-            <Search size={18} style={{ position: 'absolute', left: '1rem', bottom: '12px', color: 'var(--color-text-muted)' }} />
-            <input type="text" placeholder="Mã đơn, ghi chú..." value={search} onChange={(e) => setSearch(e.target.value)} style={{...inputStyle, paddingLeft: '2.5rem'}} />
-          </div>
-          <div>
-            <label style={labelStyle}>Từ ngày</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Đến ngày</label>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Trạng thái đối soát</label>
-            <select value={reconFilter} onChange={e => setReconFilter(e.target.value)} style={inputStyle}>
+        <div className="orders-filters">
+          <SearchInput className="orders-filters__search" label="Tìm đơn hàng" placeholder="Mã đơn, ghi chú..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <FormField label="Từ ngày"><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></FormField>
+          <FormField label="Đến ngày"><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></FormField>
+          <FormField label="Trạng thái đối soát">
+            <select value={reconFilter} onChange={e => setReconFilter(e.target.value)}>
               <option value="all">Tất cả</option>
               <option value="unreconciled">Chưa có Doanh Thu Thực Tế</option>
               <option value="reconciled">Đã đối soát</option>
             </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Lợi nhuận gộp</label>
-            <select value={profitFilter} onChange={e => setProfitFilter(e.target.value)} style={inputStyle}>
+          </FormField>
+          <FormField label="Lợi nhuận gộp">
+            <select value={profitFilter} onChange={e => setProfitFilter(e.target.value)}>
               <option value="all">Tất cả</option>
               <option value="negative">Chỉ đơn bị âm</option>
             </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Trạng thái giao hàng</label>
-            <select value={deliveryFilter} onChange={e => setDeliveryFilter(e.target.value)} style={inputStyle}>
+          </FormField>
+          <FormField label="Trạng thái giao hàng">
+            <select value={deliveryFilter} onChange={e => setDeliveryFilter(e.target.value)}>
               <option value="all">Tất cả</option>
               <option value="returned">Đơn bị hoàn</option>
               <option value="delivered">Đơn đã giao</option>
             </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Sắp xếp theo ngày</label>
-            <select value={dateSort} onChange={e => setDateSort(e.target.value)} style={inputStyle}>
+          </FormField>
+          <FormField label="Sắp xếp theo ngày">
+            <select value={dateSort} onChange={e => setDateSort(e.target.value)}>
               <option value="newest">Ngày mới nhất</option>
               <option value="oldest">Ngày cũ nhất</option>
             </select>
-          </div>
+          </FormField>
         </div>
 
-        <div aria-live="polite" style={{ padding: '0.75rem 1.5rem', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-muted)', fontSize: '0.875rem', fontWeight: 600 }}>
-          Shop <span style={{ color: 'var(--color-text-base)' }}>{activeShop || 'Chưa cấu hình'}</span>: đang hiển thị <span style={{ color: 'var(--color-text-base)' }}>{filteredOrders.length}</span> / {shopOrders.length} đơn
+        <div className="orders-result-count" aria-live="polite">
+          Shop <strong>{activeShop || 'Chưa cấu hình'}</strong>: đang hiển thị <strong>{filteredOrders.length}</strong> / {shopOrders.length} đơn
         </div>
 
-        <div className="table-container orders-table-container" style={{ border: 'none', borderRadius: 0 }}>
+        <div className="table-container orders-table-container">
           <table>
             <thead>
               <tr>
-                <th style={{ width: '40px' }}></th>
+                <th className="orders-expand-cell"><span className="ui-visually-hidden">Mở chi tiết</span></th>
                 <th>Mã Đơn</th>
                 <th>Kênh Bán</th>
                 <th>Ngày Đặt</th>
                 <th>Tổng Giá Bán</th>
-                <th style={{ color: 'var(--color-primary)' }}>Phí Đóng gói</th>
-                <th style={{ color: 'var(--color-danger)' }}>Phí Hoàn</th>
-                <th style={{ color: 'var(--color-primary)' }}>Thực Tế (Nhận)</th>
-                <th style={{ color: 'var(--color-primary)' }}>Ngày Nhận</th>
+                <th>Phí Đóng gói</th>
+                <th>Phí Hoàn</th>
+                <th>Thực Tế (Nhận)</th>
+                <th>Ngày Nhận</th>
                 <th>Tổng Lợi Nhuận Gộp</th>
-                <th style={{ width: '80px', textAlign: 'center' }}>Thao tác</th>
+                <th className="orders-actions-cell">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {filteredOrders.length === 0 && (
                 <tr>
-                  <td colSpan={11} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
-                    Không tìm thấy đơn hàng nào phù hợp bộ lọc.
-                  </td>
+                  <td colSpan={11}><EmptyState title="Không tìm thấy đơn hàng" description="Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm." /></td>
                 </tr>
               )}
               {filteredOrders.map(o => {
@@ -996,23 +950,24 @@ export default function Orders() {
 
                 return (
                   <React.Fragment key={o.id}>
-                    <tr style={{ cursor: 'pointer', backgroundColor: o.hasError ? 'var(--color-danger-light)' : (isExpanded ? 'var(--color-bg-hover)' : '') }} onClick={() => setExpandedOrderId(isExpanded ? null : o.id)}>
+                    <tr className={`orders-row${o.hasError ? ' has-error' : ''}${isExpanded ? ' is-expanded' : ''}`} onClick={() => setExpandedOrderId(isExpanded ? null : o.id)}>
                       <td>
-                        {isExpanded ? <span style={{fontSize: '12px'}}>▼</span> : <span style={{fontSize: '12px'}}>▶</span>}
+                        <span className="orders-expand-indicator" aria-hidden="true">{isExpanded ? '▼' : '▶'}</span>
                       </td>
-                      <td style={{ fontWeight: 600 }}>
+                      <td className="orders-value-strong">
                         {o.id}
-                        {o.hasError && <span style={{display: 'block', fontSize: '0.7rem', color: 'var(--color-danger)'}}>Lỗi Mã SP</span>}
+                        {o.hasError && <Badge variant="danger" className="orders-error-badge">Lỗi Mã SP</Badge>}
                       </td>
                       <td>{o.shop}</td>
                       <td>{o.date}</td>
-                      <td style={{ fontWeight: 600 }}>{totalRevenue.toLocaleString()} đ</td>
+                      <td className="num orders-value-strong">{totalRevenue.toLocaleString()} đ</td>
                       <td>
                         <input 
                           type="number"
                           defaultValue={o.packagingFee ?? defaultPackagingCost}
-                          onBlur={(e) => updateOrder(o.id, { packagingFee: Number(e.target.value) || 0 })}
-                          style={{ ...inputStyle, padding: '0.25rem 0.5rem', width: '70px', height: '30px' }}
+                          onBlur={(e) => handleInlineFeeUpdate(o, 'packagingFee', e.target.value)}
+                          className="orders-inline-fee num"
+                          disabled={updatingFeeKey === `${o.id}-packagingFee`}
                           onClick={(e) => e.stopPropagation()}
                         />
                       </td>
@@ -1020,56 +975,49 @@ export default function Orders() {
                         <input 
                           type="number"
                           defaultValue={o.returnFee || 0}
-                          onBlur={(e) => updateOrder(o.id, { returnFee: Number(e.target.value) || 0 })}
-                          style={{ ...inputStyle, padding: '0.25rem 0.5rem', width: '70px', height: '30px' }}
+                          onBlur={(e) => handleInlineFeeUpdate(o, 'returnFee', e.target.value)}
+                          className="orders-inline-fee num"
+                          disabled={updatingFeeKey === `${o.id}-returnFee`}
                           onClick={(e) => e.stopPropagation()}
                         />
                       </td>
-                      <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
+                      <td className="num orders-value-primary">
                         {o.actualRevenue !== null && o.actualRevenue !== undefined ? o.actualRevenue.toLocaleString() + ' đ' : '-'}
                       </td>
-                      <td style={{ color: 'var(--color-primary)', fontSize: '0.875rem' }}>
+                      <td className="orders-value-primary">
                         {o.settlementDate || '-'}
                       </td>
-                      <td style={{ fontWeight: 600, color: profit > 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                      <td className={`num orders-value-strong ${profit > 0 ? 'orders-value-positive' : 'orders-value-negative'}`}>
                         {profit.toLocaleString()} đ
                       </td>
-                      <td style={{ textAlign: 'center' }}>
-                        {can('orders', 'update') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={(e) => { e.stopPropagation(); handleEditOrder(o); }}>
-                          Sửa
-                        </button>}
-                        {can('orders', 'delete') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={(e) => { e.stopPropagation(); handleDeleteOrder(o); }}>
-                          Xóa
-                        </button>}
+                      <td className="orders-actions-cell">
+                        <div className="orders-row-actions">
+                          {can('orders', 'update') && <Button variant="ghost" size="sm" icon={Edit} onClick={(e) => { e.stopPropagation(); handleEditOrder(o); }}>Sửa</Button>}
+                          {can('orders', 'delete') && <Button variant="danger" size="sm" icon={Trash2} onClick={(e) => { e.stopPropagation(); handleDeleteOrder(o); }}>Xóa</Button>}
+                        </div>
                       </td>
                     </tr>
                     
                     {isExpanded && (
                       <tr>
-                        <td colSpan={11} style={{ padding: 0, backgroundColor: 'var(--color-bg-base)' }}>
-                          <div style={{ padding: '1rem 3rem', borderLeft: '4px solid var(--color-primary)' }}>
-                            <div style={{ display: 'flex', gap: '2rem', marginBottom: '1rem' }}>
-                              <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Trạng thái giao:</span> <span style={{ fontWeight: 600 }}>{o.status}</span></div>
-                              <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Phí đóng gói:</span> <span style={{ fontWeight: 600 }}>{(o.packagingFee ?? defaultPackagingCost).toLocaleString()} đ</span></div>
-                              <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Phí hoàn:</span> <span style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{(o.returnFee || 0).toLocaleString()} đ</span></div>
-                              <div style={{ fontSize: '0.875rem' }}><span style={{ color: 'var(--color-text-muted)' }}>Tổng Giá Vốn (Gồm Đóng gói & Phí hoàn):</span> <span style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{(o.totalCost || 0).toLocaleString()} đ</span></div>
+                        <td colSpan={11} className="orders-detail-cell">
+                          <div className="orders-detail">
+                            <div className="orders-detail__summary">
+                              <div><span>Trạng thái giao:</span> <strong>{o.status}</strong></div>
+                              <div><span>Phí đóng gói:</span> <strong className="num">{(o.packagingFee ?? defaultPackagingCost).toLocaleString()} đ</strong></div>
+                              <div><span>Phí hoàn:</span> <strong className="num orders-value-negative">{(o.returnFee || 0).toLocaleString()} đ</strong></div>
+                              <div><span>Tổng Giá Vốn (Gồm Đóng gói & Phí hoàn):</span> <strong className="num orders-value-negative">{(o.totalCost || 0).toLocaleString()} đ</strong></div>
                             </div>
                             {o.note && (
-                              <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-warning-light)', color: 'var(--color-text-base)', whiteSpace: 'pre-wrap' }}>
+                              <div className="orders-detail__note">
                                 <strong>Ghi chú:</strong> {o.note}
                               </div>
                             )}
                             
-                            <table style={{ background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+                            <table className="orders-detail__table">
                               <thead>
                                 <tr>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Sản phẩm</th>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>SL</th>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Giá Bán (1c)</th>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Tổng Giá Bán</th>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>T.Thái Bán</th>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Giá Vốn Đơn Vị (1c)</th>
-                                  <th style={{ background: 'transparent', padding: '0.5rem 1rem' }}>Tổng Vốn Dòng Này</th>
+                                  <th>Sản phẩm</th><th>SL</th><th>Giá Bán (1c)</th><th>Tổng Giá Bán</th><th>T.Thái Bán</th><th>Giá Vốn Đơn Vị (1c)</th><th>Tổng Vốn Dòng Này</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1077,28 +1025,28 @@ export default function Orders() {
                                   const prod = products.find(p => p.id === item.productId);
                                   const unitCost = item.qty > 0 && item.totalCostDeducted ? Math.round(item.totalCostDeducted / item.qty) : 0;
                                   return (
-                                    <tr key={idx} style={{ opacity: item.isReturned ? 0.5 : 1 }}>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
-                                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                    <tr key={idx} className={item.isReturned ? 'is-returned' : ''}>
+                                      <td>
+                                        <div className="orders-product-cell">
                                           <ProductImage imageId={prod?.imageId} size={32} />
                                           <div>
-                                            <div style={{ fontWeight: 500 }}>{prod?.name || item.name || 'Sản phẩm không xác định'}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{item.sku || prod?.sku || item.productId}</div>
+                                            <div className="orders-product-name">{prod?.name || item.name || 'Sản phẩm không xác định'}</div>
+                                            <div className="orders-product-code">{item.sku || prod?.sku || item.productId}</div>
                                           </div>
                                         </div>
                                       </td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.qty}</td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'var(--color-primary)' }}>
+                                      <td className="num">{item.qty}</td>
+                                      <td className="num orders-value-primary">
                                         {(Number(item.sellingPrice) || 0).toLocaleString()} đ
                                       </td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600, color: 'var(--color-primary)' }}>
+                                      <td className="num orders-value-primary">
                                         {item.isReturned ? '0 đ' : `${((Number(item.sellingPrice) || 0) * item.qty).toLocaleString()} đ`}
                                       </td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
-                                        {item.isReturned ? <span className="badge badge-danger">Hoàn trả</span> : <span className="badge badge-success">Đã bán</span>}
+                                      <td>
+                                        {item.isReturned ? <Badge variant="danger">Hoàn trả</Badge> : <Badge variant="success">Đã bán</Badge>}
                                       </td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)' }}>{item.isReturned ? '0 đ' : `${unitCost.toLocaleString()} đ`}</td>
-                                      <td style={{ padding: '0.5rem 1rem', borderBottom: '1px solid var(--color-border)', fontWeight: 600 }}>{item.isReturned ? '0 đ' : `${(item.totalCostDeducted || 0).toLocaleString()} đ`}</td>
+                                      <td className="num">{item.isReturned ? '0 đ' : `${unitCost.toLocaleString()} đ`}</td>
+                                      <td className="num orders-value-strong">{item.isReturned ? '0 đ' : `${(item.totalCostDeducted || 0).toLocaleString()} đ`}</td>
                                     </tr>
                                   );
                                 })}
@@ -1114,7 +1062,7 @@ export default function Orders() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
       <ConfirmDialog
         open={Boolean(pendingOrderDelete)}
         onClose={() => !isDeletingOrder && setPendingOrderDelete(null)}
@@ -1135,21 +1083,3 @@ export default function Orders() {
     </div>
   );
 }
-
-const inputStyle = {
-  width: '100%',
-  padding: '0.75rem 1rem',
-  borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-bg-base)',
-  color: 'var(--color-text-base)',
-  outline: 'none',
-  boxSizing: 'border-box'
-};
-
-const labelStyle = {
-  display: 'block', 
-  fontSize: '0.875rem', 
-  marginBottom: '0.5rem',
-  fontWeight: 500
-};

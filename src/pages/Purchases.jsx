@@ -2,12 +2,18 @@ import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { IconPlus as Plus, IconDeviceFloppy as Save, IconX as X } from '@tabler/icons-react';
 import { findProductByCode, productMatchesSearch } from '../domain/productSku';
+import { toast } from '../components/ui/toastHelper';
+import Button from '../components/ui/Button';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 export default function Purchases() {
   const { purchases, addPurchase, updatePurchase, deletePurchase, products } = useAppStore();
   const [showForm, setShowForm] = useState(false);
   const [expandedPurchaseId, setExpandedPurchaseId] = useState(null);
   const [editingPurchaseId, setEditingPurchaseId] = useState(null);
+  const [isSavingPurchase, setIsSavingPurchase] = useState(false);
+  const [pendingPurchaseDelete, setPendingPurchaseDelete] = useState(null);
+  const [isDeletingPurchase, setIsDeletingPurchase] = useState(false);
   
   // Form State
   const [purchaseId, setPurchaseId] = useState('');
@@ -81,7 +87,7 @@ export default function Purchases() {
     return Math.round(totalVndCost / item.qty);
   };
 
-  const handleSavePurchase = () => {
+  const handleSavePurchase = async () => {
     if (items.length === 0) return;
     
     const purchaseData = {
@@ -103,13 +109,21 @@ export default function Purchases() {
       }))
     };
     
-    if (editingPurchaseId) {
-      updatePurchase(editingPurchaseId, { id: purchaseId || editingPurchaseId, ...purchaseData });
-    } else {
-      addPurchase({ id: purchaseId || `PO-${Date.now()}`, ...purchaseData });
+    setIsSavingPurchase(true);
+    try {
+      if (editingPurchaseId) {
+        await updatePurchase(editingPurchaseId, { id: purchaseId || editingPurchaseId, ...purchaseData });
+      } else {
+        await addPurchase({ id: purchaseId || `PO-${Date.now()}`, ...purchaseData });
+      }
+
+      toast.success(editingPurchaseId ? 'Đã cập nhật phiếu nhập.' : 'Đã tạo phiếu nhập.');
+      closeForm();
+    } catch (error) {
+      toast.error(`Không thể lưu phiếu nhập: ${error.message}`);
+    } finally {
+      setIsSavingPurchase(false);
     }
-    
-    closeForm();
   };
 
   const closeForm = () => {
@@ -140,12 +154,22 @@ export default function Purchases() {
     });
   });
 
-  const handleDeletePurchase = async (p) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa phiếu nhập "${p.id}"? Toàn bộ lô hàng của phiếu này sẽ bị gỡ khỏi kho.`)) return;
+  const handleDeletePurchase = (purchase) => {
+    setPendingPurchaseDelete(purchase);
+  };
+
+  const confirmDeletePurchase = async () => {
+    if (!pendingPurchaseDelete) return;
+
+    setIsDeletingPurchase(true);
     try {
-      await deletePurchase(p.id);
-    } catch (err) {
-      alert(`Không xóa được phiếu nhập: ${err.message}`);
+      await deletePurchase(pendingPurchaseDelete.id);
+      toast.success(`Đã xóa phiếu nhập ${pendingPurchaseDelete.id}.`);
+      setPendingPurchaseDelete(null);
+    } catch (error) {
+      toast.error(`Không xóa được phiếu nhập: ${error.message}`);
+    } finally {
+      setIsDeletingPurchase(false);
     }
   };
 
@@ -196,9 +220,9 @@ export default function Purchases() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h3>{editingPurchaseId ? `Sửa Phiếu Nhập: ${editingPurchaseId}` : 'Tạo Lô Nhập Hàng Mới'}</h3>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn btn-primary" onClick={handleSavePurchase} disabled={items.length === 0}>
-                <Save size={18} /> Lưu Phiếu Nhập
-              </button>
+            <Button icon={Save} loading={isSavingPurchase} onClick={handleSavePurchase} disabled={items.length === 0}>
+                {isSavingPurchase ? 'Đang lưu...' : 'Lưu Phiếu Nhập'}
+              </Button>
               <button className="btn btn-outline" onClick={closeForm}><X size={16} /> Hủy</button>
             </div>
           </div>
@@ -459,6 +483,15 @@ export default function Purchases() {
           </table>
         </div>
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingPurchaseDelete)}
+        onClose={() => !isDeletingPurchase && setPendingPurchaseDelete(null)}
+        onConfirm={confirmDeletePurchase}
+        title="Xóa phiếu nhập"
+        itemName={pendingPurchaseDelete?.id}
+        description={pendingPurchaseDelete ? `Xóa phiếu nhập “${pendingPurchaseDelete.id}”? Toàn bộ lô hàng của phiếu này sẽ bị gỡ khỏi kho.` : undefined}
+        loading={isDeletingPurchase}
+      />
     </div>
   );
 }

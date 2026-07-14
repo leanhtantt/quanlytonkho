@@ -3,6 +3,8 @@ import { useAppStore } from '../store/appStoreContext';
 import { IconPlus as Plus, IconTrash as Trash2, IconDeviceFloppy as Save } from '@tabler/icons-react';
 import { deleteImage, getImage } from '../domain/imageDb';
 import { deleteProductImage, isRemoteImage, uploadProductImage } from '../domain/imageStorage';
+import { toast } from '../components/ui/toastHelper';
+import Button from '../components/ui/Button';
 
 export default function Settings() {
   const { accounts, setAccounts, shops, setShops, partners, setPartners, products, updateProduct, defaultPackagingCost, setDefaultPackagingCost, defaultReturnFee, setDefaultReturnFee } = useAppStore();
@@ -15,12 +17,13 @@ export default function Settings() {
   const [newAccount, setNewAccount] = useState('');
   const [newShop, setNewShop] = useState('');
   const [imageMigration, setImageMigration] = useState({ running: false, completed: 0, total: 0, failed: 0 });
+  const [isSaving, setIsSaving] = useState(false);
 
   const legacyImageProducts = products.filter(product => product.imageId && !isRemoteImage(product.imageId));
 
   const handleMigrateImages = async () => {
     if (legacyImageProducts.length === 0) {
-      alert('Tất cả ảnh sản phẩm đã nằm trên Firebase Storage.');
+      toast.success('Tất cả ảnh sản phẩm đã nằm trên Firebase Storage.');
       return;
     }
     setImageMigration({ running: true, completed: 0, total: legacyImageProducts.length, failed: 0 });
@@ -48,16 +51,18 @@ export default function Settings() {
     }
 
     setImageMigration({ running: false, completed, total: legacyImageProducts.length, failed });
-    alert(failed === 0
-      ? `Đã chuyển thành công ${completed} ảnh lên Firebase Storage.`
-      : `Đã chuyển ${completed} ảnh; ${failed} ảnh lỗi và vẫn được giữ nguyên.`);
+    if (failed === 0) {
+      toast.success(`Đã chuyển thành công ${completed} ảnh lên Firebase Storage.`);
+    } else {
+      toast.error(`Đã chuyển ${completed} ảnh; ${failed} ảnh lỗi và vẫn được giữ nguyên.`);
+    }
   };
 
   const handleAddShop = () => {
     const name = newShop.trim();
     if (!name) return;
     if (localShops.some(shop => shop.toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'))) {
-      alert('Tên shop đã tồn tại.');
+      toast.error('Tên shop đã tồn tại.');
       return;
     }
     setLocalShops([...localShops, name]);
@@ -95,29 +100,38 @@ export default function Settings() {
     setLocalPartners(newP);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (localShops.length === 0) {
-      alert('Cần giữ lại ít nhất một shop để tạo và import đơn hàng.');
+      toast.error('Cần giữ lại ít nhất một shop để tạo và import đơn hàng.');
       return;
     }
     const totalShare = localPartners.reduce((sum, p) => sum + p.share, 0);
     if (totalShare !== 100) {
-      alert(`Tổng tỷ lệ chia lợi nhuận phải bằng 100%. Hiện tại đang là ${totalShare}%`);
+      toast.error(`Tổng tỷ lệ chia lợi nhuận phải bằng 100%. Hiện tại đang là ${totalShare}%`);
       return;
     }
     // Prevent duplicate partner names or empty names
     const names = localPartners.map(p => p.name.trim()).filter(Boolean);
     if (new Set(names).size !== names.length || names.length !== localPartners.length) {
-      alert('Tên thành viên không được để trống và không được trùng lặp.');
+      toast.error('Tên thành viên không được để trống và không được trùng lặp.');
       return;
     }
 
-    setAccounts(localAccounts);
-    setShops(localShops);
-    setPartners(localPartners);
-    setDefaultPackagingCost(Number(localPkgCost) || 0);
-    setDefaultReturnFee(Number(localReturnFee) || 0);
-    alert('Đã lưu cấu hình thành công!');
+    setIsSaving(true);
+    try {
+      await Promise.all([
+        setAccounts(localAccounts),
+        setShops(localShops),
+        setPartners(localPartners),
+        setDefaultPackagingCost(Number(localPkgCost) || 0),
+        setDefaultReturnFee(Number(localReturnFee) || 0)
+      ]);
+      toast.success('Đã lưu cấu hình thành công.');
+    } catch (error) {
+      toast.error(`Không thể lưu cấu hình: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -127,9 +141,9 @@ export default function Settings() {
           <h1 className="page-title">Cài Đặt Hệ Thống</h1>
           <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Quản lý shop, tài khoản và tỷ lệ chia lợi nhuận</p>
         </div>
-        <button className="btn btn-primary" onClick={handleSave}>
-          <Save size={18} /> Lưu Thay Đổi
-        </button>
+        <Button icon={Save} loading={isSaving} onClick={handleSave}>
+          {isSaving ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+        </Button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
@@ -174,9 +188,9 @@ export default function Settings() {
             Ảnh mới được lưu trên Firebase Storage. Công cụ này chuyển ảnh cũ ra khỏi database/trình duyệt mà không làm thay đổi sản phẩm hoặc tồn kho.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <button className="btn btn-outline" onClick={handleMigrateImages} disabled={imageMigration.running || legacyImageProducts.length === 0}>
+            <Button variant="secondary" loading={imageMigration.running} onClick={handleMigrateImages} disabled={legacyImageProducts.length === 0}>
               {imageMigration.running ? 'Đang chuyển ảnh...' : `Chuyển ${legacyImageProducts.length} ảnh cũ lên Storage`}
-            </button>
+            </Button>
             <span style={{ color: legacyImageProducts.length === 0 ? 'var(--color-success)' : 'var(--color-text-muted)', fontWeight: 600 }}>
               {imageMigration.running
                 ? `${imageMigration.completed}/${imageMigration.total} hoàn tất${imageMigration.failed ? `, ${imageMigration.failed} lỗi` : ''}`

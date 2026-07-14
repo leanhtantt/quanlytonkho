@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { calculateAdAdvanceSummary, calculateMarketplaceWalletSummary, calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { IconEdit as Edit, IconWallet as Wallet, IconArrowUpRight as ArrowUpRight, IconArrowDownRight as ArrowDownRight, IconArrowsExchange as ArrowRightLeft, IconPlus as Plus, IconTrash as Trash2, IconFilter as Filter } from '@tabler/icons-react';
+import { toast } from '../components/ui/toastHelper';
+import Button from '../components/ui/Button';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
@@ -44,6 +47,7 @@ export default function Treasury() {
   const [withdrawalAccount, setWithdrawalAccount] = useState(accounts[0] || '');
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [withdrawalNote, setWithdrawalNote] = useState('');
+  const [isSavingWithdrawal, setIsSavingWithdrawal] = useState(false);
   const [adMonth, setAdMonth] = useState('');
   const [adShop, setAdShop] = useState('');
   const [adAmount, setAdAmount] = useState('');
@@ -52,17 +56,23 @@ export default function Treasury() {
   const [adAdvancedBy, setAdAdvancedBy] = useState(partners[0]?.name || '');
   const [adDate, setAdDate] = useState(new Date().toISOString().split('T')[0]);
   const [adNote, setAdNote] = useState('');
+  const [isSavingAd, setIsSavingAd] = useState(false);
   const [repayingAdvanceId, setRepayingAdvanceId] = useState(null);
   const [reimbursementAmount, setReimbursementAmount] = useState('');
   const [reimbursementDate, setReimbursementDate] = useState(new Date().toISOString().split('T')[0]);
   const [reimbursementSource, setReimbursementSource] = useState('TREASURY_ACCOUNT');
   const [reimbursementAccount, setReimbursementAccount] = useState(accounts[0] || '');
   const [reimbursementNote, setReimbursementNote] = useState('');
+  const [isSavingReimbursement, setIsSavingReimbursement] = useState(false);
+  const [isSavingTransaction, setIsSavingTransaction] = useState(false);
+  const [pendingTransactionDelete, setPendingTransactionDelete] = useState(null);
+  const [isDeletingTransaction, setIsDeletingTransaction] = useState(false);
 
   const handleSaveWithdrawal = async (event) => {
     event.preventDefault();
     if (!withdrawalDate || !withdrawalShop || !withdrawalAccount || Number(withdrawalAmount) <= 0) return;
 
+    setIsSavingWithdrawal(true);
     try {
       await addTransaction({
         date: withdrawalDate,
@@ -75,9 +85,11 @@ export default function Treasury() {
       });
       setWithdrawalAmount('');
       setWithdrawalNote('');
-      alert('Đã ghi nhận tiền rút về tài khoản.');
+      toast.success('Đã ghi nhận tiền rút về tài khoản.');
     } catch (error) {
-      alert(`Không thể lưu tiền rút về: ${error.message}`);
+      toast.error(`Không thể lưu tiền rút về: ${error.message}`);
+    } finally {
+      setIsSavingWithdrawal(false);
     }
   };
 
@@ -87,6 +99,7 @@ export default function Treasury() {
     if (adSource === 'SELF_FUNDED' && !adAccount) return;
     if (adSource === 'PERSONAL_ADVANCE' && !adAdvancedBy.trim()) return;
 
+    setIsSavingAd(true);
     try {
       await addAd({
         month: adMonth,
@@ -100,8 +113,11 @@ export default function Treasury() {
       });
       setAdAmount('');
       setAdNote('');
+      toast.success('Đã lưu chi phí quảng cáo.');
     } catch (error) {
-      alert(`Không thể lưu chi phí quảng cáo: ${error.message}`);
+      toast.error(`Không thể lưu chi phí quảng cáo: ${error.message}`);
+    } finally {
+      setIsSavingAd(false);
     }
   };
 
@@ -125,11 +141,12 @@ export default function Treasury() {
     const advance = calculateAdAdvanceSummary(ads).advances.find(item => item.id === repayingAdvanceId);
     const amountToReimburse = Number(reimbursementAmount);
     if (!advance || amountToReimburse <= 0 || amountToReimburse > advance.outstanding) {
-      alert('Số tiền hoàn ứng không hợp lệ hoặc vượt quá công nợ còn lại.');
+      toast.error('Số tiền hoàn ứng không hợp lệ hoặc vượt quá công nợ còn lại.');
       return;
     }
     if (reimbursementSource === 'TREASURY_ACCOUNT' && !reimbursementAccount) return;
 
+    setIsSavingReimbursement(true);
     try {
       await reimburseAdAdvance(advance.id, {
         amount: amountToReimburse,
@@ -139,8 +156,11 @@ export default function Treasury() {
         note: reimbursementNote.trim() || null,
       });
       closeReimbursementForm();
+      toast.success('Đã ghi nhận hoàn ứng chi phí quảng cáo.');
     } catch (error) {
-      alert(`Không thể hoàn ứng: ${error.message}`);
+      toast.error(`Không thể hoàn ứng: ${error.message}`);
+    } finally {
+      setIsSavingReimbursement(false);
     }
   };
 
@@ -253,9 +273,9 @@ export default function Treasury() {
     }));
   }, [accounts, filterMonth, filterType, transactionsWithBalance]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!amount || Number(amount) <= 0) {
-      alert('Vui lòng nhập số tiền hợp lệ.');
+      toast.error('Vui lòng nhập số tiền hợp lệ.');
       return;
     }
     const newTxn = {
@@ -267,7 +287,7 @@ export default function Treasury() {
     };
     if (type === 'CHUYEN') {
       if (fromAccount === toAccount) {
-        alert('Tài khoản gửi và nhận phải khác nhau.');
+        toast.error('Tài khoản gửi và nhận phải khác nhau.');
         return;
       }
       newTxn.fromAccount = fromAccount;
@@ -281,16 +301,24 @@ export default function Treasury() {
       }
     }
 
-    if (editingTxnId) {
-      updateTransaction(editingTxnId, newTxn);
-    } else {
-      addTransaction(newTxn);
+    setIsSavingTransaction(true);
+    try {
+      if (editingTxnId) {
+        await updateTransaction(editingTxnId, newTxn);
+      } else {
+        await addTransaction(newTxn);
+      }
+
+      toast.success(editingTxnId ? 'Đã cập nhật giao dịch.' : 'Đã lưu giao dịch.');
+      setShowForm(false);
+      setEditingTxnId(null);
+      setAmount('');
+      setNote('');
+    } catch (error) {
+      toast.error(`Không thể lưu giao dịch: ${error.message}`);
+    } finally {
+      setIsSavingTransaction(false);
     }
-    
-    setShowForm(false);
-    setEditingTxnId(null);
-    setAmount('');
-    setNote('');
   };
 
   const handleEdit = (t) => {
@@ -316,6 +344,25 @@ export default function Treasury() {
     setEditingTxnId(null);
     setAmount('');
     setNote('');
+  };
+
+  const handleDeleteTransaction = (transaction) => {
+    setPendingTransactionDelete(transaction);
+  };
+
+  const confirmDeleteTransaction = async () => {
+    if (!pendingTransactionDelete) return;
+
+    setIsDeletingTransaction(true);
+    try {
+      await deleteTransaction(pendingTransactionDelete.id);
+      toast.success('Đã xóa giao dịch.');
+      setPendingTransactionDelete(null);
+    } catch (error) {
+      toast.error(`Không thể xóa giao dịch: ${error.message}`);
+    } finally {
+      setIsDeletingTransaction(false);
+    }
   };
 
   const getCategoryOptions = () => {
@@ -436,7 +483,7 @@ export default function Treasury() {
           <div style={{ flex: '1 1 180px' }}><label>Tài khoản nhận</label><select value={withdrawalAccount} onChange={e => setWithdrawalAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>
           <div style={{ flex: '1 1 180px' }}><label>Số tiền (VND)</label><input type="number" min="1" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} required /></div>
           <div style={{ flex: '2 1 220px' }}><label>Ghi chú</label><input type="text" value={withdrawalNote} onChange={e => setWithdrawalNote(e.target.value)} placeholder="VD: Rút tiền Shopee tuần 2" /></div>
-          <button type="submit" className="btn btn-primary">Ghi nhận tiền về</button>
+          <Button type="submit" loading={isSavingWithdrawal}>{isSavingWithdrawal ? 'Đang lưu...' : 'Ghi nhận tiền về'}</Button>
         </form>
       </div>
 
@@ -454,7 +501,7 @@ export default function Treasury() {
           {adSource === 'SELF_FUNDED' && <div style={{ flex: '1 1 180px' }}><label htmlFor="treasury-ad-account">Tài khoản quỹ chi</label><select id="treasury-ad-account" value={adAccount} onChange={e => setAdAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>}
           {adSource === 'PERSONAL_ADVANCE' && <div style={{ flex: '1 1 200px' }}><label htmlFor="treasury-ad-advanced-by">Người ứng tiền</label><input id="treasury-ad-advanced-by" type="text" list="treasury-ad-advance-people" value={adAdvancedBy} onChange={e => setAdAdvancedBy(e.target.value)} placeholder="Chọn hoặc nhập tên..." required /><datalist id="treasury-ad-advance-people">{partners.map(partner => <option key={partner.name} value={partner.name} />)}</datalist></div>}
           <div style={{ flex: '2 1 240px' }}><label>Ghi chú</label><input type="text" value={adNote} onChange={e => setAdNote(e.target.value)} placeholder="VD: QC Shopee tháng 7" /></div>
-          <button type="submit" className="btn btn-primary">Lưu chi phí</button>
+          <Button type="submit" loading={isSavingAd}>{isSavingAd ? 'Đang lưu...' : 'Lưu chi phí'}</Button>
         </form>
         {adSource === 'PERSONAL_ADVANCE' && <div className="surface-subtle treasury-source-note"><strong>Khoản này không trừ tài khoản quỹ.</strong> Hệ thống chỉ ghi nhận chi phí quảng cáo và công nợ phải hoàn cho người ứng.</div>}
         {adSource === 'SELF_FUNDED' && <div className="surface-subtle treasury-source-note"><strong>Khoản này sẽ trừ ngay tài khoản quỹ đã chọn</strong> và vẫn được tính là chi phí quảng cáo.</div>}
@@ -510,7 +557,7 @@ export default function Treasury() {
                           <div><label htmlFor={`reimbursement-source-${advance.id}`}>Nguồn hoàn ứng</label><select id={`reimbursement-source-${advance.id}`} value={reimbursementSource} onChange={event => setReimbursementSource(event.target.value)}><option value="TREASURY_ACCOUNT">Từ tài khoản quỹ shop</option><option value="SHOPEE_WALLET">Trực tiếp từ Ví Shopee</option></select></div>
                           {reimbursementSource === 'TREASURY_ACCOUNT' && <div><label htmlFor={`reimbursement-account-${advance.id}`}>Tài khoản trả</label><select id={`reimbursement-account-${advance.id}`} value={reimbursementAccount} onChange={event => setReimbursementAccount(event.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></div>}
                           <div className="treasury-reimbursement-note"><label htmlFor={`reimbursement-note-${advance.id}`}>Ghi chú</label><input id={`reimbursement-note-${advance.id}`} type="text" value={reimbursementNote} onChange={event => setReimbursementNote(event.target.value)} placeholder="VD: Hoàn ứng QC tháng 7" /></div>
-                          <div className="treasury-reimbursement-actions"><button type="button" className="btn btn-outline" onClick={() => setReimbursementAmount(String(advance.outstanding))}>Điền toàn bộ</button><button type="button" className="btn btn-outline" onClick={closeReimbursementForm}>Hủy</button><button type="submit" className="btn btn-primary">Xác nhận hoàn ứng</button></div>
+                          <div className="treasury-reimbursement-actions"><button type="button" className="btn btn-outline" onClick={() => setReimbursementAmount(String(advance.outstanding))}>Điền toàn bộ</button><button type="button" className="btn btn-outline" onClick={closeReimbursementForm}>Hủy</button><Button type="submit" loading={isSavingReimbursement}>{isSavingReimbursement ? 'Đang lưu...' : 'Xác nhận hoàn ứng'}</Button></div>
                         </form>
                         <p className="treasury-reimbursement-help">Hoàn từ tài khoản quỹ sẽ trừ số dư tài khoản. Hoàn trực tiếp từ Ví Shopee chỉ trừ số dư ví sàn tạm tính.</p>
                       </td></tr>
@@ -599,7 +646,7 @@ export default function Treasury() {
           </div>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
             <button className="btn btn-outline" onClick={handleCancelEdit}>Hủy</button>
-            <button className="btn btn-primary" onClick={handleSave}>{editingTxnId ? 'Lưu Thay Đổi' : 'Lưu Giao Dịch'}</button>
+            <Button loading={isSavingTransaction} onClick={handleSave}>{isSavingTransaction ? 'Đang lưu...' : editingTxnId ? 'Lưu Thay Đổi' : 'Lưu Giao Dịch'}</Button>
           </div>
         </div>
       )}
@@ -733,9 +780,7 @@ export default function Treasury() {
                               <button className="btn" aria-label={`Sửa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-primary)' }} onClick={() => handleEdit(transaction)}>
                                 <Edit size={16} />
                               </button>
-                              <button className="btn" aria-label={`Xóa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-danger)', marginLeft: '4px' }} onClick={() => {
-                                if (window.confirm('Bạn có chắc muốn xoá giao dịch này?')) deleteTransaction(transaction.id);
-                              }}>
+                              <button className="btn" aria-label={`Xóa giao dịch ${transaction.id}`} style={{ padding: '4px', color: 'var(--color-danger)', marginLeft: '4px' }} onClick={() => handleDeleteTransaction(transaction)}>
                                 <Trash2 size={16} />
                               </button>
                             </td>
@@ -750,6 +795,15 @@ export default function Treasury() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingTransactionDelete)}
+        onClose={() => !isDeletingTransaction && setPendingTransactionDelete(null)}
+        onConfirm={confirmDeleteTransaction}
+        title="Xóa giao dịch"
+        itemName={pendingTransactionDelete?.id}
+        description={pendingTransactionDelete ? `Xóa giao dịch ${pendingTransactionDelete.id}? Thao tác này không thể hoàn tác.` : undefined}
+        loading={isDeletingTransaction}
+      />
     </div>
   );
 }

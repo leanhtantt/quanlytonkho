@@ -1126,6 +1126,15 @@ tbody tr:hover td {
   align-items: end;
 }
 
+/* Đồng bộ chiều cao mọi control trong hàng lọc (input/select/date/button về cùng 44px) */
+.activity-filter-form input,
+.activity-filter-form select,
+.activity-filter-form .ui-button {
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
 .activity-filter-form input[type="date"] {
   min-width: 0;
 }

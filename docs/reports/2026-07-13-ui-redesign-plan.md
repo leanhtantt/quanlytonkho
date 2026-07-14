@@ -69,27 +69,27 @@ Quy tắc bắt buộc:
 
 ## 4. Màu sắc
 
-Light mode. **Đổi tông primary từ teal sang indigo** (đã chốt 2026-07-13: đổi tông cho hiện đại/pro) — indigo là tông đặc trưng của SaaS premium hiện đại (Linear, Stripe dashboard...), lạnh, gọn, chuyên nghiệp. Neutrals kéo theo hơi lạnh (ngả xanh) cho đồng bộ:
+Light mode. **Primary = teal `#0f766e`** (CẬP NHẬT 2026-07-13: sau khi thử indigo, chủ shop quyết định giữ tông teal làm nhận diện; brand: "Phụ kiện Decor"). Neutrals giữ tông lạnh nhẹ. **Code trong `src/styles/tokens.css` là nguồn chuẩn — nếu lệch, lấy theo code.**
 
 ```css
-/* Neutrals — nền & chữ (tông lạnh nhẹ, đồng bộ với indigo) */
+/* Neutrals — nền & chữ (tông lạnh nhẹ) */
 --color-bg-base:      #f6f7fb;  /* nền app */
 --color-bg-surface:   #ffffff;  /* card, form, bảng */
 --color-bg-subtle:    #f0f2f8;  /* header bảng, vùng phụ */
 --color-bg-hover:     #e9ecf5;
---color-bg-selected:  #eef2ff;  /* = primary-light */
+--color-bg-selected:  #f0fdfa;  /* = primary-light (teal nhạt) */
 
 --color-text-base:    #191d27;  /* chữ chính */
 --color-text-muted:   #5a6172;  /* chữ phụ, label */
 --color-text-soft:    #8b91a3;  /* placeholder, caption */
 
-/* Primary — indigo (MỚI, thay teal #0f766e) */
---color-primary:        #4f46e5;  /* trên nền trắng ~6.3:1, đạt AA */
---color-primary-hover:  #4338ca;
---color-primary-active: #3730a3;
---color-primary-light:  #eef2ff;
+/* Primary — teal (nhận diện shop, đạt AA trên nền trắng) */
+--color-primary:        #0f766e;
+--color-primary-hover:  #115e59;
+--color-primary-active: #134e4a;
+--color-primary-light:  #ccfbf1;
 --color-on-primary:     #ffffff;
---color-focus:          #4f46e5;
+--color-focus:          #0f766e;
 
 /* Trạng thái (giữ, đủ tương phản AA trên nền -light tương ứng) */
 success #047857 / warning #a16207 / danger #b42318 / info #1d4ed8 (+ biến -light như cũ)
@@ -103,7 +103,7 @@ success #047857 / warning #a16207 / danger #b42318 / info #1d4ed8 (+ biến -lig
 --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px; --radius-full: 9999px;
 
 /* Chart palette (recharts) — 6 màu cố định, dùng theo thứ tự */
---chart-1: #4f46e5; --chart-2: #0f766e; --chart-3: #a16207;
+--chart-1: #0f766e; --chart-2: #0e7490; --chart-3: #a16207;
 --chart-4: #b42318; --chart-5: #0ea5e9; --chart-6: #64748b;
 ```
 
@@ -224,6 +224,6 @@ Gợi ý đợt giao việc: U0+U1 một đợt → U2 một đợt → U3 chia 
 
 ## 12. Quyết định đã chốt (duyệt ngày 2026-07-13)
 
-1. **Đổi tông primary: teal → indigo `#4f46e5`** (hiện đại/pro kiểu SaaS premium) — palette đầy đủ ở mục 4; teal cũ giữ lại làm màu biểu đồ `--chart-2`.
+1. ~~Đổi tông primary sang indigo~~ → **CẬP NHẬT: giữ primary teal `#0f766e`** (chủ shop thử indigo rồi quyết định giữ teal). Brand hiển thị: "Phụ kiện Decor". Palette teal đầy đủ ở mục 4.
 2. **Toast dùng thư viện `sonner`** — không tự viết.
 3. **Font chốt: Plus Jakarta Sans** (self-host qua `@fontsource-variable/plus-jakarta-sans`), không cần demo so sánh.

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Plus, Trash2, Save } from 'lucide-react';
+import { IconPlus as Plus, IconTrash as Trash2, IconDeviceFloppy as Save } from '@tabler/icons-react';
 import { deleteImage, getImage } from '../domain/imageDb';
 import { deleteProductImage, isRemoteImage, uploadProductImage } from '../domain/imageStorage';
 

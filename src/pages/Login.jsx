@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
-import { Package } from 'lucide-react';
+import { IconPackage as Package } from '@tabler/icons-react';
 
 export default function Login() {
   const { login, register } = useAuth();
@@ -40,7 +40,7 @@ export default function Login() {
       <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-logo">
           <Package size={32} />
-          <span>Cưới Hỏi BAP</span>
+          <span>Phụ kiện Decor</span>
         </div>
         <h2>{isRegister ? 'Tạo tài khoản' : 'Đăng nhập'}</h2>
 

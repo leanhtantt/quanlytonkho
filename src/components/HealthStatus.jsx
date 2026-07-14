@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
-import { Activity, Database, Server } from 'lucide-react';
+import { IconDatabase as Database, IconServer as Server } from '@tabler/icons-react';
 
 export default function HealthStatus() {
   const [status, setStatus] = useState({ api: null, db: null });

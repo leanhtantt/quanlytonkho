@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Search, X, PackageOpen, ChevronDown, ChevronUp, ArrowDown, ArrowUp, GripVertical, Pencil } from 'lucide-react';
+import { IconSearch as Search, IconX as X, IconBox as PackageOpen, IconChevronDown as ChevronDown, IconChevronUp as ChevronUp, IconArrowDown as ArrowDown, IconArrowUp as ArrowUp, IconGripVertical as GripVertical, IconPencil as Pencil } from '@tabler/icons-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
 import { buildInventoryAdjustmentDisplayCodes } from '../domain/inventoryAdjustmentCodes';
 import { normalizeProductSku, productMatchesSearch } from '../domain/productSku';

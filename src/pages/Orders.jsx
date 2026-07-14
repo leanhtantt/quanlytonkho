@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Search, Plus, Save, X, Upload } from 'lucide-react';
+import { IconSearch as Search, IconPlus as Plus, IconDeviceFloppy as Save, IconX as X, IconUpload as Upload } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import ProductImage from '../components/ProductImage';
 import { calculateOrderGrossProfit } from '../domain/profitAnalytics';

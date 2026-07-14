@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, Truck, ShieldAlert, TrendingUp } from 'lucide-react';
+import { IconLayoutDashboard as LayoutDashboard, IconPackage as Package, IconShoppingCart as ShoppingCart, IconTruck as Truck, IconShieldExclamation as ShieldAlert, IconTrendingUp as TrendingUp } from '@tabler/icons-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
@@ -10,10 +10,11 @@ import Treasury from './pages/Treasury';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import { useAuth } from './lib/AuthContext';
-import { Wallet, Settings as SettingsIcon, LogOut } from 'lucide-react';
+import { IconWallet as Wallet, IconSettings as SettingsIcon, IconLogout as LogOut } from '@tabler/icons-react';
 import { useAppStore } from './store/appStoreContext';
 
 import HealthStatus from './components/HealthStatus';
+import AppToaster from './components/ui/Toast';
 
 function Sidebar() {
   const location = useLocation();
@@ -36,7 +37,7 @@ function Sidebar() {
         <div className="sidebar-logo-mark">
           <Package size={24} />
         </div>
-        <span>Cưới Hỏi BAP</span>
+        <span>Phụ kiện Decor</span>
       </div>
       <nav className="nav-list" aria-label="Điều hướng chính">
         {menuItems.map((item) => (
@@ -74,14 +75,18 @@ function App() {
   
   if (loading) {
     return (
+      <>
+        <AppToaster />
       <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
         <p>Đang tải dữ liệu...</p>
       </div>
+      </>
     );
   }
 
   return (
     <Router>
+      <AppToaster />
       <div className="app-container">
         <Sidebar />
         <div className="main-content">

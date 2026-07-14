@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { Plus, Save, X } from 'lucide-react';
+import { IconPlus as Plus, IconDeviceFloppy as Save, IconX as X } from '@tabler/icons-react';
 import { findProductByCode, productMatchesSearch } from '../domain/productSku';
 
 export default function Purchases() {

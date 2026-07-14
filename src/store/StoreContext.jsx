@@ -1,4 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { buildDerivedStore, DEFAULT_PRODUCTS, repairProductNames } from '../domain/inventory';
 import { StoreContext } from './appStoreContext';
 import { api } from '../lib/api';
@@ -79,21 +81,28 @@ export function StoreProvider({ children }) {
     }
   }, [refreshing]);
 
-  // Tải dữ liệu ban đầu
+  // Giữ tham chiếu refresh mới nhất để subscribe auth 1 lần, không phụ thuộc identity
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  // Tải dữ liệu KHI Firebase đã xác thực xong (tránh race gọi API trước khi có token → 401)
   useEffect(() => {
-    async function loadInitial() {
-      try { await refresh(); } catch { /* logged in refresh */ }
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      lastRefreshRef.current = 0; // bỏ qua debounce cho lần tải sau khi đăng nhập
+      try { await refreshRef.current(); } catch { /* đã log trong refresh */ }
       setLoading(false);
-    }
-    lastRefreshRef.current = 0; // cho phép tải ngay lần đầu
-    loadInitial();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    });
+    return unsub;
   }, []);
 
-  // Auto-refetch khi tab/cửa sổ lấy lại focus
+  // Auto-refetch khi tab/cửa sổ lấy lại focus (chỉ khi đã đăng nhập)
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') refresh();
+      if (document.visibilityState === 'visible' && auth.currentUser) refresh();
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);

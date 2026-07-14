@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { calculateAdAdvanceSummary, calculateMarketplaceWalletSummary, calculateProfitAnalytics } from '../domain/profitAnalytics';
-import { IconEdit as Edit, IconWallet as Wallet, IconArrowUpRight as ArrowUpRight, IconArrowDownRight as ArrowDownRight, IconArrowsExchange as ArrowRightLeft, IconPlus as Plus, IconTrash as Trash2, IconFilter as Filter } from '@tabler/icons-react';
+import { IconEdit as Edit, IconWallet as Wallet, IconArrowUpRight as ArrowUpRight, IconArrowDownRight as ArrowDownRight, IconArrowsExchange as ArrowRightLeft, IconPlus as Plus, IconTrash as Trash2, IconFilter as Filter, IconRefresh } from '@tabler/icons-react';
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -24,7 +24,7 @@ function getAdSourceLabel(source) {
 }
 
 export default function Treasury() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, addAd, reimburseAdAdvance, deleteAd, accounts, partners, shops } = useAppStore();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, addAd, reimburseAdAdvance, deleteAd, accounts, partners, shops, refresh, refreshing } = useAppStore();
   const { can } = useAuth();
 
   const [showForm, setShowForm] = useState(false);
@@ -399,7 +399,12 @@ export default function Treasury() {
       <PageHeader
         title="Sổ Quỹ & Dòng Tiền"
         description="Quản lý tiền mặt tại tài khoản ngân hàng và Vốn góp"
-        actions={can('treasury', 'create') ? <Button icon={Plus} onClick={() => setShowForm(!showForm)}>Thêm Giao Dịch</Button> : null}
+        actions={
+          <div className="header-actions">
+            <Button variant="secondary" icon={IconRefresh} loading={refreshing} onClick={() => refresh().catch(() => toast.error('Không thể làm mới dữ liệu'))}>Làm mới</Button>
+            {can('treasury', 'create') && <Button icon={Plus} onClick={() => setShowForm(!showForm)}>Thêm Giao Dịch</Button>}
+          </div>
+        }
       />
 
       <div className="treasury-balances">

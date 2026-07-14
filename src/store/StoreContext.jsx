@@ -82,7 +82,7 @@ export function StoreProvider({ children }) {
   // Tải dữ liệu ban đầu
   useEffect(() => {
     async function loadInitial() {
-      try { await refresh(); } catch (_) { /* logged in refresh */ }
+      try { await refresh(); } catch { /* logged in refresh */ }
       setLoading(false);
     }
     lastRefreshRef.current = 0; // cho phép tải ngay lần đầu

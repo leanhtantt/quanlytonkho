@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { IconAlertTriangle, IconEdit as Edit, IconPlus as Plus, IconDeviceFloppy as Save, IconTrash as Trash2, IconUpload as Upload, IconX as X } from '@tabler/icons-react';
+import { IconAlertTriangle, IconEdit as Edit, IconPlus as Plus, IconDeviceFloppy as Save, IconTrash as Trash2, IconUpload as Upload, IconX as X, IconRefresh } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import ProductImage from '../components/ProductImage';
 import { calculateOrderGrossProfit } from '../domain/profitAnalytics';
@@ -56,7 +56,7 @@ const findHeaderIndex = (headers, aliases) => headers.findIndex((header) => {
 });
 
 export default function Orders() {
-  const { products, orders, shops, addOrder, updateOrder, deleteOrder, defaultPackagingCost, defaultReturnFee } = useAppStore();
+  const { products, orders, shops, addOrder, updateOrder, deleteOrder, defaultPackagingCost, defaultReturnFee, refresh, refreshing } = useAppStore();
   const { can } = useAuth();
   const availableShops = React.useMemo(() => Array.from(new Set([
     ...shops,
@@ -678,6 +678,7 @@ export default function Orders() {
         description="Quản lý đơn, hoàn hàng 1 phần và đối soát tự động qua Excel"
         actions={!showForm ? (
           <div className="header-actions">
+            <Button variant="secondary" icon={IconRefresh} loading={refreshing} onClick={() => refresh().catch(() => toast.error('Không thể làm mới dữ liệu'))}>Làm mới</Button>
             <input className="ui-visually-hidden" type="file" accept=".xlsx, .xls, .csv" ref={fileInputRef} onChange={handleExcelUpload} />
             <input className="ui-visually-hidden" type="file" accept=".xlsx, .xls, .csv" ref={importInputRef} onChange={handleExcelImportOrders} />
             

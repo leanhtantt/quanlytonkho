@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { IconX as X, IconBox as PackageOpen, IconChevronDown as ChevronDown, IconChevronUp as ChevronUp, IconArrowDown as ArrowDown, IconArrowUp as ArrowUp, IconGripVertical as GripVertical, IconPencil as Pencil } from '@tabler/icons-react';
+import { IconX as X, IconBox as PackageOpen, IconChevronDown as ChevronDown, IconChevronUp as ChevronUp, IconArrowDown as ArrowDown, IconArrowUp as ArrowUp, IconGripVertical as GripVertical, IconPencil as Pencil, IconRefresh } from '@tabler/icons-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
 import { buildInventoryAdjustmentDisplayCodes } from '../domain/inventoryAdjustmentCodes';
 import { normalizeProductSku, productMatchesSearch } from '../domain/productSku';
@@ -19,7 +19,7 @@ import Modal from '../components/ui/Modal';
 import SearchInput from '../components/ui/SearchInput';
 
 export default function Products() {
-  const { inventory, inventoryAdjustments, updateProduct, renameProductSku, reorderProducts } = useAppStore();
+  const { inventory, inventoryAdjustments, updateProduct, renameProductSku, reorderProducts, refresh, refreshing } = useAppStore();
   const { can } = useAuth();
   const canUpdateProducts = can('products', 'update');
   const [search, setSearch] = useState('');
@@ -226,6 +226,7 @@ export default function Products() {
       <PageHeader
         title="Quản lý Tồn Kho (FIFO)"
         description="Theo dõi tồn kho và giá vốn chi tiết theo từng lô nhập"
+        actions={<Button variant="secondary" icon={IconRefresh} loading={refreshing} onClick={() => refresh().catch(() => toast.error('Không thể làm mới dữ liệu'))}>Làm mới</Button>}
       />
 
       <div className="card inventory-card">

@@ -15,6 +15,8 @@ import { useAppStore } from './store/appStoreContext';
 
 import HealthStatus from './components/HealthStatus';
 import AppToaster from './components/ui/Toast';
+import Button from './components/ui/Button';
+import Skeleton from './components/ui/Skeleton';
 
 function Sidebar() {
   const location = useLocation();
@@ -67,10 +69,45 @@ function Sidebar() {
 
 
 function App() {
-  const { user } = useAuth();
+  const { user, loading: authLoading, isUnauthorized, profileError, logout } = useAuth();
   const { loading } = useAppStore();
 
+  if (authLoading) {
+    return (
+      <div className="login-page">
+        <div className="login-card" aria-busy="true">
+          <Skeleton width="180px" height="28px" />
+          <Skeleton lines={2} />
+        </div>
+      </div>
+    );
+  }
+
   if (!user) return <Login />;
+
+  if (isUnauthorized) {
+    return (
+      <div className="login-page">
+        <section className="login-card" aria-labelledby="access-denied-title">
+          <h2 id="access-denied-title">Tài khoản chưa được cấp quyền</h2>
+          <p>Tài khoản của bạn chưa được cấp quyền, liên hệ quản trị viên.</p>
+          <Button onClick={logout}>Đăng xuất</Button>
+        </section>
+      </div>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <div className="login-page">
+        <section className="login-card" aria-labelledby="profile-error-title">
+          <h2 id="profile-error-title">Không thể tải quyền truy cập</h2>
+          <p>Vui lòng kiểm tra kết nối API hoặc đăng nhập lại.</p>
+          <Button onClick={logout}>Đăng xuất</Button>
+        </section>
+      </div>
+    );
+  }
   
   if (loading) {
     return (

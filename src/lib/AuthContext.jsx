@@ -3,7 +3,6 @@ import { auth } from './firebase';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
 
@@ -24,9 +23,6 @@ export function AuthProvider({ children }) {
   const login = (email, password) =>
     signInWithEmailAndPassword(auth, email, password);
 
-  const register = (email, password) =>
-    createUserWithEmailAndPassword(auth, email, password);
-
   const logout = () => signOut(auth);
 
   // Helper: get current user's ID token for API calls
@@ -35,7 +31,7 @@ export function AuthProvider({ children }) {
   if (loading) return null; // ponytail: skip splash screen, null is fine for now
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, getToken }}>
+    <AuthContext.Provider value={{ user, login, logout, getToken }}>
       {children}
     </AuthContext.Provider>
   );

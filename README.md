@@ -70,12 +70,12 @@ firebase deploy --only hosting:lynstore --project tanle-dev
 │   │   └── profitAnalytics.js     Gop nhom loi nhuan, dong tien, chi phi quang cao
 │   │
 │   ├── store/                     --- State management ---
-│   │   ├── StoreContext.jsx       Raw state + actions, localStorage persistence
+│   │   ├── StoreContext.jsx       Raw state + API actions, auto-refetch on focus
 │   │   └── appStoreContext.js     createContext export
 │   │
 │   ├── pages/                     --- Cac trang chinh ---
 │   │   ├── Login.jsx              Dang nhap / dang ky Email-Password
-│   │   ├── Dashboard.jsx          Tong quan (hien dang dung du lieu demo)
+│   │   ├── Dashboard.jsx          Tong quan doanh thu, don hang, ton kho
 │   │   ├── Purchases.jsx          Nhap hang, phan bo phi, tao batch FIFO
 │   │   ├── Products.jsx           Ton kho va chi tiet lo con lai
 │   │   ├── Orders.jsx             Don hang, import Excel, doi soat doanh thu

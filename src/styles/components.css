@@ -1616,6 +1616,106 @@ tbody tr:hover td {
   }
 }
 
+/* Profit */
+.profit-chart-card,
+.profit-analysis-card,
+.profit-hidden-cost-card {
+  margin-bottom: var(--space-6);
+}
+
+.profit-chart-card > .h3,
+.profit-analysis-card > .h3 {
+  margin-bottom: var(--space-4);
+}
+
+.profit-chart {
+  height: 22rem;
+}
+
+.profit-chart .recharts-cartesian-axis-tick-value {
+  fill: var(--color-text-muted);
+}
+
+.profit-chart-tooltip .recharts-default-tooltip {
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface) !important;
+  color: var(--color-text-base) !important;
+  box-shadow: var(--shadow-md);
+}
+
+.profit-total-row {
+  background: var(--color-bg-subtle);
+  font-weight: 700;
+}
+
+.profit-value--income {
+  color: var(--color-success);
+}
+
+.profit-value--expense,
+.profit-heading--expense {
+  color: var(--color-danger);
+}
+
+.profit-value--primary {
+  color: var(--color-primary);
+}
+
+.profit-value--info {
+  color: var(--color-info);
+}
+
+.profit-value--primary,
+.profit-value--info,
+.profit-value--strong {
+  font-weight: 600;
+}
+
+.profit-empty-cell {
+  min-width: 18rem;
+  padding: var(--space-6) !important;
+  text-align: center;
+}
+
+.profit-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.profit-section-heading__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-primary);
+}
+
+.profit-section-heading p {
+  max-width: 48rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 900px) {
+  .profit-chart {
+    height: 20rem;
+  }
+
+  .profit-section-heading {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+}
+
+@media (max-width: 640px) {
+  .profit-chart {
+    height: 18rem;
+  }
+}
+
 /* Settings */
 .settings-grid {
   display: grid;

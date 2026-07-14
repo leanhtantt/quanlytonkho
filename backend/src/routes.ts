@@ -8,7 +8,8 @@ import { createOrder, replaceOrder, deleteOrder, OrderInput } from './services/o
 import { randomUUID } from 'crypto';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getStorage } from 'firebase-admin/storage';
-import { AuthRequest, PermissionAction, requirePermission } from './middlewares/authMiddleware';
+import { AuthRequest, PermissionAction, requireAdmin, requirePermission } from './middlewares/authMiddleware';
+import { usersRouter } from './routes/users';
 
 if (!getApps().length) {
   initializeApp({ projectId: 'tanle-dev', storageBucket: 'tanle-dev.firebasestorage.app' });
@@ -30,6 +31,9 @@ apiRouter.get('/me', (req, res) => {
     isActive: isAdmin ? true : (userRecord?.isActive ?? false),
   });
 });
+
+apiRouter.use('/users', requireAdmin);
+apiRouter.use('/users', usersRouter);
 
 const actionsByMethod: Record<string, PermissionAction> = {
   GET: 'view',

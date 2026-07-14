@@ -5,6 +5,8 @@ import ProductImage from '../components/ProductImage';
 import { buildInventoryAdjustmentDisplayCodes } from '../domain/inventoryAdjustmentCodes';
 import { findProductByCode, productMatchesSearch } from '../domain/productSku';
 import { toast } from '../components/ui/toastHelper';
+import Button from '../components/ui/Button';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 export default function Losses() {
   const { inventory, losses, addLoss, updateLoss, deleteLoss } = useAppStore();
@@ -26,10 +28,12 @@ export default function Losses() {
   const [isSaving, setIsSaving] = useState(false);
   const [editingLossId, setEditingLossId] = useState(null);
   const [deletingLossId, setDeletingLossId] = useState(null);
+  const [pendingLossDelete, setPendingLossDelete] = useState(null);
   const [adjustmentType, setAdjustmentType] = useState('LOSS');
   const [unitCost, setUnitCost] = useState(0);
   const [editingAdjustmentId, setEditingAdjustmentId] = useState(null);
   const [deletingAdjustmentId, setDeletingAdjustmentId] = useState(null);
+  const [pendingAdjustmentDelete, setPendingAdjustmentDelete] = useState(null);
   const [statsSearch, setStatsSearch] = useState('');
 
   const getLatestUnitCost = (product) => {
@@ -171,18 +175,23 @@ export default function Losses() {
     setShowForm(true);
   };
 
-  const handleDeleteLoss = async (loss) => {
+  const handleDeleteLoss = (loss) => {
     if (!loss.id) {
       toast.error('Phiếu hao hụt này không có UUID hợp lệ. Hãy tải lại trang.');
       return;
     }
-    const displayCode = lossDisplayCodes.get(loss.id);
-    if (!window.confirm(`Xóa ${displayCode}? Tồn kho và chi phí FIFO của phiếu này sẽ được hoàn tác.`)) return;
+    setPendingLossDelete(loss);
+  };
 
-    setDeletingLossId(loss.id);
+  const confirmDeleteLoss = async () => {
+    if (!pendingLossDelete) return;
+
+    const displayCode = lossDisplayCodes.get(pendingLossDelete.id);
+    setDeletingLossId(pendingLossDelete.id);
     try {
-      await deleteLoss(loss.id);
+      await deleteLoss(pendingLossDelete.id);
       toast.success(`Đã xóa ${displayCode} và hoàn tác tồn kho/chi phí. Mã hiển thị còn lại sẽ được đánh lại theo thứ tự ngày.`);
+      setPendingLossDelete(null);
     } catch (error) {
       console.error('Xóa phiếu hao hụt thất bại', error);
       toast.error(`Không xóa được phiếu hao hụt: ${error.message}`);
@@ -208,13 +217,19 @@ export default function Losses() {
     setShowForm(true);
   };
 
-  const handleDeleteAdjustment = async (adjustment) => {
-    const displayCode = adjustmentDisplayCodes.get(adjustment.id);
-    if (!window.confirm(`Xóa ${displayCode}? Số lượng kiểm kê dư sẽ bị gỡ khỏi kho.`)) return;
-    setDeletingAdjustmentId(adjustment.id);
+  const handleDeleteAdjustment = (adjustment) => {
+    setPendingAdjustmentDelete(adjustment);
+  };
+
+  const confirmDeleteAdjustment = async () => {
+    if (!pendingAdjustmentDelete) return;
+
+    const displayCode = adjustmentDisplayCodes.get(pendingAdjustmentDelete.id);
+    setDeletingAdjustmentId(pendingAdjustmentDelete.id);
     try {
-      await deleteInventoryAdjustment(adjustment.id);
+      await deleteInventoryAdjustment(pendingAdjustmentDelete.id);
       toast.success(`Đã xóa ${displayCode}.`);
+      setPendingAdjustmentDelete(null);
     } catch (error) {
       console.error('Xóa phiếu kiểm kê dư thất bại', error);
       toast.error(`Không xóa được phiếu kiểm kê dư: ${error.message}`);
@@ -481,9 +496,9 @@ export default function Losses() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn btn-primary" onClick={handleSaveLoss} disabled={items.length === 0 || isSaving}>
-              <Save size={18} /> {isSaving ? 'Đang lưu...' : editingLossId || editingAdjustmentId ? 'Lưu thay đổi' : 'Lưu Phiếu'}
-            </button>
+            <Button icon={Save} loading={isSaving} onClick={handleSaveLoss} disabled={items.length === 0}>
+              {isSaving ? 'Đang lưu...' : editingLossId || editingAdjustmentId ? 'Lưu thay đổi' : 'Lưu Phiếu'}
+            </Button>
           </div>
         </div>
       )}
@@ -672,6 +687,24 @@ export default function Losses() {
           </table>
         </div>
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingLossDelete)}
+        onClose={() => !deletingLossId && setPendingLossDelete(null)}
+        onConfirm={confirmDeleteLoss}
+        title="Xóa phiếu hao hụt"
+        itemName={pendingLossDelete ? lossDisplayCodes.get(pendingLossDelete.id) : undefined}
+        description={pendingLossDelete ? `Xóa ${lossDisplayCodes.get(pendingLossDelete.id)}? Tồn kho và chi phí FIFO của phiếu này sẽ được hoàn tác.` : undefined}
+        loading={Boolean(deletingLossId)}
+      />
+      <ConfirmDialog
+        open={Boolean(pendingAdjustmentDelete)}
+        onClose={() => !deletingAdjustmentId && setPendingAdjustmentDelete(null)}
+        onConfirm={confirmDeleteAdjustment}
+        title="Xóa phiếu kiểm kê dư"
+        itemName={pendingAdjustmentDelete ? adjustmentDisplayCodes.get(pendingAdjustmentDelete.id) : undefined}
+        description={pendingAdjustmentDelete ? `Xóa ${adjustmentDisplayCodes.get(pendingAdjustmentDelete.id)}? Số lượng kiểm kê dư sẽ bị gỡ khỏi kho.` : undefined}
+        loading={Boolean(deletingAdjustmentId)}
+      />
     </div>
   );
 }

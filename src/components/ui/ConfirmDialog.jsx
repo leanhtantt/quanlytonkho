@@ -33,7 +33,7 @@ export default function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button variant="danger" loading={loading} onClick={onConfirm}>
-            {confirmLabel}
+            {loading ? 'Đang xử lý...' : confirmLabel}
           </Button>
         </>
       )}

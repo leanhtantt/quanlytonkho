@@ -6,6 +6,8 @@ import ProductImage from '../components/ProductImage';
 import { calculateOrderGrossProfit } from '../domain/profitAnalytics';
 import { findProductByCode } from '../domain/productSku';
 import { toast } from '../components/ui/toastHelper';
+import Button from '../components/ui/Button';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 const normalizeExcelText = (value) => String(value ?? '')
   .normalize('NFD')
@@ -58,6 +60,10 @@ export default function Orders() {
   const [showForm, setShowForm] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [pendingOrderDelete, setPendingOrderDelete] = useState(null);
+  const [isDeletingOrder, setIsDeletingOrder] = useState(false);
+  const [showClearImportIssuesDialog, setShowClearImportIssuesDialog] = useState(false);
   
   // Filters
   const [search, setSearch] = useState('');
@@ -91,6 +97,8 @@ export default function Orders() {
   
   const [importShop, setImportShop] = useState(defaultShop);
   const [importFixOrderId, setImportFixOrderId] = useState(null); // Đang sửa đơn nào từ danh sách "Đơn cần xử lý"
+  const [isReconciling, setIsReconciling] = useState(false);
+  const [isImportingOrders, setIsImportingOrders] = useState(false);
 
   useEffect(() => {
     if (!shop && defaultShop) setShop(defaultShop);
@@ -246,6 +254,7 @@ export default function Orders() {
     const existingOrder = orders.find(order => order.id === orderId);
     const targetOrderId = editingOrderId || existingOrder?.id;
 
+    setIsSavingOrder(true);
     try {
       if (targetOrderId) {
         const updated = await updateOrder(targetOrderId, orderData);
@@ -261,12 +270,34 @@ export default function Orders() {
       closeForm();
     } catch (err) {
       toast.error(`${targetOrderId ? 'Cập nhật' : 'Tạo'} đơn không thành công: ${err.message}`);
+    } finally {
+      setIsSavingOrder(false);
     }
   };
 
-  const handleDeleteOrder = async (o) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa đơn "${o.id}"? Tồn kho đã xuất của đơn này sẽ được hoàn lại.`)) return;
-    await deleteOrder(o.id);
+  const handleDeleteOrder = (order) => {
+    setPendingOrderDelete(order);
+  };
+
+  const confirmDeleteOrder = async () => {
+    if (!pendingOrderDelete) return;
+
+    setIsDeletingOrder(true);
+    try {
+      await deleteOrder(pendingOrderDelete.id);
+      toast.success(`Đã xóa đơn ${pendingOrderDelete.id}.`);
+      setPendingOrderDelete(null);
+    } catch (error) {
+      toast.error(`Không thể xóa đơn: ${error.message}`);
+    } finally {
+      setIsDeletingOrder(false);
+    }
+  };
+
+  const confirmClearImportIssues = () => {
+    setImportIssues([]);
+    setShowClearImportIssuesDialog(false);
+    toast.success('Đã xóa danh sách đơn cần xử lý.');
   };
 
   const handleEditOrder = (o) => {
@@ -296,6 +327,9 @@ export default function Orders() {
   const handleExcelUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    setIsReconciling(true);
+    const toastId = toast.loading('Đang đối soát doanh thu...');
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
@@ -366,16 +400,23 @@ export default function Orders() {
           `- Cập nhật Thực tế (Nhận): ${updatesByOrderId.size} đơn\n` +
           `- Không tìm thấy mã đơn: ${notFoundCount} đơn\n` +
           `- Bỏ qua dòng sản phẩm: ${skipCount} dòng\n` +
-          `- Dòng thiếu/sai dữ liệu: ${invalidCount} dòng`
+          `- Dòng thiếu/sai dữ liệu: ${invalidCount} dòng`,
+          { id: toastId }
         );
       } catch (err) {
         console.error(err);
-        toast.error(`Không thể đối soát file Excel: ${err.message}`);
+        toast.error(`Không thể đối soát file Excel: ${err.message}`, { id: toastId });
       } finally {
+        setIsReconciling(false);
         if (fileInputRef.current) {
           fileInputRef.current.value = null;
         }
       }
+    };
+    reader.onerror = () => {
+      setIsReconciling(false);
+      toast.error('Không thể đọc file đối soát.', { id: toastId });
+      if (fileInputRef.current) fileInputRef.current.value = null;
     };
     reader.readAsBinaryString(file);
   };
@@ -383,6 +424,9 @@ export default function Orders() {
   const handleExcelImportOrders = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    setIsImportingOrders(true);
+    const toastId = toast.loading('Đang nhập đơn hàng...');
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
@@ -560,11 +604,18 @@ export default function Orders() {
         if (newIssues.length > 0) {
           msg += `\n⚠️ ${newIssues.length} đơn cần xử lý (mã SP không khớp hoặc lưu thất bại). Xem danh sách "Đơn cần xử lý" bên dưới để sửa nhanh.`;
         }
-        toast.success(msg);
+        toast.success(msg, { id: toastId });
       } catch (err) {
         console.error(err);
-        toast.error('Có lỗi xảy ra khi đọc file Excel. Đảm bảo đây là file xuất chuẩn từ sàn.');
+        toast.error(`Có lỗi xảy ra khi đọc file Excel: ${err.message}`, { id: toastId });
+      } finally {
+        setIsImportingOrders(false);
       }
+      e.target.value = null;
+    };
+    reader.onerror = () => {
+      setIsImportingOrders(false);
+      toast.error('Không thể đọc file đơn hàng.', { id: toastId });
       e.target.value = null;
     };
     reader.readAsBinaryString(file);
@@ -615,14 +666,14 @@ export default function Orders() {
               <select value={importShop} onChange={e => setImportShop(e.target.value)}>
                 {availableShops.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              <button className="btn btn-outline" style={{ border: 'none', borderColor: 'transparent', color: 'var(--color-primary)' }} onClick={() => importInputRef.current.click()}>
-                <Upload size={18} /> Import Đơn Mới
-              </button>
+              <Button variant="secondary" icon={Upload} loading={isImportingOrders} style={{ border: 'none', borderColor: 'transparent', color: 'var(--color-primary)' }} onClick={() => importInputRef.current.click()}>
+                {isImportingOrders ? 'Đang nhập...' : 'Import Đơn Mới'}
+              </Button>
             </div>
 
-            <button className="btn btn-outline" style={{ borderColor: 'var(--color-success)', color: 'var(--color-success)' }} onClick={() => fileInputRef.current.click()}>
-              <Upload size={18} /> Đối Soát (Excel)
-            </button>
+            <Button variant="secondary" icon={Upload} loading={isReconciling} style={{ borderColor: 'var(--color-success)', color: 'var(--color-success)' }} onClick={() => fileInputRef.current.click()}>
+              {isReconciling ? 'Đang đối soát...' : 'Đối Soát (Excel)'}
+            </Button>
             <button className="btn btn-primary" onClick={() => setShowForm(true)}>
               <Plus size={18} /> Nhập Đơn Tay
             </button>
@@ -783,9 +834,9 @@ export default function Orders() {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn btn-primary" onClick={handleSaveOrder} disabled={items.length === 0 || !orderId}>
-              <Save size={18} /> Lưu Đơn Hàng
-            </button>
+            <Button icon={Save} loading={isSavingOrder} onClick={handleSaveOrder} disabled={items.length === 0 || !orderId}>
+              {isSavingOrder ? 'Đang lưu...' : 'Lưu Đơn Hàng'}
+            </Button>
           </div>
         </div>
       )}
@@ -797,7 +848,7 @@ export default function Orders() {
             <button
               className="btn btn-outline"
               style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-              onClick={() => { if (window.confirm('Xóa toàn bộ danh sách đơn cần xử lý?')) setImportIssues([]); }}
+              onClick={() => setShowClearImportIssuesDialog(true)}
             >
               Xóa danh sách
             </button>
@@ -1063,6 +1114,23 @@ export default function Orders() {
           </table>
         </div>
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingOrderDelete)}
+        onClose={() => !isDeletingOrder && setPendingOrderDelete(null)}
+        onConfirm={confirmDeleteOrder}
+        title="Xóa đơn hàng"
+        itemName={pendingOrderDelete?.id}
+        description={pendingOrderDelete ? `Xóa đơn “${pendingOrderDelete.id}”? Tồn kho đã xuất của đơn này sẽ được hoàn lại.` : undefined}
+        loading={isDeletingOrder}
+      />
+      <ConfirmDialog
+        open={showClearImportIssuesDialog}
+        onClose={() => setShowClearImportIssuesDialog(false)}
+        onConfirm={confirmClearImportIssues}
+        title="Xóa danh sách đơn cần xử lý"
+        itemName="toàn bộ danh sách"
+        description="Xóa toàn bộ danh sách đơn cần xử lý?"
+      />
     </div>
   );
 }

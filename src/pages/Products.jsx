@@ -8,6 +8,7 @@ import ProductImage from '../components/ProductImage';
 import { processAndCompressImage } from '../domain/imageProcessor';
 import { deleteProductImage, uploadProductImage } from '../domain/imageStorage';
 import { toast } from '../components/ui/toastHelper';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 
 export default function Products() {
   const { inventory, inventoryAdjustments, updateProduct, renameProductSku, reorderProducts } = useAppStore();
@@ -21,6 +22,8 @@ export default function Products() {
   const [draggedProductId, setDraggedProductId] = useState(null);
   const [dragOverProductId, setDragOverProductId] = useState(null);
   const [renamingProductId, setRenamingProductId] = useState(null);
+  const [pendingImageRemoval, setPendingImageRemoval] = useState(null);
+  const [pendingSkuRename, setPendingSkuRename] = useState(null);
   const adjustmentDisplayCodes = useMemo(
     () => buildInventoryAdjustmentDisplayCodes(inventoryAdjustments),
     [inventoryAdjustments]
@@ -52,26 +55,32 @@ export default function Products() {
       toast.success('Đã cập nhật ảnh sản phẩm.');
     } catch (err) {
       console.error(err);
-      toast.error('Lỗi khi tải ảnh.');
+      toast.error(`Lỗi khi tải ảnh: ${err.message}`);
     } finally {
       setUploadingId(null);
     }
   };
 
-  const handleRemoveImage = async (product, e) => {
+  const handleRemoveImage = (product, e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!product.imageId || !window.confirm(`Xóa hình của sản phẩm "${product.sku || product.id}"?`)) return;
+    if (!product.imageId) return;
+    setPendingImageRemoval(product);
+  };
+
+  const confirmRemoveImage = async () => {
+    if (!pendingImageRemoval?.imageId) return;
 
     try {
-      setUploadingId(product.id);
+      setUploadingId(pendingImageRemoval.id);
       setImagePreview(null);
-      await updateProduct(product.id, { imageId: null });
-      await deleteProductImage(product.imageId);
+      await updateProduct(pendingImageRemoval.id, { imageId: null });
+      await deleteProductImage(pendingImageRemoval.imageId);
       toast.success('Đã xóa ảnh sản phẩm.');
+      setPendingImageRemoval(null);
     } catch (err) {
       console.error(err);
-      toast.error('Không thể xóa hình sản phẩm.');
+      toast.error(`Không thể xóa hình sản phẩm: ${err.message}`);
     } finally {
       setUploadingId(null);
     }
@@ -156,7 +165,7 @@ export default function Products() {
     }
   };
 
-  const handleRenameSku = async (product, event) => {
+  const handleRenameSku = (product, event) => {
     event.stopPropagation();
     const enteredSku = window.prompt(
       `Đổi SKU cho "${product.name}". SKU hiện tại: ${product.sku || product.id}`,
@@ -166,12 +175,17 @@ export default function Products() {
 
     const newSku = normalizeProductSku(enteredSku);
     if (!newSku || newSku === normalizeProductSku(product.sku)) return;
-    if (!window.confirm(`Đổi SKU ${product.sku || product.id} thành ${newSku}? SKU cũ vẫn được giữ trong lịch sử.`)) return;
+    setPendingSkuRename({ product, newSku });
+  };
+
+  const confirmRenameSku = async () => {
+    if (!pendingSkuRename) return;
 
     try {
-      setRenamingProductId(product.id);
-      await renameProductSku(product.id, newSku);
-      toast.success(`Đã đổi SKU thành ${newSku}. Tồn kho và lịch sử bán hàng vẫn được giữ nguyên.`);
+      setRenamingProductId(pendingSkuRename.product.id);
+      await renameProductSku(pendingSkuRename.product.id, pendingSkuRename.newSku);
+      toast.success(`Đã đổi SKU thành ${pendingSkuRename.newSku}. Tồn kho và lịch sử bán hàng vẫn được giữ nguyên.`);
+      setPendingSkuRename(null);
     } catch (error) {
       toast.error(`Không thể đổi SKU: ${error.message}`);
     } finally {
@@ -490,6 +504,25 @@ export default function Products() {
           <ProductImage imageId={imagePreview.imageId} alt={imagePreview.name} size={320} />
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(pendingImageRemoval)}
+        onClose={() => uploadingId === pendingImageRemoval?.id ? undefined : setPendingImageRemoval(null)}
+        onConfirm={confirmRemoveImage}
+        title="Xóa ảnh sản phẩm"
+        itemName={pendingImageRemoval?.sku || pendingImageRemoval?.id}
+        loading={uploadingId === pendingImageRemoval?.id}
+      />
+      <ConfirmDialog
+        open={Boolean(pendingSkuRename)}
+        onClose={() => renamingProductId === pendingSkuRename?.product.id ? undefined : setPendingSkuRename(null)}
+        onConfirm={confirmRenameSku}
+        title="Đổi SKU"
+        itemName={pendingSkuRename ? `${pendingSkuRename.product.sku || pendingSkuRename.product.id} thành ${pendingSkuRename.newSku}` : undefined}
+        action="Đổi SKU"
+        confirmLabel="Đổi SKU"
+        description={pendingSkuRename ? `Đổi SKU ${pendingSkuRename.product.sku || pendingSkuRename.product.id} thành ${pendingSkuRename.newSku}? SKU cũ vẫn được giữ trong lịch sử.` : undefined}
+        loading={renamingProductId === pendingSkuRename?.product.id}
+      />
     </div>
   );
 }

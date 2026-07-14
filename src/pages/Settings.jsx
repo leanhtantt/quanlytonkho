@@ -4,6 +4,7 @@ import { IconPlus as Plus, IconTrash as Trash2, IconDeviceFloppy as Save } from 
 import { deleteImage, getImage } from '../domain/imageDb';
 import { deleteProductImage, isRemoteImage, uploadProductImage } from '../domain/imageStorage';
 import { toast } from '../components/ui/toastHelper';
+import Button from '../components/ui/Button';
 
 export default function Settings() {
   const { accounts, setAccounts, shops, setShops, partners, setPartners, products, updateProduct, defaultPackagingCost, setDefaultPackagingCost, defaultReturnFee, setDefaultReturnFee } = useAppStore();
@@ -16,6 +17,7 @@ export default function Settings() {
   const [newAccount, setNewAccount] = useState('');
   const [newShop, setNewShop] = useState('');
   const [imageMigration, setImageMigration] = useState({ running: false, completed: 0, total: 0, failed: 0 });
+  const [isSaving, setIsSaving] = useState(false);
 
   const legacyImageProducts = products.filter(product => product.imageId && !isRemoteImage(product.imageId));
 
@@ -115,6 +117,7 @@ export default function Settings() {
       return;
     }
 
+    setIsSaving(true);
     try {
       await Promise.all([
         setAccounts(localAccounts),
@@ -126,6 +129,8 @@ export default function Settings() {
       toast.success('Đã lưu cấu hình thành công.');
     } catch (error) {
       toast.error(`Không thể lưu cấu hình: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -136,9 +141,9 @@ export default function Settings() {
           <h1 className="page-title">Cài Đặt Hệ Thống</h1>
           <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Quản lý shop, tài khoản và tỷ lệ chia lợi nhuận</p>
         </div>
-        <button className="btn btn-primary" onClick={handleSave}>
-          <Save size={18} /> Lưu Thay Đổi
-        </button>
+        <Button icon={Save} loading={isSaving} onClick={handleSave}>
+          {isSaving ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+        </Button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
@@ -183,9 +188,9 @@ export default function Settings() {
             Ảnh mới được lưu trên Firebase Storage. Công cụ này chuyển ảnh cũ ra khỏi database/trình duyệt mà không làm thay đổi sản phẩm hoặc tồn kho.
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-            <button className="btn btn-outline" onClick={handleMigrateImages} disabled={imageMigration.running || legacyImageProducts.length === 0}>
+            <Button variant="secondary" loading={imageMigration.running} onClick={handleMigrateImages} disabled={legacyImageProducts.length === 0}>
               {imageMigration.running ? 'Đang chuyển ảnh...' : `Chuyển ${legacyImageProducts.length} ảnh cũ lên Storage`}
-            </button>
+            </Button>
             <span style={{ color: legacyImageProducts.length === 0 ? 'var(--color-success)' : 'var(--color-text-muted)', fontWeight: 600 }}>
               {imageMigration.running
                 ? `${imageMigration.completed}/${imageMigration.total} hoàn tất${imageMigration.failed ? `, ${imageMigration.failed} lỗi` : ''}`

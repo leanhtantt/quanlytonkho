@@ -11,6 +11,7 @@ import {
   IconLogout as LogOut,
   IconUsers as UsersIcon,
   IconClipboardText as ClipboardText,
+  IconUser as UserIcon,
 } from '@tabler/icons-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
@@ -79,16 +80,59 @@ function Sidebar() {
         })}
       </nav>
       <div className="sidebar-footer">
-        <div style={{ marginBottom: '12px', padding: '0 16px' }}>
+        <div className="sidebar-health">
           <HealthStatus />
         </div>
-        <span className="sidebar-user-email" title={user?.email}>{user?.email}</span>
+        <div className="sidebar-user" title={user?.email}>
+          <span className="sidebar-user-avatar" aria-hidden="true">
+            <UserIcon size={18} />
+          </span>
+          <span className="sidebar-user-details">
+            <span className="sidebar-user-label">Tài khoản</span>
+            <span className="sidebar-user-email">{user?.email}</span>
+          </span>
+        </div>
         <button className="nav-item logout-btn" onClick={logout}>
           <LogOut size={20} />
           Đăng xuất
         </button>
       </div>
     </div>
+  );
+}
+
+function AppLoadingLayout() {
+  return (
+    <Router>
+      <AppToaster />
+      <div className="app-container app-loading" aria-busy="true" aria-label="Đang tải dữ liệu ứng dụng">
+        <Sidebar />
+        <main className="main-content">
+          <div className="page-wrapper app-loading-frame">
+            <header className="app-loading-header">
+              <div>
+                <Skeleton width="220px" height="30px" />
+                <Skeleton width="320px" height="16px" />
+              </div>
+              <Skeleton width="136px" height="40px" />
+            </header>
+            <section className="app-loading-stats" aria-hidden="true">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div className="app-loading-card" key={index}>
+                  <Skeleton width="45%" height="14px" />
+                  <Skeleton width="68%" height="28px" />
+                  <Skeleton width="36%" height="12px" />
+                </div>
+              ))}
+            </section>
+            <section className="app-loading-table" aria-hidden="true">
+              <Skeleton width="180px" height="22px" />
+              <Skeleton lines={7} />
+            </section>
+          </div>
+        </main>
+      </div>
+    </Router>
   );
 }
 
@@ -165,14 +209,7 @@ function App() {
   }
 
   if (loading) {
-    return (
-      <>
-        <AppToaster />
-        <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-          <p>Đang tải dữ liệu...</p>
-        </div>
-      </>
-    );
+    return <AppLoadingLayout />;
   }
 
   return (
@@ -180,7 +217,7 @@ function App() {
       <AppToaster />
       <div className="app-container">
         <Sidebar />
-        <div className="main-content">
+        <main className="main-content">
           <div className="page-wrapper">
             <Routes>
               <Route path="/" element={<RouteGuard allowed={can('dashboard', 'view')} fallbackPath={fallbackPath}><Dashboard /></RouteGuard>} />
@@ -196,7 +233,7 @@ function App() {
               <Route path="*" element={<Navigate to={fallbackPath} replace />} />
             </Routes>
           </div>
-        </div>
+        </main>
       </div>
     </Router>
   );

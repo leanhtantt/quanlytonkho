@@ -9,6 +9,9 @@ import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useAuth } from '../lib/AuthContext';
 import PageHeader from '../components/ui/PageHeader';
+import EmptyState from '../components/ui/EmptyState';
+import FormField from '../components/ui/FormField';
+import SearchInput from '../components/ui/SearchInput';
 
 export default function Losses() {
   const { inventory, losses, addLoss, updateLoss, deleteLoss } = useAppStore();
@@ -139,7 +142,10 @@ export default function Losses() {
       }
       }
 
-      toast.success(editingLossId || editingAdjustmentId ? 'Đã cập nhật phiếu điều chỉnh kho.' : 'Đã lưu phiếu điều chỉnh kho.');
+      const productNames = items.map(item => item.product.sku || item.product.id).join(', ');
+      toast.success(editingLossId || editingAdjustmentId
+        ? `Đã cập nhật phiếu điều chỉnh kho cho ${productNames}.`
+        : `Đã lưu phiếu điều chỉnh kho cho ${productNames}.`);
       resetForm();
     } catch (error) {
       console.error('Lưu phiếu điều chỉnh kho thất bại', error);
@@ -352,22 +358,19 @@ export default function Losses() {
         title="Điều Chỉnh Kho"
         description="Ghi nhận hao hụt hoặc hàng kiểm kê dư mà không làm sai lịch sử nhập hàng"
         actions={!showForm && (can('losses', 'create') || can('products', 'create')) ? (
-          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-            <Plus size={18} /> Ghi nhận điều chỉnh
-          </button>
+          <Button icon={Plus} onClick={() => setShowForm(true)}>Ghi nhận điều chỉnh</Button>
         ) : null}
       />
 
       {showForm && (
-        <div className="card animate-fade-in" style={{ marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-            <h3>{editingLossId || editingAdjustmentId ? 'Sửa Phiếu Điều Chỉnh' : 'Tạo Phiếu Điều Chỉnh Kho'}</h3>
-            <button className="btn btn-outline" onClick={resetForm}><X size={16} /> Hủy</button>
+        <div className="card animate-fade-in loss-form-card">
+          <div className="loss-form-header">
+            <h2 className="h2">{editingLossId || editingAdjustmentId ? 'Sửa Phiếu Điều Chỉnh' : 'Tạo Phiếu Điều Chỉnh Kho'}</h2>
+            <Button variant="secondary" icon={X} onClick={resetForm}>Hủy</Button>
           </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-            <div>
-              <label style={labelStyle}>Loại điều chỉnh</label>
+
+          <div className="loss-form-grid">
+            <FormField label="Loại điều chỉnh">
               <select
                 value={adjustmentType}
                 disabled={Boolean(editingLossId || editingAdjustmentId)}
@@ -377,42 +380,36 @@ export default function Losses() {
                   setUnitCost(0);
                   setReason(e.target.value === 'SURPLUS' ? 'Kiểm kê dư' : 'Hàng hỏng do vận chuyển');
                 }}
-                style={inputStyle}
               >
                 <option value="LOSS">Giảm kho – hao hụt</option>
                 <option value="SURPLUS">Tăng kho – kiểm kê dư</option>
               </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Ngày ghi nhận</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={labelStyle}>Lý do</label>
-              <input type="text" value={reason} onChange={e => setReason(e.target.value)} style={inputStyle} />
-            </div>
+            </FormField>
+            <FormField label="Ngày ghi nhận">
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+            </FormField>
+            <FormField label="Lý do" className="loss-reason-field">
+              <input type="text" value={reason} onChange={e => setReason(e.target.value)} />
+            </FormField>
           </div>
 
-          <div style={{ padding: '1.5rem', backgroundColor: 'var(--color-bg-base)', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 300px' }}>
-                <label style={labelStyle}>Tìm SKU hoặc tên sản phẩm</label>
+          <div className="loss-item-panel">
+            <div className="loss-item-controls">
+              <FormField label="Tìm SKU hoặc tên sản phẩm" className="loss-product-field">
                 <input 
                   type="text" 
                   list="loss-products" 
                   value={searchQuery} 
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Gõ SKU hoặc tên sản phẩm..."
-                  style={inputStyle} 
                 />
-                <datalist id="loss-products">
-                  {sortedInventory.map(p => (
-                    <option key={p.id} value={`${p.sku || ''} - ${p.name}`}>{`Tồn: ${p.stock}`}</option>
-                  ))}
-                </datalist>
-              </div>
-              <div style={{ width: '100px' }}>
-                <label style={labelStyle}>SL</label>
+              </FormField>
+              <datalist id="loss-products">
+                {sortedInventory.map(p => (
+                  <option key={p.id} value={`${p.sku || ''} - ${p.name}`}>{`Tồn: ${p.stock}`}</option>
+                ))}
+              </datalist>
+              <FormField label="SL" className="loss-quantity-field">
                 <input
                   type="number"
                   min="1"
@@ -425,12 +422,10 @@ export default function Losses() {
                         : item));
                     }
                   }}
-                  style={inputStyle}
                 />
-              </div>
+              </FormField>
               {adjustmentType === 'SURPLUS' && (
-                <div style={{ width: '170px' }}>
-                  <label style={labelStyle}>Giá vốn điều chỉnh</label>
+                <FormField label="Giá vốn điều chỉnh" className="loss-cost-field">
                   <input
                     type="number"
                     min="0"
@@ -444,27 +439,26 @@ export default function Losses() {
                           : item));
                       }
                     }}
-                    style={inputStyle}
                   />
-                </div>
+                </FormField>
               )}
-              {canModifyForm && <button className="btn btn-outline" onClick={handleAddItem} style={{ height: '42px' }}>
-                <Plus size={16} /> {editingLossId || editingAdjustmentId ? 'Thay sản phẩm/SL' : 'Thêm'}
-              </button>}
+              {canModifyForm && <Button variant="secondary" icon={Plus} onClick={handleAddItem}>
+                {editingLossId || editingAdjustmentId ? 'Thay sản phẩm/SL' : 'Thêm'}
+              </Button>}
             </div>
-            
+
             {items.length > 0 && (
-              <div style={{ marginTop: '1.5rem' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', backgroundColor: 'var(--color-bg-surface)' }}>
+              <div className="table-responsive loss-item-table-wrap">
+                <table className="loss-item-table">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <th style={{ width: '40px', padding: '0.5rem' }}></th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Mã SP</th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem' }}>Tên SP</th>
-                      <th style={{ textAlign: 'center', padding: '0.5rem' }}>Số lượng</th>
-                      {adjustmentType === 'SURPLUS' && <th style={{ textAlign: 'right', padding: '0.5rem' }}>Giá vốn</th>}
-                      <th style={{ textAlign: 'right', padding: '0.5rem' }}>{adjustmentType === 'SURPLUS' ? 'Giá trị tăng kho' : 'Ước tính Thiệt hại (FIFO)'}</th>
-                      <th style={{ padding: '0.5rem' }}></th>
+                    <tr>
+                      <th className="loss-item-image-column"></th>
+                      <th>Mã SP</th>
+                      <th>Tên SP</th>
+                      <th className="num">Số lượng</th>
+                      {adjustmentType === 'SURPLUS' && <th className="num">Giá vốn</th>}
+                      <th className="num">{adjustmentType === 'SURPLUS' ? 'Giá trị tăng kho' : 'Ước tính Thiệt hại (FIFO)'}</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -472,23 +466,21 @@ export default function Losses() {
                       const resolvedUnitCost = adjustmentType === 'SURPLUS' ? getValidUnitCost(item) : 0;
                       const estimatedLoss = adjustmentType === 'SURPLUS' ? item.qty * resolvedUnitCost : getFifoEstimate(item.product.id, item.qty);
                       return (
-                        <tr key={`${item.product.id}-${index}`} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                          <td style={{ padding: '0.5rem' }}>
+                        <tr key={`${item.product.id}-${index}`}>
+                          <td>
                             <ProductImage imageId={item.product.imageId} size={32} />
                           </td>
-                          <td style={{ padding: '0.5rem', fontWeight: 500 }}>{item.product.sku || item.product.id}</td>
-                          <td style={{ padding: '0.5rem' }}>{item.product.name}</td>
-                          <td style={{ padding: '0.5rem', textAlign: 'center' }}>{item.qty}</td>
+                          <td className="loss-code">{item.product.sku || item.product.id}</td>
+                          <td>{item.product.name}</td>
+                          <td className="num">{item.qty}</td>
                           {adjustmentType === 'SURPLUS' && (
-                            <td style={{ padding: '0.5rem', textAlign: 'right' }}>{resolvedUnitCost.toLocaleString()} đ</td>
+                            <td className="num">{resolvedUnitCost.toLocaleString()} đ</td>
                           )}
-                          <td style={{ padding: '0.5rem', textAlign: 'right', color: 'var(--color-danger)', fontWeight: 500 }}>
+                          <td className="num loss-value-danger">
                             {estimatedLoss.toLocaleString()} đ
                           </td>
-                          <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                            {canModifyForm && <button onClick={() => handleRemoveItem(index)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}>
-                              <X size={16} />
-                            </button>}
+                          <td className="loss-action-cell">
+                            {canModifyForm && <Button variant="danger-ghost" size="sm" icon={X} iconOnly aria-label={`Bỏ ${item.product.sku || item.product.id} khỏi phiếu`} onClick={() => handleRemoveItem(index)} />}
                           </td>
                         </tr>
                       )
@@ -499,7 +491,7 @@ export default function Losses() {
             )}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <div className="loss-form-actions">
             {canModifyForm && <Button icon={Save} loading={isSaving} onClick={handleSaveLoss} disabled={items.length === 0}>
               {isSaving ? 'Đang lưu...' : editingLossId || editingAdjustmentId ? 'Lưu thay đổi' : 'Lưu Phiếu'}
             </Button>}
@@ -507,67 +499,65 @@ export default function Losses() {
         </div>
       )}
 
-      <div className="card" style={{ padding: 0, marginBottom: '1.5rem' }}>
-        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--color-border)' }}>
-          <h3 style={{ margin: 0 }}>Thống kê điều chỉnh theo sản phẩm</h3>
-          <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+      <div className="card loss-data-card">
+        <div className="loss-card-header">
+          <h2 className="h2">Thống kê điều chỉnh theo sản phẩm</h2>
+          <p className="loss-card-description">
             Tổng hợp tất cả phiếu tăng/giảm kho đã lập.
           </p>
-          <div style={{ marginTop: '1rem' }}>
-            <label style={labelStyle}>Tìm theo SKU hoặc tên sản phẩm</label>
-            <input
-              type="search"
+          <div className="loss-stats-search">
+            <SearchInput
+              label="Tìm theo SKU hoặc tên sản phẩm"
               value={statsSearch}
               onChange={event => setStatsSearch(event.target.value)}
               placeholder="Nhập SKU hoặc tên sản phẩm..."
-              style={inputStyle}
             />
             {normalizedStatsSearch && (
-              <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              <div className="loss-search-meta">
                 Tìm thấy {filteredAdjustmentStats.length} sản phẩm, {filteredLosses.length} phiếu giảm và {filteredInventoryAdjustments.length} phiếu tăng
               </div>
             )}
           </div>
         </div>
-        <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+        <div className="table-container loss-table-container">
           <table>
             <thead>
               <tr>
                 <th>SKU</th>
                 <th>Tên sản phẩm</th>
-                <th style={{ color: 'var(--color-success)' }}>SL tăng</th>
-                <th style={{ color: 'var(--color-danger)' }}>SL giảm</th>
-                <th>Chênh lệch</th>
-                <th style={{ color: 'var(--color-success)' }}>Giá trị tăng</th>
-                <th style={{ color: 'var(--color-danger)' }}>Giá trị giảm</th>
+                <th className="num loss-heading-success">SL tăng</th>
+                <th className="num loss-heading-danger">SL giảm</th>
+                <th className="num">Chênh lệch</th>
+                <th className="num loss-heading-success">Giá trị tăng</th>
+                <th className="num loss-heading-danger">Giá trị giảm</th>
               </tr>
             </thead>
             <tbody>
               {adjustmentStats.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--color-text-muted)' }}>
-                    Chưa có dữ liệu điều chỉnh kho.
+                  <td colSpan={7} className="loss-empty-cell">
+                    <EmptyState title="Chưa có dữ liệu điều chỉnh kho" description="Các phiếu tăng hoặc giảm kho sẽ xuất hiện tại đây." />
                   </td>
                 </tr>
               )}
               {adjustmentStats.length > 0 && filteredAdjustmentStats.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--color-text-muted)' }}>
-                    Không tìm thấy sản phẩm phù hợp.
+                  <td colSpan={7} className="loss-empty-cell">
+                    <EmptyState title="Không tìm thấy sản phẩm phù hợp" description="Thử tìm bằng SKU hoặc tên sản phẩm khác." />
                   </td>
                 </tr>
               )}
               {filteredAdjustmentStats.map(stats => (
                 <tr key={stats.productId}>
-                  <td style={{ fontWeight: 600 }}>{stats.sku}</td>
+                  <td className="loss-code">{stats.sku}</td>
                   <td>{stats.name}</td>
-                  <td style={{ color: 'var(--color-success)', fontWeight: 600 }}>{stats.increaseQty > 0 ? `+${stats.increaseQty}` : '0'}</td>
-                  <td style={{ color: 'var(--color-danger)', fontWeight: 600 }}>{stats.decreaseQty > 0 ? `-${stats.decreaseQty}` : '0'}</td>
-                  <td style={{ fontWeight: 700, color: stats.netQty > 0 ? 'var(--color-success)' : stats.netQty < 0 ? 'var(--color-danger)' : 'var(--color-text-base)' }}>
+                  <td className="num loss-value-success">{stats.increaseQty > 0 ? `+${stats.increaseQty}` : '0'}</td>
+                  <td className="num loss-value-danger">{stats.decreaseQty > 0 ? `-${stats.decreaseQty}` : '0'}</td>
+                  <td className={`num loss-net-value ${stats.netQty > 0 ? 'is-positive' : stats.netQty < 0 ? 'is-negative' : ''}`.trim()}>
                     {stats.netQty > 0 ? '+' : ''}{stats.netQty}
                   </td>
-                  <td>{Math.round(stats.increaseValue).toLocaleString()} đ</td>
-                  <td>{Math.round(stats.decreaseValue).toLocaleString()} đ</td>
+                  <td className="num">{Math.round(stats.increaseValue).toLocaleString()} đ</td>
+                  <td className="num">{Math.round(stats.decreaseValue).toLocaleString()} đ</td>
                 </tr>
               ))}
             </tbody>
@@ -576,54 +566,50 @@ export default function Losses() {
       </div>
 
       {/* Danh sách hao hụt */}
-      <div className="card" style={{ padding: 0 }}>
-        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--color-border)' }}>
-          <h3 style={{ margin: 0 }}>Giảm kho – Hao hụt{normalizedStatsSearch ? ` (${filteredLosses.length})` : ''}</h3>
+      <div className="card loss-data-card">
+        <div className="loss-card-header">
+          <h2 className="h2">Giảm kho – Hao hụt{normalizedStatsSearch ? ` (${filteredLosses.length})` : ''}</h2>
         </div>
-        <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+        <div className="table-container loss-table-container">
           <table>
             <thead>
               <tr>
                 <th>Mã Phiếu</th>
                 <th>Ngày</th>
                 <th>Sản phẩm</th>
-                <th>Số lượng</th>
+                <th className="num">Số lượng</th>
                 <th>Lý do</th>
-                <th style={{ color: 'var(--color-danger)' }}>Giá trị thiệt hại</th>
+                <th className="num loss-heading-danger">Giá trị thiệt hại</th>
                 <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {losses.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
-                    Chưa có ghi nhận hao hụt nào.
+                  <td colSpan={7} className="loss-empty-cell">
+                    <EmptyState title="Chưa có ghi nhận hao hụt" description="Phiếu giảm kho đã lưu sẽ xuất hiện tại đây." />
                   </td>
                 </tr>
               )}
               {losses.length > 0 && filteredLosses.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
-                    Không tìm thấy phiếu giảm kho phù hợp.
+                  <td colSpan={7} className="loss-empty-cell">
+                    <EmptyState title="Không tìm thấy phiếu giảm kho" description="Thử thay đổi từ khóa tìm kiếm." />
                   </td>
                 </tr>
               )}
               {filteredLosses.map(l => (
                 <tr key={l.id}>
-                  <td style={{ fontWeight: 600 }}>{lossDisplayCodes.get(l.id)}</td>
+                  <td className="loss-code">{lossDisplayCodes.get(l.id)}</td>
                   <td>{formatDateOnly(l.date)}</td>
-                  <td><div style={{ fontWeight: 500 }}>{l.name}</div><div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{l.sku || l.productId}</div></td>
-                  <td>{l.qty}</td>
+                  <td><div className="loss-product-name">{l.name}</div><div className="loss-product-meta">{l.sku || l.productId}</div></td>
+                  <td className="num">{l.qty}</td>
                   <td>{l.reason}</td>
-                  <td style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{l.totalCostDeducted?.toLocaleString() || 0} đ</td>
+                  <td className="num loss-value-danger">{l.totalCostDeducted?.toLocaleString() || 0} đ</td>
                   <td>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      {can('losses', 'update') && <button className="btn btn-outline" onClick={() => handleEditLoss(l)} aria-label={`Sửa ${lossDisplayCodes.get(l.id)}`} title="Sửa phiếu">
-                        <Pencil size={15} />
-                      </button>}
-                      {can('losses', 'delete') && <button className="btn btn-outline" onClick={() => handleDeleteLoss(l)} disabled={deletingLossId === l.id} aria-label={`Xóa ${lossDisplayCodes.get(l.id)}`} title="Xóa phiếu" style={{ color: 'var(--color-danger)' }}>
-                        <Trash2 size={15} />
-                      </button>}
+                    <div className="loss-row-actions">
+                      {can('losses', 'update') && <Button variant="ghost" size="sm" icon={Pencil} iconOnly onClick={() => handleEditLoss(l)} aria-label={`Sửa ${lossDisplayCodes.get(l.id)}`} title="Sửa phiếu" />}
+                      {can('losses', 'delete') && <Button variant="danger-ghost" size="sm" icon={Trash2} iconOnly onClick={() => handleDeleteLoss(l)} loading={deletingLossId === l.id} aria-label={`Xóa ${lossDisplayCodes.get(l.id)}`} title="Xóa phiếu" />}
                     </div>
                   </td>
                 </tr>
@@ -633,56 +619,52 @@ export default function Losses() {
         </div>
       </div>
 
-      <div className="card" style={{ padding: 0, marginTop: '1.5rem' }}>
-        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--color-border)' }}>
-          <h3 style={{ margin: 0 }}>Tăng kho – Kiểm kê dư{normalizedStatsSearch ? ` (${filteredInventoryAdjustments.length})` : ''}</h3>
+      <div className="card loss-data-card">
+        <div className="loss-card-header">
+          <h2 className="h2">Tăng kho – Kiểm kê dư{normalizedStatsSearch ? ` (${filteredInventoryAdjustments.length})` : ''}</h2>
         </div>
-        <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
+        <div className="table-container loss-table-container">
           <table>
             <thead>
               <tr>
                 <th>Mã Phiếu</th>
                 <th>Ngày</th>
                 <th>Sản phẩm</th>
-                <th>Số lượng</th>
-                <th>Giá vốn</th>
+                <th className="num">Số lượng</th>
+                <th className="num">Giá vốn</th>
                 <th>Lý do</th>
-                <th style={{ color: 'var(--color-success)' }}>Giá trị tăng kho</th>
+                <th className="num loss-heading-success">Giá trị tăng kho</th>
                 <th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {inventoryAdjustments.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
-                    Chưa có ghi nhận kiểm kê dư nào.
+                  <td colSpan={8} className="loss-empty-cell">
+                    <EmptyState title="Chưa có ghi nhận kiểm kê dư" description="Phiếu tăng kho đã lưu sẽ xuất hiện tại đây." />
                   </td>
                 </tr>
               )}
               {inventoryAdjustments.length > 0 && filteredInventoryAdjustments.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
-                    Không tìm thấy phiếu tăng kho phù hợp.
+                  <td colSpan={8} className="loss-empty-cell">
+                    <EmptyState title="Không tìm thấy phiếu tăng kho" description="Thử thay đổi từ khóa tìm kiếm." />
                   </td>
                 </tr>
               )}
               {filteredInventoryAdjustments.map(adjustment => (
                 <tr key={adjustment.id}>
-                  <td style={{ fontWeight: 600 }}>{adjustmentDisplayCodes.get(adjustment.id)}</td>
+                  <td className="loss-code">{adjustmentDisplayCodes.get(adjustment.id)}</td>
                   <td>{formatDateOnly(adjustment.date)}</td>
-                  <td><div style={{ fontWeight: 500 }}>{adjustment.name}</div><div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{adjustment.sku || adjustment.productId}</div></td>
-                  <td>{adjustment.qty}</td>
-                  <td>{Number(adjustment.unitCost).toLocaleString()} đ</td>
+                  <td><div className="loss-product-name">{adjustment.name}</div><div className="loss-product-meta">{adjustment.sku || adjustment.productId}</div></td>
+                  <td className="num">{adjustment.qty}</td>
+                  <td className="num">{Number(adjustment.unitCost).toLocaleString()} đ</td>
                   <td>{adjustment.reason}</td>
-                  <td style={{ fontWeight: 600, color: 'var(--color-success)' }}>{Number(adjustment.totalValue).toLocaleString()} đ</td>
+                  <td className="num loss-value-success">{Number(adjustment.totalValue).toLocaleString()} đ</td>
                   <td>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      {can('products', 'update') && <button className="btn btn-outline" onClick={() => handleEditAdjustment(adjustment)} aria-label={`Sửa ${adjustmentDisplayCodes.get(adjustment.id)}`} title="Sửa phiếu">
-                        <Pencil size={15} />
-                      </button>}
-                      {can('products', 'delete') && <button className="btn btn-outline" onClick={() => handleDeleteAdjustment(adjustment)} disabled={deletingAdjustmentId === adjustment.id} aria-label={`Xóa ${adjustmentDisplayCodes.get(adjustment.id)}`} title="Xóa phiếu" style={{ color: 'var(--color-danger)' }}>
-                        <Trash2 size={15} />
-                      </button>}
+                    <div className="loss-row-actions">
+                      {can('products', 'update') && <Button variant="ghost" size="sm" icon={Pencil} iconOnly onClick={() => handleEditAdjustment(adjustment)} aria-label={`Sửa ${adjustmentDisplayCodes.get(adjustment.id)}`} title="Sửa phiếu" />}
+                      {can('products', 'delete') && <Button variant="danger-ghost" size="sm" icon={Trash2} iconOnly onClick={() => handleDeleteAdjustment(adjustment)} loading={deletingAdjustmentId === adjustment.id} aria-label={`Xóa ${adjustmentDisplayCodes.get(adjustment.id)}`} title="Xóa phiếu" />}
                     </div>
                   </td>
                 </tr>
@@ -718,21 +700,3 @@ function formatDateOnly(value) {
   const [year, month, day] = String(value).slice(0, 10).split('-');
   return year && month && day ? `${day}/${month}/${year}` : value;
 }
-
-const inputStyle = {
-  width: '100%',
-  padding: '0.75rem 1rem',
-  borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--color-border)',
-  backgroundColor: 'var(--color-bg-base)',
-  color: 'var(--color-text-base)',
-  outline: 'none',
-  boxSizing: 'border-box'
-};
-
-const labelStyle = {
-  display: 'block', 
-  fontSize: '0.875rem', 
-  marginBottom: '0.5rem',
-  fontWeight: 500
-};

@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { IconSearch as Search, IconX as X, IconBox as PackageOpen, IconChevronDown as ChevronDown, IconChevronUp as ChevronUp, IconArrowDown as ArrowDown, IconArrowUp as ArrowUp, IconGripVertical as GripVertical, IconPencil as Pencil } from '@tabler/icons-react';
+import { IconX as X, IconBox as PackageOpen, IconChevronDown as ChevronDown, IconChevronUp as ChevronUp, IconArrowDown as ArrowDown, IconArrowUp as ArrowUp, IconGripVertical as GripVertical, IconPencil as Pencil } from '@tabler/icons-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
 import { buildInventoryAdjustmentDisplayCodes } from '../domain/inventoryAdjustmentCodes';
 import { normalizeProductSku, productMatchesSearch } from '../domain/productSku';
@@ -11,6 +11,12 @@ import { toast } from '../components/ui/toastHelper';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useAuth } from '../lib/AuthContext';
 import PageHeader from '../components/ui/PageHeader';
+import Badge from '../components/ui/Badge';
+import Button from '../components/ui/Button';
+import EmptyState from '../components/ui/EmptyState';
+import FormField from '../components/ui/FormField';
+import Modal from '../components/ui/Modal';
+import SearchInput from '../components/ui/SearchInput';
 
 export default function Products() {
   const { inventory, inventoryAdjustments, updateProduct, renameProductSku, reorderProducts } = useAppStore();
@@ -23,11 +29,14 @@ export default function Products() {
   const [imagePreview, setImagePreview] = useState(null);
   const [sortMode, setSortMode] = useState('custom');
   const [reorderBusy, setReorderBusy] = useState(false);
+  const [reorderingProductId, setReorderingProductId] = useState(null);
   const [draggedProductId, setDraggedProductId] = useState(null);
   const [dragOverProductId, setDragOverProductId] = useState(null);
   const [renamingProductId, setRenamingProductId] = useState(null);
   const [pendingImageRemoval, setPendingImageRemoval] = useState(null);
   const [pendingSkuRename, setPendingSkuRename] = useState(null);
+  const [skuRenameError, setSkuRenameError] = useState('');
+  const skuRenameInputRef = useRef(null);
   const adjustmentDisplayCodes = useMemo(
     () => buildInventoryAdjustmentDisplayCodes(inventoryAdjustments),
     [inventoryAdjustments]
@@ -44,10 +53,11 @@ export default function Products() {
   const handleImageUpload = async (productId, e) => {
     const file = e.target.files[0];
     if (!file) return;
+    const product = inventory.find(item => item.id === productId);
     try {
       setUploadingId(productId);
       const dataUrl = await processAndCompressImage(file);
-      const oldImageId = inventory.find(product => product.id === productId)?.imageId;
+      const oldImageId = product?.imageId;
       const imageUrl = await uploadProductImage(productId, dataUrl);
       try {
         await updateProduct(productId, { imageId: imageUrl });
@@ -56,7 +66,7 @@ export default function Products() {
         throw error;
       }
       await deleteProductImage(oldImageId).catch(error => console.warn('Không thể xóa ảnh cũ:', error));
-      toast.success('Đã cập nhật ảnh sản phẩm.');
+      toast.success(`Đã cập nhật ảnh sản phẩm ${product?.sku || productId}.`);
     } catch (err) {
       console.error(err);
       toast.error(`Lỗi khi tải ảnh: ${err.message}`);
@@ -80,7 +90,7 @@ export default function Products() {
       setImagePreview(null);
       await updateProduct(pendingImageRemoval.id, { imageId: null });
       await deleteProductImage(pendingImageRemoval.imageId);
-      toast.success('Đã xóa ảnh sản phẩm.');
+      toast.success(`Đã xóa ảnh sản phẩm ${pendingImageRemoval.sku || pendingImageRemoval.id}.`);
       setPendingImageRemoval(null);
     } catch (err) {
       console.error(err);
@@ -90,16 +100,9 @@ export default function Products() {
     }
   };
 
-  const showImagePreview = (product, event) => {
+  const showImagePreview = (product) => {
     if (!product.imageId) return;
-    const previewSize = 336;
-    const gap = 10;
-    const preferredLeft = event.clientX + gap;
-    const left = preferredLeft + previewSize <= window.innerWidth - gap
-      ? preferredLeft
-      : Math.max(gap, event.clientX - previewSize - gap);
-    const top = Math.max(gap, Math.min(event.clientY - 24, window.innerHeight - previewSize - gap));
-    setImagePreview({ imageId: product.imageId, name: product.name, left, top });
+    setImagePreview({ imageId: product.imageId, name: product.name });
   };
 
   const compareBySku = (a, b) => {
@@ -126,11 +129,15 @@ export default function Products() {
     [nextOrder[currentIndex], nextOrder[targetIndex]] = [nextOrder[targetIndex], nextOrder[currentIndex]];
     try {
       setReorderBusy(true);
+      setReorderingProductId(productId);
       await reorderProducts(nextOrder.map(product => product.id));
+      const movedProduct = orderedInventory[currentIndex];
+      toast.success(`Đã đổi thứ tự sản phẩm ${movedProduct.sku || movedProduct.id}.`);
     } catch (error) {
       toast.error(`Không thể đổi thứ tự sản phẩm: ${error.message}`);
     } finally {
       setReorderBusy(false);
+      setReorderingProductId(null);
     }
   };
 
@@ -161,34 +168,40 @@ export default function Products() {
 
     try {
       setReorderBusy(true);
+      setReorderingProductId(sourceProductId);
       await reorderProducts(nextOrder.map(product => product.id));
+      toast.success(`Đã đổi thứ tự sản phẩm ${movedProduct.sku || movedProduct.id}.`);
     } catch (error) {
       toast.error(`Không thể đổi thứ tự sản phẩm: ${error.message}`);
     } finally {
       setReorderBusy(false);
+      setReorderingProductId(null);
     }
   };
 
   const handleRenameSku = (product, event) => {
     event.stopPropagation();
-    const enteredSku = window.prompt(
-      `Đổi SKU cho "${product.name}". SKU hiện tại: ${product.sku || product.id}`,
-      product.sku || ''
-    );
-    if (enteredSku === null) return;
-
-    const newSku = normalizeProductSku(enteredSku);
-    if (!newSku || newSku === normalizeProductSku(product.sku)) return;
-    setPendingSkuRename({ product, newSku });
+    setSkuRenameError('');
+    setPendingSkuRename({ product, newSku: product.sku || '' });
   };
 
   const confirmRenameSku = async () => {
     if (!pendingSkuRename) return;
 
+    const normalizedSku = normalizeProductSku(pendingSkuRename.newSku);
+    if (!normalizedSku) {
+      setSkuRenameError('SKU mới không được để trống.');
+      return;
+    }
+    if (normalizedSku === normalizeProductSku(pendingSkuRename.product.sku)) {
+      setSkuRenameError('SKU mới phải khác SKU hiện tại.');
+      return;
+    }
+
     try {
       setRenamingProductId(pendingSkuRename.product.id);
-      await renameProductSku(pendingSkuRename.product.id, pendingSkuRename.newSku);
-      toast.success(`Đã đổi SKU thành ${pendingSkuRename.newSku}. Tồn kho và lịch sử bán hàng vẫn được giữ nguyên.`);
+      await renameProductSku(pendingSkuRename.product.id, normalizedSku);
+      toast.success(`Đã đổi SKU ${pendingSkuRename.product.sku || pendingSkuRename.product.id} thành ${normalizedSku}. Tồn kho và lịch sử bán hàng vẫn được giữ nguyên.`);
       setPendingSkuRename(null);
     } catch (error) {
       toast.error(`Không thể đổi SKU: ${error.message}`);
@@ -215,104 +228,73 @@ export default function Products() {
         description="Theo dõi tồn kho và giá vốn chi tiết theo từng lô nhập"
       />
 
-      <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-        <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-subtle)' }}>
-          <div style={{ display: 'flex', gap: '1rem', width: '100%', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 320px', maxWidth: '560px' }}>
-              <label htmlFor="inventory-sku-search" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-base)' }}>
-                Tìm sản phẩm theo mã SKU
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Search aria-hidden="true" size={19} style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-primary)', pointerEvents: 'none' }} />
-              <input 
-                id="inventory-sku-search"
-                type="text" 
-                placeholder="Nhập mã SKU, ví dụ: LX01..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                autoComplete="off"
-                style={{
-                  width: '100%',
-                  padding: '0.8rem 2.75rem 0.8rem 2.6rem',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                  backgroundColor: 'var(--color-bg-surface)',
-                  color: 'var(--color-text-base)',
-                }}
-              />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch('')}
-                    aria-label="Xóa nội dung tìm kiếm"
-                    title="Xóa tìm kiếm"
-                    style={{
-                      position: 'absolute', right: '0.55rem', top: '50%', transform: 'translateY(-50%)',
-                      width: '2rem', height: '2rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      border: 'none', borderRadius: 'var(--radius-sm)', backgroundColor: 'transparent',
-                      color: 'var(--color-text-muted)', cursor: 'pointer'
-                    }}
-                  >
-                    <X size={18} aria-hidden="true" />
-                  </button>
-                )}
+      <div className="card inventory-card">
+        <div className="inventory-toolbar">
+          <div className="inventory-toolbar-grid">
+            <FormField label="Tìm sản phẩm theo mã SKU" className="inventory-search-field">
+              <div className="inventory-search-control">
+                <SearchInput
+                  id="inventory-sku-search"
+                  label="Tìm sản phẩm theo mã SKU"
+                  placeholder="Nhập mã SKU, ví dụ: LX01..."
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  autoComplete="off"
+                />
+                {search ? <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={X}
+                  iconOnly
+                  aria-label="Xóa nội dung tìm kiếm"
+                  onClick={() => setSearch('')}
+                /> : null}
               </div>
-              <div aria-live="polite" style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+              <span className="inventory-search-meta" aria-live="polite">
                 {normalizedSearch ? `Tìm thấy ${filteredProducts.length} sản phẩm phù hợp` : `${filteredProducts.length} sản phẩm trong kho`}
-              </div>
-            </div>
-            <div style={{ flex: '0 1 210px' }}>
-              <label htmlFor="inventory-stock-filter" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-base)' }}>
-                Trạng thái tồn kho
-              </label>
-              <select
-                id="inventory-stock-filter"
-                value={filterStock}
-                onChange={(e) => setFilterStock(e.target.value)}
-                style={{ width: '100%', padding: '0.8rem 1rem', backgroundColor: 'var(--color-bg-surface)' }}
-              >
+              </span>
+            </FormField>
+            <FormField label="Trạng thái tồn kho" className="inventory-filter-field">
+              <select id="inventory-stock-filter" value={filterStock} onChange={(event) => setFilterStock(event.target.value)}>
                 <option value="all">Tất cả sản phẩm</option>
                 <option value="low">Sắp hết hàng</option>
                 <option value="out">Đã hết hàng</option>
               </select>
-            </div>
-            <div style={{ flex: '0 1 210px' }}>
-              <label htmlFor="inventory-sort-mode" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-base)' }}>
-                Sắp xếp sản phẩm
-              </label>
-              <select id="inventory-sort-mode" value={sortMode} onChange={(e) => setSortMode(e.target.value)} style={{ width: '100%', padding: '0.8rem 1rem', backgroundColor: 'var(--color-bg-surface)' }}>
+            </FormField>
+            <FormField label="Sắp xếp sản phẩm" className="inventory-filter-field">
+              <select id="inventory-sort-mode" value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
                 <option value="custom">Thứ tự tùy chỉnh</option>
                 <option value="sku">Theo mã SKU</option>
               </select>
-            </div>
+            </FormField>
           </div>
         </div>
 
-        <div className="table-container" style={{ border: 'none', borderRadius: '0' }}>
+        <div className="table-container inventory-table-container">
           <table>
             <thead>
               <tr>
-                <th style={{ width: '40px' }}></th>
-                <th style={{ width: '60px' }}>Hình</th>
+                <th className="inventory-toggle-column"></th>
+                <th className="inventory-image-column">Hình</th>
                 <th>Mã SP</th>
                 <th>Sản phẩm</th>
-                <th>Đã nhập</th>
-                <th>Đã bán</th>
-                <th>Hao hụt</th>
-                <th>Tổng Tồn (Thực)</th>
+                <th className="num">Đã nhập</th>
+                <th className="num">Đã bán</th>
+                <th className="num">Hao hụt</th>
+                <th className="num">Tổng Tồn (Thực)</th>
                 <th>Trạng thái</th>
-                <th style={{ width: '88px', textAlign: 'center' }}>Thứ tự</th>
+                <th className="inventory-order-column">Thứ tự</th>
               </tr>
             </thead>
             <tbody>
               {filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={10} style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
-                    <PackageOpen size={36} aria-hidden="true" style={{ color: 'var(--color-text-muted)', marginBottom: '0.75rem' }} />
-                    <div style={{ fontWeight: 600, color: 'var(--color-text-base)' }}>Không tìm thấy sản phẩm phù hợp</div>
-                    <div style={{ marginTop: '0.35rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                      Kiểm tra lại mã SKU hoặc chọn trạng thái tồn kho khác.
-                    </div>
+                  <td colSpan={10} className="inventory-empty-cell">
+                    <EmptyState
+                      icon={PackageOpen}
+                      title="Không tìm thấy sản phẩm phù hợp"
+                      description="Kiểm tra lại mã SKU hoặc chọn trạng thái tồn kho khác."
+                    />
                   </td>
                 </tr>
               )}
@@ -323,8 +305,7 @@ export default function Products() {
                 return (
                   <React.Fragment key={product.id}>
                     <tr
-                      className={dragOverProductId === product.id ? 'inventory-row-drag-over' : ''}
-                      style={{ cursor: 'pointer', backgroundColor: isExpanded ? 'var(--color-bg-hover)' : '' }}
+                      className={`inventory-row ${isExpanded ? 'is-expanded' : ''} ${dragOverProductId === product.id ? 'inventory-row-drag-over' : ''}`.trim()}
                       onClick={() => setExpandedId(isExpanded ? null : product.id)}
                       onDragOver={(event) => {
                         if (!canUpdateProducts) return;
@@ -345,13 +326,12 @@ export default function Products() {
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <div
-                          style={{ position: 'relative', display: 'inline-block' }}
-                          onMouseEnter={(e) => showImagePreview(product, e)}
-                          onMouseMove={(e) => showImagePreview(product, e)}
+                          className="inventory-image-control"
+                          onMouseEnter={() => showImagePreview(product)}
+                          onMouseMove={() => showImagePreview(product)}
                           onMouseLeave={() => setImagePreview(null)}
-                          onFocus={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            showImagePreview(product, { clientX: rect.right, clientY: rect.top + 20 });
+                          onFocus={() => {
+                            showImagePreview(product);
                           }}
                           onBlur={(e) => {
                             if (!e.currentTarget.contains(e.relatedTarget)) setImagePreview(null);
@@ -359,71 +339,65 @@ export default function Products() {
                         >
                           {can('products', 'create') ? <label
                             tabIndex={0}
-                            style={{ cursor: uploadingId === product.id ? 'wait' : 'pointer', display: 'block', margin: 0 }}
+                            className={`inventory-upload-label ${uploadingId === product.id ? 'is-uploading' : ''}`.trim()}
                             title="Bấm để tải ảnh mới"
                             aria-label={`Tải ảnh cho sản phẩm ${product.sku || product.id}`}
                           >
-                            <ProductImage imageId={product.imageId} alt={product.name} size={40} style={{ opacity: uploadingId === product.id ? 0.5 : 1 }} />
-                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImageUpload(product.id, e)} disabled={uploadingId === product.id} />
+                            <ProductImage imageId={product.imageId} alt={product.name} size={40} />
+                            <input className="ui-visually-hidden" type="file" accept="image/*" onChange={(e) => handleImageUpload(product.id, e)} disabled={uploadingId === product.id} />
                           </label> : <ProductImage imageId={product.imageId} alt={product.name} size={40} />}
                           {product.imageId && can('products', 'delete') && (
-                            <button
-                              type="button"
+                            <Button
+                              variant="danger-ghost"
+                              size="sm"
+                              icon={X}
+                              iconOnly
+                              className="inventory-image-remove"
                               onClick={(e) => handleRemoveImage(product, e)}
                               aria-label={`Xóa hình của ${product.sku || product.id}`}
-                              title="Xóa hình"
-                              disabled={uploadingId === product.id}
-                              style={{
-                                position: 'absolute', right: '-4px', top: '-4px', width: '16px', height: '16px',
-                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-                                border: '1px solid var(--color-border)', borderRadius: '50%', boxShadow: 'var(--shadow-sm)',
-                                backgroundColor: 'var(--color-bg-surface)', color: 'var(--color-danger)', cursor: 'pointer'
-                              }}
-                            >
-                              <X size={10} strokeWidth={2.5} aria-hidden="true" />
-                            </button>
+                              loading={uploadingId === product.id}
+                            />
                           )}
                         </div>
                       </td>
-                      <td onClick={(event) => event.stopPropagation()} style={{ color: 'var(--color-text-muted)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <span style={{ fontWeight: 600 }}>{product.sku || product.id}</span>
-                          {canUpdateProducts && <button
-                            type="button"
-                            className="btn"
+                      <td className="inventory-sku-cell" onClick={(event) => event.stopPropagation()}>
+                        <div className="inventory-sku-heading">
+                          <span>{product.sku || product.id}</span>
+                          {canUpdateProducts && <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={Pencil}
+                            iconOnly
                             onClick={(event) => handleRenameSku(product, event)}
-                            disabled={renamingProductId === product.id}
                             aria-label={`Đổi SKU ${product.sku || product.id}`}
                             title="Đổi SKU và giữ lịch sử"
-                            style={{ padding: '0.2rem', color: 'var(--color-primary)' }}
-                          >
-                            <Pencil size={14} aria-hidden="true" />
-                          </button>}
+                            loading={renamingProductId === product.id}
+                          />}
                         </div>
                         {(product.aliases || []).length > 0 && (
-                          <div style={{ marginTop: '0.2rem', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                          <div className="inventory-sku-aliases">
                             Mã cũ: {product.aliases.join(', ')}
                           </div>
                         )}
                       </td>
-                      <td style={{ fontWeight: 500 }}>{product.name}</td>
-                      <td style={{ color: 'var(--color-success)' }}>{product.totalImported}</td>
-                      <td style={{ color: 'var(--color-primary)' }}>{product.totalSold}</td>
-                      <td style={{ color: 'var(--color-danger)' }}>{product.totalLost}</td>
-                      <td style={{ fontWeight: 700, fontSize: '1.1rem' }}>{product.stock}</td>
+                      <td className="inventory-product-name">{product.name}</td>
+                      <td className="num inventory-value-success">{product.totalImported}</td>
+                      <td className="num inventory-value-primary">{product.totalSold}</td>
+                      <td className="num inventory-value-danger">{product.totalLost}</td>
+                      <td className="num inventory-stock-value">{product.stock}</td>
                       <td>
                         {(() => {
                           const threshold = product.id.includes('LX') ? 50 : 10;
                           if (product.stock > threshold) {
-                            return <span className="badge badge-success">Sẵn hàng</span>;
+                            return <Badge variant="success">Sẵn hàng</Badge>;
                           } else if (product.stock > 0) {
-                            return <span className="badge badge-warning">Sắp hết</span>;
+                            return <Badge variant="warning">Sắp hết</Badge>;
                           } else {
-                            return <span className="badge badge-danger">Hết hàng</span>;
+                            return <Badge variant="danger">Hết hàng</Badge>;
                           }
                         })()}
                       </td>
-                      <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <td className="inventory-order-actions" onClick={(e) => e.stopPropagation()}>
                         {sortMode === 'custom' && canUpdateProducts && (
                           <>
                             <span
@@ -436,8 +410,8 @@ export default function Products() {
                             >
                               <GripVertical size={17} />
                             </span>
-                            <button type="button" className="btn" aria-label={`Đưa ${product.sku || product.id} lên`} disabled={reorderBusy || orderedInventory[0]?.id === product.id} onClick={(e) => handleMoveProduct(product.id, -1, e)} style={{ padding: '0.25rem', color: 'var(--color-primary)' }}><ArrowUp size={16} /></button>
-                            <button type="button" className="btn" aria-label={`Đưa ${product.sku || product.id} xuống`} disabled={reorderBusy || orderedInventory[orderedInventory.length - 1]?.id === product.id} onClick={(e) => handleMoveProduct(product.id, 1, e)} style={{ padding: '0.25rem', color: 'var(--color-primary)', marginLeft: '0.2rem' }}><ArrowDown size={16} /></button>
+                            <Button variant="ghost" size="sm" icon={ArrowUp} iconOnly aria-label={`Đưa ${product.sku || product.id} lên`} disabled={reorderBusy || orderedInventory[0]?.id === product.id} loading={reorderBusy && reorderingProductId === product.id} onClick={(e) => handleMoveProduct(product.id, -1, e)} />
+                            <Button variant="ghost" size="sm" icon={ArrowDown} iconOnly aria-label={`Đưa ${product.sku || product.id} xuống`} disabled={reorderBusy || orderedInventory[orderedInventory.length - 1]?.id === product.id} loading={reorderBusy && reorderingProductId === product.id} onClick={(e) => handleMoveProduct(product.id, 1, e)} />
                           </>
                         )}
                       </td>
@@ -446,29 +420,23 @@ export default function Products() {
                     {/* Expanded details showing batches */}
                     {isExpanded && remainingBatches.length > 0 && (
                       <tr>
-                        <td colSpan={10} style={{ padding: 0, backgroundColor: 'var(--color-bg-base)' }}>
-                          <div style={{ padding: '1rem 3rem', borderLeft: '4px solid var(--color-primary)' }}>
-                            <h5 style={{ marginBottom: '0.5rem', color: 'var(--color-text-muted)', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                        <td colSpan={10} className="inventory-batches-cell">
+                          <div className="inventory-batches-panel">
+                            <h4 className="h4 inventory-batches-title">
                               Chi tiết các lô hàng đang còn trong kho (Nhập trước -&gt; Xuất trước)
-                            </h5>
-                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                            </h4>
+                            <div className="inventory-batch-grid">
                               {remainingBatches.map((batch, idx) => (
-                                <div key={idx} style={{ 
-                                  backgroundColor: 'var(--color-bg-surface)', 
-                                  border: '1px solid var(--color-border)', 
-                                  padding: '0.75rem 1rem', 
-                                  borderRadius: 'var(--radius-md)',
-                                  minWidth: '200px'
-                                }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                    <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>Lô: {getBatchDisplayCode(batch)}</span>
-                                    <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>Tồn: {batch.qtyRemaining}</span>
+                                <div key={idx} className="inventory-batch-card">
+                                  <div className="inventory-batch-header">
+                                    <span>Lô: {getBatchDisplayCode(batch)}</span>
+                                    <Badge variant="success" className="inventory-batch-badge">Tồn: {batch.qtyRemaining}</Badge>
                                   </div>
-                                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Ngày nhập: {batch.date}</div>
-                                  <div style={{ fontSize: '0.875rem', color: 'var(--color-primary)', fontWeight: 600, marginTop: '0.5rem' }}>
+                                  <div className="inventory-batch-meta">Ngày nhập: {batch.date}</div>
+                                  <div className="inventory-batch-cost num">
                                     Giá vốn: {batch.costVnd.toLocaleString()} đ
                                   </div>
-                                  <div style={{ fontSize: '0.875rem', color: 'var(--color-warning)', fontWeight: 600, marginTop: '0.25rem' }}>
+                                  <div className="inventory-batch-price num">
                                     Giá bán tham khảo: {calculateSuggestedPrice(batch.costVnd).toLocaleString()} đ
                                   </div>
                                 </div>
@@ -481,16 +449,6 @@ export default function Products() {
                   </React.Fragment>
                 );
               })}
-              
-              
-              {filteredProducts.length === 0 && (
-                <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-muted)' }}>
-                    <PackageOpen size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-                    <p>Không tìm thấy sản phẩm nào.</p>
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -500,11 +458,7 @@ export default function Products() {
         <div
           role="img"
           aria-label={`Ảnh phóng to: ${imagePreview.name}`}
-          style={{
-            position: 'fixed', left: imagePreview.left, top: imagePreview.top, zIndex: 1000,
-            padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)',
-            backgroundColor: 'var(--color-bg-surface)', boxShadow: 'var(--shadow-md)', pointerEvents: 'none'
-          }}
+          className="inventory-image-preview"
         >
           <ProductImage imageId={imagePreview.imageId} alt={imagePreview.name} size={320} />
         </div>
@@ -517,17 +471,41 @@ export default function Products() {
         itemName={pendingImageRemoval?.sku || pendingImageRemoval?.id}
         loading={uploadingId === pendingImageRemoval?.id}
       />
-      <ConfirmDialog
+      <Modal
         open={Boolean(pendingSkuRename)}
         onClose={() => renamingProductId === pendingSkuRename?.product.id ? undefined : setPendingSkuRename(null)}
-        onConfirm={confirmRenameSku}
         title="Đổi SKU"
-        itemName={pendingSkuRename ? `${pendingSkuRename.product.sku || pendingSkuRename.product.id} thành ${pendingSkuRename.newSku}` : undefined}
-        action="Đổi SKU"
-        confirmLabel="Đổi SKU"
-        description={pendingSkuRename ? `Đổi SKU ${pendingSkuRename.product.sku || pendingSkuRename.product.id} thành ${pendingSkuRename.newSku}? SKU cũ vẫn được giữ trong lịch sử.` : undefined}
-        loading={renamingProductId === pendingSkuRename?.product.id}
-      />
+        initialFocusRef={skuRenameInputRef}
+        closeOnOverlayClick={!renamingProductId}
+        closeOnEscape={!renamingProductId}
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setPendingSkuRename(null)} disabled={Boolean(renamingProductId)}>Hủy</Button>
+            <Button onClick={confirmRenameSku} loading={renamingProductId === pendingSkuRename?.product.id}>Đổi SKU</Button>
+          </>
+        )}
+      >
+        <FormField
+          label={`SKU mới cho ${pendingSkuRename?.product.name || 'sản phẩm'}`}
+          helpText="SKU cũ vẫn được giữ trong lịch sử bán hàng và tồn kho."
+          error={skuRenameError}
+        >
+          <input
+            ref={skuRenameInputRef}
+            value={pendingSkuRename?.newSku || ''}
+            onChange={(event) => {
+              setSkuRenameError('');
+              setPendingSkuRename(current => current ? { ...current, newSku: event.target.value } : current);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                confirmRenameSku();
+              }
+            }}
+          />
+        </FormField>
+      </Modal>
     </div>
   );
 }

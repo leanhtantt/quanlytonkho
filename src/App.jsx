@@ -10,6 +10,7 @@ import {
   IconSettings as SettingsIcon,
   IconLogout as LogOut,
   IconUsers as UsersIcon,
+  IconClipboardText as ClipboardText,
 } from '@tabler/icons-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
@@ -20,6 +21,7 @@ import Profit from './pages/Profit';
 import Treasury from './pages/Treasury';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
+import Activity from './pages/Activity';
 import Login from './pages/Login';
 import { useAuth } from './lib/AuthContext';
 import { useAppStore } from './store/appStoreContext';
@@ -38,6 +40,7 @@ const menuItems = [
   { path: '/treasury', name: 'Sổ Quỹ', icon: Wallet, resource: 'treasury' },
   { path: '/settings', name: 'Cài Đặt', icon: SettingsIcon, resource: 'settings' },
   { path: '/users', name: 'Người dùng', icon: UsersIcon, adminOnly: true },
+  { path: '/activity', name: 'Lịch sử hoạt động', icon: ClipboardText, resource: 'activity' },
 ];
 
 function getVisibleMenuItems(can, isAdmin) {
@@ -189,6 +192,7 @@ function App() {
               <Route path="/treasury" element={<RouteGuard allowed={can('treasury', 'view')} fallbackPath={fallbackPath}><Treasury /></RouteGuard>} />
               <Route path="/settings" element={<RouteGuard allowed={can('settings', 'view')} fallbackPath={fallbackPath}><Settings /></RouteGuard>} />
               <Route path="/users" element={<RouteGuard allowed={isAdmin} fallbackPath={fallbackPath}><Users /></RouteGuard>} />
+              <Route path="/activity" element={<RouteGuard allowed={can('activity', 'view')} fallbackPath={fallbackPath}><Activity /></RouteGuard>} />
               <Route path="*" element={<Navigate to={fallbackPath} replace />} />
             </Routes>
           </div>

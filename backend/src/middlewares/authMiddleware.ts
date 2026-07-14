@@ -2,6 +2,7 @@ import { NextFunction, Request, RequestHandler, Response } from 'express';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
 import { prisma } from '../prismaClient';
+import { runWithActivityContext } from '../audit/activityContext';
 
 if (!getApps().length) {
   initializeApp({
@@ -33,6 +34,13 @@ interface UserCacheEntry {
 
 const USER_CACHE_TTL_MS = 60_000;
 const userCache = new Map<string, UserCacheEntry>();
+
+function getClientIp(req: Request) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) return forwarded.split(',')[0].trim();
+  if (Array.isArray(forwarded) && forwarded[0]) return forwarded[0];
+  return req.ip || req.socket?.remoteAddress || null;
+}
 
 function normalizePermissions(value: unknown): PermissionMap {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -98,30 +106,36 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
     return res.status(403).json({ error: 'Forbidden: Invalid token' });
   }
 
-  req.user = decodedToken;
-  req.isAdmin = decodedToken.admin === true;
+  return runWithActivityContext({
+    uid: decodedToken.uid,
+    email: decodedToken.email ?? '',
+    ipAddress: getClientIp(req),
+  }, async () => {
+    req.user = decodedToken;
+    req.isAdmin = decodedToken.admin === true;
 
-  if (req.isAdmin) return next();
+    if (req.isAdmin) return next();
 
-  try {
-    const userRecord = await getCachedUser(decodedToken.uid);
-    if (!userRecord) {
-      return res.status(403).json({
-        error: 'Forbidden: Tài khoản chưa được quản trị viên cấp quyền.',
-      });
+    try {
+      const userRecord = await getCachedUser(decodedToken.uid);
+      if (!userRecord) {
+        return res.status(403).json({
+          error: 'Forbidden: Tài khoản chưa được quản trị viên cấp quyền.',
+        });
+      }
+      if (!userRecord.isActive) {
+        return res.status(403).json({
+          error: 'Forbidden: Tài khoản đã bị vô hiệu hóa.',
+        });
+      }
+
+      req.userRecord = userRecord;
+      return next();
+    } catch (error) {
+      console.error('Error loading authorization record:', error);
+      return res.status(500).json({ error: 'Internal server error: Không thể kiểm tra quyền tài khoản.' });
     }
-    if (!userRecord.isActive) {
-      return res.status(403).json({
-        error: 'Forbidden: Tài khoản đã bị vô hiệu hóa.',
-      });
-    }
-
-    req.userRecord = userRecord;
-    return next();
-  } catch (error) {
-    console.error('Error loading authorization record:', error);
-    return res.status(500).json({ error: 'Internal server error: Không thể kiểm tra quyền tài khoản.' });
-  }
+  });
 };
 
 export function requirePermission(resource: string, action: PermissionAction): RequestHandler {

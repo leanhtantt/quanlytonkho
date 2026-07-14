@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   prismaCreate: vi.fn(),
   prismaFindUnique: vi.fn(),
   prismaUpdate: vi.fn(),
+  writeActivityLog: vi.fn(),
 }));
 
 vi.mock('firebase-admin/auth', () => ({
@@ -36,6 +37,10 @@ vi.mock('../prismaClient', () => ({
       update: mocks.prismaUpdate,
     },
   },
+}));
+
+vi.mock('../audit/activityLogService', () => ({
+  writeActivityLog: mocks.writeActivityLog,
 }));
 
 import { createUser, resetUserPassword, updateUser } from './users';
@@ -94,6 +99,7 @@ describe('users API handlers', () => {
     mocks.prismaFindUnique.mockResolvedValue(activeDbUser);
     mocks.prismaCreate.mockResolvedValue(activeDbUser);
     mocks.prismaUpdate.mockResolvedValue(activeDbUser);
+    mocks.writeActivityLog.mockResolvedValue(undefined);
   });
 
   it('từ chối tạo user có role admin trước khi gọi Firebase', async () => {
@@ -123,6 +129,24 @@ describe('users API handlers', () => {
         password: 'secret123',
         role: 'staff',
         permissions: { unknown: ['view'], orders: ['approve'] },
+      }) as never,
+      response as never,
+      vi.fn()
+    );
+
+    expect(response.status).toHaveBeenCalledWith(400);
+    expect(mocks.firebaseCreateUser).not.toHaveBeenCalled();
+  });
+
+  it('không cho cấp quyền activity hoặc users qua API quản lý user', async () => {
+    const response = createResponse();
+
+    await createUser(
+      createRequest({
+        email: 'staff@example.com',
+        password: 'secret123',
+        role: 'staff',
+        permissions: { activity: ['view'], users: ['view'] },
       }) as never,
       response as never,
       vi.fn()
@@ -162,6 +186,11 @@ describe('users API handlers', () => {
       }),
     }));
     expect(mocks.clearCache).toHaveBeenCalledWith('staff-uid');
+    expect(mocks.writeActivityLog).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'create',
+      resource: 'users',
+      targetId: 'staff-uid',
+    }));
     expect(response.status).toHaveBeenCalledWith(201);
   });
 
@@ -216,6 +245,11 @@ describe('users API handlers', () => {
       data: { isActive: false },
     }));
     expect(mocks.clearCache).toHaveBeenCalledWith('staff-uid');
+    expect(mocks.writeActivityLog).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'disable',
+      resource: 'users',
+      targetId: 'staff-uid',
+    }));
     expect(response.json).toHaveBeenCalledWith(disabledUser);
   });
 
@@ -251,6 +285,12 @@ describe('users API handlers', () => {
       password: 'new-secret-123',
     });
     expect(mocks.clearCache).toHaveBeenCalledWith('staff-uid');
+    expect(mocks.writeActivityLog).toHaveBeenCalledWith({
+      action: 'reset-password',
+      resource: 'users',
+      targetId: 'staff-uid',
+      targetLabel: 'staff@example.com',
+    });
     expect(response.json).toHaveBeenCalledWith({ success: true });
   });
 

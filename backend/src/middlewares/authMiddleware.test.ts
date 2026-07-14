@@ -167,6 +167,25 @@ describe('requirePermission', () => {
     expect(deniedResponse.status).toHaveBeenCalledWith(403);
     expect(deniedNext).not.toHaveBeenCalled();
   });
+
+  it('trả 403 cho user không có quyền xem activity', () => {
+    const response = createResponse();
+    const next = vi.fn();
+    const req = {
+      userRecord: {
+        id: 'staff-uid',
+        email: 'staff@example.com',
+        role: 'staff',
+        permissions: { orders: ['view'] },
+        isActive: true,
+      },
+    } as unknown as AuthRequest;
+
+    requirePermission('activity', 'view')(req, response as never, next);
+
+    expect(response.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
 });
 
 describe('requireAdmin', () => {

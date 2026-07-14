@@ -32,6 +32,14 @@ export const api = {
   createUser: (data) => authFetch('/api/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (uid, data) => authFetch(`/api/users/${uid}`, { method: 'PUT', body: JSON.stringify(data) }),
   resetUserPassword: (uid, password) => authFetch(`/api/users/${uid}/reset-password`, { method: 'POST', body: JSON.stringify({ password }) }),
+  getActivity: (params = {}) => {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
+    });
+    const suffix = query.size ? `?${query.toString()}` : '';
+    return authFetch(`/api/activity${suffix}`);
+  },
 
   getProducts: () => authFetch('/api/products'),
   createProduct: (data) => authFetch('/api/products', { method: 'POST', body: JSON.stringify(data) }),

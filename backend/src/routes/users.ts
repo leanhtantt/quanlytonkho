@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { AuthRequest, clearUserAuthorizationCache } from '../middlewares/authMiddleware';
 import { prisma } from '../prismaClient';
+import { writeActivityLog } from '../audit/activityLogService';
 
 const roles = ['manager', 'staff', 'viewer'] as const;
 const resources = [
@@ -15,8 +16,6 @@ const resources = [
   'profit',
   'treasury',
   'settings',
-  'users',
-  'activity',
 ] as const;
 const actions = ['view', 'create', 'update', 'delete'] as const;
 
@@ -129,6 +128,14 @@ function isAdminUser(user: UserRecord) {
   return user.customClaims?.admin === true;
 }
 
+async function recordUserActivity(log: Parameters<typeof writeActivityLog>[0]) {
+  try {
+    await writeActivityLog(log);
+  } catch (error) {
+    console.error('Không thể ghi ActivityLog quản lý user:', error);
+  }
+}
+
 export const listUsers: RequestHandler = async (_req, res) => {
   const users = await prisma.user.findMany({
     select: publicUserSelect,
@@ -176,6 +183,19 @@ export const createUser: RequestHandler = async (req, res) => {
       select: editableUserSelect,
     });
     clearUserAuthorizationCache(firebaseUser.uid);
+    await recordUserActivity({
+      action: 'create',
+      resource: 'users',
+      targetId: user.id,
+      targetLabel: user.email,
+      after: {
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        permissions: user.permissions as Record<string, unknown>,
+        isActive: user.isActive,
+      },
+    });
     return res.status(201).json(user);
   } catch (error) {
     let rollbackSucceeded = true;
@@ -266,6 +286,27 @@ export const updateUser: RequestHandler = async (req, res) => {
     });
     clearUserAuthorizationCache(uid);
 
+    await recordUserActivity({
+      action: activeChanged && data.isActive === false ? 'disable' : 'update',
+      resource: 'users',
+      targetId: user.id,
+      targetLabel: user.email,
+      before: {
+        email: existing.email,
+        displayName: existing.displayName,
+        role: existing.role,
+        permissions: existing.permissions as Record<string, unknown>,
+        isActive: existing.isActive,
+      },
+      after: {
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        permissions: user.permissions as Record<string, unknown>,
+        isActive: user.isActive,
+      },
+    });
+
     if (revokeError) {
       console.error('Không thể revoke refresh token sau khi disable user:', revokeError);
       return res.status(502).json({
@@ -310,6 +351,12 @@ export const resetUserPassword: RequestHandler = async (req, res) => {
   try {
     await getAuth().updateUser(uid, { password: parsed.data.password });
     clearUserAuthorizationCache(uid);
+    await recordUserActivity({
+      action: 'reset-password',
+      resource: 'users',
+      targetId: uid,
+      targetLabel: firebaseUser.email ?? firebaseUser.displayName ?? uid,
+    });
     return res.json({ success: true });
   } catch (error) {
     return sendFirebaseError(res, error, 'đặt lại mật khẩu');

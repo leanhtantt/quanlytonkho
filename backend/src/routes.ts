@@ -10,6 +10,9 @@ import { getApps, initializeApp } from 'firebase-admin/app';
 import { getStorage } from 'firebase-admin/storage';
 import { AuthRequest, PermissionAction, requireAdmin, requirePermission } from './middlewares/authMiddleware';
 import { usersRouter } from './routes/users';
+import { activityRouter } from './routes/activity';
+import { flushActivityLogsBeforeResponse } from './middlewares/activityLogMiddleware';
+import { writeLoginActivityOnce } from './audit/loginActivity';
 
 if (!getApps().length) {
   initializeApp({ projectId: 'tanle-dev', storageBucket: 'tanle-dev.firebasestorage.app' });
@@ -17,10 +20,18 @@ if (!getApps().length) {
 
 export const apiRouter = Router();
 
-apiRouter.get('/me', (req, res) => {
+apiRouter.use(flushActivityLogsBeforeResponse);
+
+apiRouter.get('/me', async (req, res) => {
   const authReq = req as AuthRequest;
   const isAdmin = authReq.isAdmin === true;
   const userRecord = authReq.userRecord;
+
+  try {
+    await writeLoginActivityOnce(authReq);
+  } catch (error) {
+    console.error('Không thể ghi ActivityLog đăng nhập:', error);
+  }
 
   res.json({
     uid: authReq.user?.uid,
@@ -34,6 +45,8 @@ apiRouter.get('/me', (req, res) => {
 
 apiRouter.use('/users', requireAdmin);
 apiRouter.use('/users', usersRouter);
+apiRouter.use('/activity', requirePermission('activity', 'view'));
+apiRouter.use('/activity', activityRouter);
 
 const actionsByMethod: Record<string, PermissionAction> = {
   GET: 'view',

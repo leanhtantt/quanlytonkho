@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { buildDerivedStore, DEFAULT_PRODUCTS, repairProductNames } from '../domain/inventory';
 import { StoreContext } from './appStoreContext';
 import { api } from '../lib/api';
@@ -37,45 +37,67 @@ export function StoreProvider({ children }) {
   const [defaultPackagingCost, setDefaultPackagingCost] = useState(1000);
   const [defaultReturnFee, setDefaultReturnFee] = useState(20000);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const lastRefreshRef = useRef(0);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [prodRes, purRes, ordRes, lossRes, adjustmentRes, txRes, adRes, setRes] = await Promise.all([
-          api.getProducts().catch(() => []),
-          api.getPurchases().catch(() => []),
-          api.getOrders().catch(() => []),
-          api.getLosses().catch(() => []),
-          api.getInventoryAdjustments().catch(() => []),
-          api.getTransactions().catch(() => []),
-          api.getAds().catch(() => []),
-          api.getSettings().catch(() => ({}))
-        ]);
-        
-        setProducts(repairProductNames(prodRes.length ? prodRes : DEFAULT_PRODUCTS));
-        setPurchases(purRes);
-        // Note: backend uses 'channel', 'externalCode', 'expectedRevenue' etc. 
-        // We will pass the raw fetched orders, but we must map them if they differ from localStorage structure.
-        // Actually, let's assume they are compatible or just passed through.
-        setOrders(ordRes);
-        setLosses(lossRes.map(loss => normalizeLossRecord(loss)).filter(Boolean));
-        setInventoryAdjustments(adjustmentRes);
-        setTransactions(txRes);
-        setAds(adRes);
-        
-        if (Array.isArray(setRes.accounts) && setRes.accounts.length > 0) setAccounts(setRes.accounts);
-        if (Array.isArray(setRes.shops) && setRes.shops.length > 0) setShops(setRes.shops);
-        if (Array.isArray(setRes.partners) && setRes.partners.length > 0) setPartners(setRes.partners);
-        if (setRes.packagingCost !== undefined) setDefaultPackagingCost(setRes.packagingCost);
-        if (setRes.returnFee !== undefined) setDefaultReturnFee(setRes.returnFee);
-      } catch (err) {
-        console.error("Failed to load initial data", err);
-      } finally {
-        setLoading(false);
-      }
+  const refresh = useCallback(async () => {
+    // ponytail: chống gọi dồn — bỏ qua nếu vừa refetch < 10s hoặc đang tải
+    const now = Date.now();
+    if (refreshing || (now - lastRefreshRef.current < 10_000)) return;
+    setRefreshing(true);
+    lastRefreshRef.current = now;
+    try {
+      const [prodRes, purRes, ordRes, lossRes, adjustmentRes, txRes, adRes, setRes] = await Promise.all([
+        api.getProducts().catch(() => []),
+        api.getPurchases().catch(() => []),
+        api.getOrders().catch(() => []),
+        api.getLosses().catch(() => []),
+        api.getInventoryAdjustments().catch(() => []),
+        api.getTransactions().catch(() => []),
+        api.getAds().catch(() => []),
+        api.getSettings().catch(() => ({}))
+      ]);
+      
+      setProducts(repairProductNames(prodRes.length ? prodRes : DEFAULT_PRODUCTS));
+      setPurchases(purRes);
+      setOrders(ordRes);
+      setLosses(lossRes.map(loss => normalizeLossRecord(loss)).filter(Boolean));
+      setInventoryAdjustments(adjustmentRes);
+      setTransactions(txRes);
+      setAds(adRes);
+      
+      if (Array.isArray(setRes.accounts) && setRes.accounts.length > 0) setAccounts(setRes.accounts);
+      if (Array.isArray(setRes.shops) && setRes.shops.length > 0) setShops(setRes.shops);
+      if (Array.isArray(setRes.partners) && setRes.partners.length > 0) setPartners(setRes.partners);
+      if (setRes.packagingCost !== undefined) setDefaultPackagingCost(setRes.packagingCost);
+      if (setRes.returnFee !== undefined) setDefaultReturnFee(setRes.returnFee);
+    } catch (err) {
+      console.error("Failed to refresh data", err);
+      throw err;
+    } finally {
+      setRefreshing(false);
     }
-    loadData();
+  }, [refreshing]);
+
+  // Tải dữ liệu ban đầu
+  useEffect(() => {
+    async function loadInitial() {
+      try { await refresh(); } catch { /* logged in refresh */ }
+      setLoading(false);
+    }
+    lastRefreshRef.current = 0; // cho phép tải ngay lần đầu
+    loadInitial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-refetch khi tab/cửa sổ lấy lại focus
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [refresh]);
 
   const updateSettings = async (newSettings) => {
     try {
@@ -292,7 +314,9 @@ export function StoreProvider({ children }) {
     setDefaultPackagingCost: (cost) => updateSettings({ packagingCost: Number(cost) }),
     defaultReturnFee,
     setDefaultReturnFee: (fee) => updateSettings({ returnFee: Number(fee) }),
-    loading
+    loading,
+    refresh,
+    refreshing
   };
 
   return (

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { IconPackageImport, IconPlus as Plus, IconDeviceFloppy as Save, IconTrash as Trash2, IconEdit as Edit, IconX as X } from '@tabler/icons-react';
+import { IconPackageImport, IconPlus as Plus, IconDeviceFloppy as Save, IconTrash as Trash2, IconEdit as Edit, IconX as X, IconRefresh } from '@tabler/icons-react';
 import { findProductByCode, productMatchesSearch } from '../domain/productSku';
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
@@ -12,7 +12,7 @@ import FormField from '../components/ui/FormField';
 import SearchInput from '../components/ui/SearchInput';
 
 export default function Purchases() {
-  const { purchases, addPurchase, updatePurchase, deletePurchase, products } = useAppStore();
+  const { purchases, addPurchase, updatePurchase, deletePurchase, products, refresh, refreshing } = useAppStore();
   const { can } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [expandedPurchaseId, setExpandedPurchaseId] = useState(null);
@@ -213,8 +213,11 @@ export default function Purchases() {
       <PageHeader
         title="Nhập Hàng"
         description="Quản lý lô hàng nhập, tự động chia cước và giảm giá"
-        actions={!showForm && can('purchases', 'create') ? (
-          <Button icon={Plus} onClick={() => setShowForm(true)}>Nhập Lô Mới</Button>
+        actions={!showForm ? (
+          <div className="header-actions">
+            <Button variant="secondary" icon={IconRefresh} loading={refreshing} onClick={() => refresh().catch(() => toast.error('Không thể làm mới dữ liệu'))}>Làm mới</Button>
+            {can('purchases', 'create') && <Button icon={Plus} onClick={() => setShowForm(true)}>Nhập Lô Mới</Button>}
+          </div>
         ) : null}
       />
 

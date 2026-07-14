@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { IconPencil as Pencil, IconPlus as Plus, IconDeviceFloppy as Save, IconTrash as Trash2, IconX as X } from '@tabler/icons-react';
+import { IconPencil as Pencil, IconPlus as Plus, IconDeviceFloppy as Save, IconTrash as Trash2, IconX as X, IconRefresh } from '@tabler/icons-react';
 import ProductImage from '../components/ProductImage';
 import { buildInventoryAdjustmentDisplayCodes } from '../domain/inventoryAdjustmentCodes';
 import { findProductByCode, productMatchesSearch } from '../domain/productSku';
@@ -14,7 +14,7 @@ import FormField from '../components/ui/FormField';
 import SearchInput from '../components/ui/SearchInput';
 
 export default function Losses() {
-  const { inventory, losses, addLoss, updateLoss, deleteLoss } = useAppStore();
+  const { inventory, losses, addLoss, updateLoss, deleteLoss, refresh, refreshing } = useAppStore();
   const { can } = useAuth();
   const {
     inventoryAdjustments,
@@ -357,8 +357,11 @@ export default function Losses() {
       <PageHeader
         title="Điều Chỉnh Kho"
         description="Ghi nhận hao hụt hoặc hàng kiểm kê dư mà không làm sai lịch sử nhập hàng"
-        actions={!showForm && (can('losses', 'create') || can('products', 'create')) ? (
-          <Button icon={Plus} onClick={() => setShowForm(true)}>Ghi nhận điều chỉnh</Button>
+        actions={!showForm ? (
+          <div className="header-actions">
+            <Button variant="secondary" icon={IconRefresh} loading={refreshing} onClick={() => refresh().catch(() => toast.error('Không thể làm mới dữ liệu'))}>Làm mới</Button>
+            {(can('losses', 'create') || can('products', 'create')) && <Button icon={Plus} onClick={() => setShowForm(true)}>Ghi nhận điều chỉnh</Button>}
+          </div>
         ) : null}
       />
 

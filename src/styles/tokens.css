@@ -9,7 +9,7 @@
 
   --color-text-base: #191d27;
   --color-text-muted: #5a6172;
-  --color-text-soft: #8b91a3;
+  --color-text-soft: #6b7280;
   --color-text-inverse: #ffffff;
 
   --color-primary: #0f766e;
@@ -24,7 +24,7 @@
 
   --color-success: #047857;
   --color-success-light: #dff7ec;
-  --color-warning: #a16207;
+  --color-warning: #946014;
   --color-warning-light: #fff2cc;
   --color-danger: #b42318;
   --color-danger-light: #fde7e5;
@@ -57,7 +57,7 @@
 
   --chart-1: #0f766e;
   --chart-2: #0e7490;
-  --chart-3: #a16207;
+  --chart-3: #946014;
   --chart-4: #b42318;
   --chart-5: #0ea5e9;
   --chart-6: #64748b;

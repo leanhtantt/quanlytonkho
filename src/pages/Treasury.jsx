@@ -431,7 +431,13 @@ export default function Treasury() {
               </tr>
             </thead>
             <tbody>
-              {marketplaceWallets.map(wallet => (
+              {marketplaceWallets.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="treasury-empty-cell">
+                    <EmptyState icon={Wallet} title="Chưa có dữ liệu ví sàn" description="Cấu hình shop hoặc ghi nhận đơn đã thanh toán để theo dõi số dư ví." />
+                  </td>
+                </tr>
+              ) : marketplaceWallets.map(wallet => (
                 <tr key={wallet.shop}>
                   <td className="treasury-name-cell">{wallet.shop}</td>
                   <td className="num treasury-value--income">{formatCurrency(wallet.settledRevenue)}</td>
@@ -627,9 +633,15 @@ export default function Treasury() {
                   <th>Đã rút</th>
                   <th>Tồn đọng (Nợ)</th>
                 </tr>
-              </thead>
-              <tbody>
-                {capitalReport.map(r => (
+            </thead>
+            <tbody>
+                {capitalReport.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="treasury-empty-cell">
+                      <EmptyState icon={Wallet} title="Chưa có dữ liệu vốn góp" description="Thêm thành viên trong Cài Đặt để xem báo cáo vốn và cổ tức." />
+                    </td>
+                  </tr>
+                ) : capitalReport.map(r => (
                   <tr key={r.person}>
                     <td className="treasury-name-cell">{r.person}</td>
                     <td className="num treasury-value--income">+{formatCurrency(r.contributed)}</td>
@@ -669,8 +681,11 @@ export default function Treasury() {
             </div>
           </div>
           
-          <div className="treasury-history-grid">
-            {visibleAccountHistories.map(({ account: accountName, transactions: accountTransactions }, accountIndex) => (
+          {visibleAccountHistories.length === 0 ? (
+            <EmptyState icon={Wallet} title="Chưa có tài khoản để hiển thị lịch sử" description="Thêm tài khoản hoặc quỹ trong Cài Đặt để bắt đầu ghi nhận dòng tiền." />
+          ) : (
+            <div className="treasury-history-grid">
+              {visibleAccountHistories.map(({ account: accountName, transactions: accountTransactions }, accountIndex) => (
               <section key={accountName} className={`treasury-account-history treasury-tone-${accountIndex % 6}`}>
                 <div className="treasury-account-history__header">
                   <div className="treasury-account-history__name">
@@ -747,8 +762,9 @@ export default function Treasury() {
                   </table>
                 </div>
               </section>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <ConfirmDialog

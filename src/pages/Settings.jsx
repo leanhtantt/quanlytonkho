@@ -5,6 +5,7 @@ import {
   IconDeviceFloppy as Save,
   IconPlus as Plus,
   IconTrash as Trash2,
+  IconUsers,
   IconWallet,
 } from '@tabler/icons-react';
 import { deleteImage, getImage } from '../domain/imageDb';
@@ -290,6 +291,9 @@ export default function Settings() {
                 {can('settings', 'update') && <Button className="settings-partner-row__remove" variant="danger-ghost" size="sm" icon={Trash2} iconOnly aria-label={`Xóa thành viên ${p.name || idx + 1}`} onClick={() => setPendingRemoval({ type: 'partner', index: idx, label: `thành viên ${p.name || idx + 1}` })} />}
               </div>
             ))}
+            {localPartners.length === 0 && (
+              <EmptyState icon={IconUsers} title="Chưa có thành viên góp vốn" description="Thêm thành viên để cấu hình tỷ lệ chia lợi nhuận." />
+            )}
           </div>
           
           {can('settings', 'update') && <Button className="settings-add-partner" variant="secondary" icon={Plus} onClick={handleAddPartner}>Thêm Cổ Đông</Button>}

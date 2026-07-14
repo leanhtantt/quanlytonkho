@@ -1121,13 +1121,13 @@ tbody tr:hover td {
 
 .activity-filter-form {
   display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(130px, 1fr)) auto;
+  grid-template-columns: minmax(180px, 1.2fr) repeat(2, minmax(140px, 1fr)) repeat(2, minmax(168px, 1fr)) auto;
   gap: 0.75rem;
   align-items: end;
 }
 
-.activity-filter-form .ui-search-input {
-  min-height: 42px;
+.activity-filter-form input[type="date"] {
+  min-width: 0;
 }
 
 .activity-filter-actions,

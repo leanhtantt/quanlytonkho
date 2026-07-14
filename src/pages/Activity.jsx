@@ -7,7 +7,6 @@ import EmptyState from '../components/ui/EmptyState';
 import FormField from '../components/ui/FormField';
 import Modal from '../components/ui/Modal';
 import PageHeader from '../components/ui/PageHeader';
-import SearchInput from '../components/ui/SearchInput';
 import Skeleton from '../components/ui/Skeleton';
 import { toast } from '../components/ui/toastHelper';
 
@@ -121,12 +120,14 @@ export default function Activity() {
 
       <section className="card activity-filter-card">
         <form className="activity-filter-form" onSubmit={applyFilters}>
-          <SearchInput
-            label="UID người thực hiện"
-            placeholder="UID người thực hiện"
-            value={draftFilters.actorUid}
-            onChange={(event) => updateDraftFilter('actorUid', event.target.value)}
-          />
+          <FormField label="UID người thực hiện">
+            <input
+              type="search"
+              placeholder="Nhập UID..."
+              value={draftFilters.actorUid}
+              onChange={(event) => updateDraftFilter('actorUid', event.target.value)}
+            />
+          </FormField>
           <FilterSelect label="Đối tượng" value={draftFilters.resource} onChange={(value) => updateDraftFilter('resource', value)} options={resourceOptions} />
           <FilterSelect label="Hành động" value={draftFilters.action} onChange={(value) => updateDraftFilter('action', value)} options={actionOptions} />
           <FormField label="Từ ngày"><input type="date" value={draftFilters.from} onChange={(event) => updateDraftFilter('from', event.target.value)} /></FormField>

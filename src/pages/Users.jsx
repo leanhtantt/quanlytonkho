@@ -104,7 +104,7 @@ function PermissionMatrix({ permissions, onChange }) {
         <thead>
           <tr>
             <th>Tab</th>
-            {permissionActions.map((action) => <th key={action.key} style={{ textAlign: 'center' }}>{action.label}</th>)}
+            {permissionActions.map((action) => <th key={action.key} className="users-permission-table__action">{action.label}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -116,7 +116,7 @@ function PermissionMatrix({ permissions, onChange }) {
                 const inputId = `permission-${resource.key}-${action.key}`;
 
                 return (
-                  <td key={action.key} style={{ textAlign: 'center' }}>
+                  <td key={action.key} className="users-permission-table__action">
                     <input
                       id={inputId}
                       type="checkbox"
@@ -261,7 +261,7 @@ export default function Users() {
         title="Người dùng"
         description="Tạo tài khoản, cấp quyền và quản lý trạng thái truy cập."
         actions={(
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="users-header-actions">
             <Button variant="secondary" icon={IconRefresh} onClick={loadUsers} loading={loadingUsers}>
               Làm mới
             </Button>
@@ -300,13 +300,13 @@ export default function Users() {
               <tbody>
                 {users.map((user) => (
                   <tr key={user.id}>
-                    <td style={{ fontWeight: 600 }}>{user.email}</td>
+                    <td className="users-table__email">{user.email}</td>
                     <td>{user.displayName || '—'}</td>
                     <td>{roleLabels[user.role] || user.role}</td>
                     <td><Badge variant={user.isActive ? 'success' : 'danger'}>{user.isActive ? 'Đang hoạt động' : 'Đã vô hiệu hóa'}</Badge></td>
                     <td>{formatCreatedAt(user.createdAt)}</td>
                     <td>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                      <div className="users-row-actions">
                         <Button
                           size="sm"
                           variant={user.isActive ? 'danger' : 'secondary'}
@@ -342,7 +342,7 @@ export default function Users() {
         )}
       >
         <form id="create-user-form" onSubmit={handleCreateUser}>
-          <div style={{ display: 'grid', gap: '1rem' }}>
+          <div className="users-modal-form">
             <FormField label="Email">
               <input
                 ref={createEmailRef}
@@ -380,9 +380,9 @@ export default function Users() {
             </FormField>
           </div>
 
-          <section style={{ marginTop: '1.5rem' }} aria-labelledby="permission-matrix-title">
+          <section className="users-permission-section" aria-labelledby="permission-matrix-title">
             <h3 id="permission-matrix-title" className="h3">Ma trận quyền</h3>
-            <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+            <p className="users-permission-help">
               Đổi vai trò sẽ áp dụng quyền mẫu; bạn có thể điều chỉnh từng quyền trước khi tạo.
             </p>
             <PermissionMatrix
@@ -407,7 +407,7 @@ export default function Users() {
         )}
       >
         <form id="reset-user-password-form" onSubmit={requestPasswordReset}>
-          <p style={{ marginTop: 0 }}>Đặt mật khẩu mới cho <strong>{passwordTarget?.email}</strong>.</p>
+          <p className="users-reset-copy">Đặt mật khẩu mới cho <strong>{passwordTarget?.email}</strong>.</p>
           <FormField label="Mật khẩu mới">
             <input
               type="password"

@@ -124,8 +124,19 @@
   height: 340px;
 }
 
+.dashboard-chart-empty,
+.profit-chart-empty {
+  min-height: 18rem;
+}
+
 .dashboard-chart .recharts-cartesian-axis-tick-value {
   fill: var(--color-text-muted);
+}
+
+.dashboard-chart .recharts-legend-item-text,
+.profit-chart .recharts-legend-item-text {
+  color: var(--color-text-muted) !important;
+  font-weight: 600;
 }
 
 .dashboard-chart-tooltip .recharts-default-tooltip {
@@ -1181,6 +1192,44 @@ tbody tr:hover td {
   background: var(--color-bg-subtle);
   color: var(--color-text-base);
   font-size: 0.8125rem;
+}
+
+/* Users */
+.users-header-actions,
+.users-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.users-row-actions {
+  justify-content: flex-end;
+}
+
+.users-permission-table__action {
+  text-align: center;
+}
+
+.users-table__email {
+  font-weight: 600;
+}
+
+.users-modal-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.users-permission-section {
+  margin-top: var(--space-6);
+}
+
+.users-permission-help {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+.users-reset-copy {
+  margin-top: 0;
 }
 
 .surface-subtle {

@@ -10,6 +10,7 @@ import { deleteProductImage, uploadProductImage } from '../domain/imageStorage';
 import { toast } from '../components/ui/toastHelper';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useAuth } from '../lib/AuthContext';
+import PageHeader from '../components/ui/PageHeader';
 
 export default function Products() {
   const { inventory, inventoryAdjustments, updateProduct, renameProductSku, reorderProducts } = useAppStore();
@@ -209,12 +210,10 @@ export default function Products() {
 
   return (
     <div className="animate-fade-in">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Quản lý Tồn Kho (FIFO)</h1>
-          <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Theo dõi tồn kho và giá vốn chi tiết theo từng lô nhập</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Quản lý Tồn Kho (FIFO)"
+        description="Theo dõi tồn kho và giá vốn chi tiết theo từng lô nhập"
+      />
 
       <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-subtle)' }}>

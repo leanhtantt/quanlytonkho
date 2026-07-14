@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useAppStore } from '../store/appStoreContext';
 import { calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { calculateDailyDashboard, getLocalDateKey } from '../domain/dashboardAnalytics';
+import PageHeader from '../components/ui/PageHeader';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
@@ -67,12 +68,11 @@ export default function Dashboard() {
 
   return (
     <div className="animate-fade-in">
-      <div className="page-header dashboard-header">
-        <div>
-          <h1 className="page-title">Tổng quan Kinh doanh</h1>
-          <p className="dashboard-subtitle">Theo dõi hiệu quả bán hàng và tồn kho</p>
-        </div>
-        <div className="dashboard-date-control">
+      <PageHeader
+        title="Tổng quan Kinh doanh"
+        description="Theo dõi hiệu quả bán hàng và tồn kho"
+        className="dashboard-header"
+        actions={<div className="dashboard-date-control">
           <label htmlFor="dashboard-date">
             <CalendarDays size={17} aria-hidden="true" />
             Ngày cần xem
@@ -83,8 +83,8 @@ export default function Dashboard() {
             value={selectedDate}
             onChange={event => setSelectedDate(event.target.value)}
           />
-        </div>
-      </div>
+        </div>}
+      />
 
       <section className="dashboard-section" aria-labelledby="daily-shop-title">
         <div className="dashboard-section-heading">

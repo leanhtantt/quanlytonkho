@@ -6,6 +6,7 @@ import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useAuth } from '../lib/AuthContext';
+import PageHeader from '../components/ui/PageHeader';
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
@@ -379,15 +380,13 @@ export default function Treasury() {
 
   return (
     <div className="animate-fade-in treasury-page">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 className="page-title">Sổ Quỹ & Dòng Tiền</h1>
-          <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Quản lý tiền mặt tại tài khoản ngân hàng và Vốn góp</p>
-        </div>
-        {can('treasury', 'create') && <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+      <PageHeader
+        title="Sổ Quỹ & Dòng Tiền"
+        description="Quản lý tiền mặt tại tài khoản ngân hàng và Vốn góp"
+        actions={can('treasury', 'create') ? <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
           <Plus size={18} /> Thêm Giao Dịch
-        </button>}
-      </div>
+        </button> : null}
+      />
 
       <div className="treasury-balances" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         {accounts.map((acc, idx) => {

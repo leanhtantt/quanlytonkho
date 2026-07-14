@@ -1,5 +1,16 @@
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { IconLayoutDashboard as LayoutDashboard, IconPackage as Package, IconShoppingCart as ShoppingCart, IconTruck as Truck, IconShieldExclamation as ShieldAlert, IconTrendingUp as TrendingUp } from '@tabler/icons-react';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
+import {
+  IconLayoutDashboard as LayoutDashboard,
+  IconPackage as Package,
+  IconShoppingCart as ShoppingCart,
+  IconTruck as Truck,
+  IconShieldExclamation as ShieldAlert,
+  IconTrendingUp as TrendingUp,
+  IconWallet as Wallet,
+  IconSettings as SettingsIcon,
+  IconLogout as LogOut,
+  IconUsers as UsersIcon,
+} from '@tabler/icons-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
@@ -8,30 +19,37 @@ import Losses from './pages/Losses';
 import Profit from './pages/Profit';
 import Treasury from './pages/Treasury';
 import Settings from './pages/Settings';
+import Users from './pages/Users';
 import Login from './pages/Login';
 import { useAuth } from './lib/AuthContext';
-import { IconWallet as Wallet, IconSettings as SettingsIcon, IconLogout as LogOut } from '@tabler/icons-react';
 import { useAppStore } from './store/appStoreContext';
-
 import HealthStatus from './components/HealthStatus';
 import AppToaster from './components/ui/Toast';
 import Button from './components/ui/Button';
 import Skeleton from './components/ui/Skeleton';
 
+const menuItems = [
+  { path: '/', name: 'Dashboard', icon: LayoutDashboard, resource: 'dashboard' },
+  { path: '/purchases', name: 'Nhập Hàng', icon: Truck, resource: 'purchases' },
+  { path: '/products', name: 'Tồn Kho', icon: Package, resource: 'products' },
+  { path: '/orders', name: 'Xuất Bán', icon: ShoppingCart, resource: 'orders' },
+  { path: '/losses', name: 'Điều Chỉnh Kho', icon: ShieldAlert, resource: 'losses' },
+  { path: '/profit', name: 'Lợi Nhuận', icon: TrendingUp, resource: 'profit' },
+  { path: '/treasury', name: 'Sổ Quỹ', icon: Wallet, resource: 'treasury' },
+  { path: '/settings', name: 'Cài Đặt', icon: SettingsIcon, resource: 'settings' },
+  { path: '/users', name: 'Người dùng', icon: UsersIcon, adminOnly: true },
+];
+
+function getVisibleMenuItems(can, isAdmin) {
+  return menuItems.filter((item) => (
+    item.adminOnly ? isAdmin : can(item.resource, 'view')
+  ));
+}
+
 function Sidebar() {
   const location = useLocation();
-  const { logout, user } = useAuth();
-
-  const menuItems = [
-    { path: '/', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-    { path: '/purchases', name: 'Nhập Hàng', icon: <Truck size={20} /> },
-    { path: '/products', name: 'Tồn Kho', icon: <Package size={20} /> },
-    { path: '/orders', name: 'Xuất Bán', icon: <ShoppingCart size={20} /> },
-    { path: '/losses', name: 'Điều Chỉnh Kho', icon: <ShieldAlert size={20} /> },
-    { path: '/profit', name: 'Lợi Nhuận', icon: <TrendingUp size={20} /> },
-    { path: '/treasury', name: 'Sổ Quỹ', icon: <Wallet size={20} /> },
-    { path: '/settings', name: 'Cài Đặt', icon: <SettingsIcon size={20} /> },
-  ];
+  const { logout, user, can, isAdmin } = useAuth();
+  const visibleMenuItems = getVisibleMenuItems(can, isAdmin);
 
   return (
     <div className="sidebar">
@@ -42,16 +60,20 @@ function Sidebar() {
         <span>Phụ kiện Decor</span>
       </div>
       <nav className="nav-list" aria-label="Điều hướng chính">
-        {menuItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
-          >
-            {item.icon}
-            {item.name}
-          </Link>
-        ))}
+        {visibleMenuItems.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+            >
+              <Icon size={20} />
+              {item.name}
+            </Link>
+          );
+        })}
       </nav>
       <div className="sidebar-footer">
         <div style={{ marginBottom: '12px', padding: '0 16px' }}>
@@ -67,10 +89,25 @@ function Sidebar() {
   );
 }
 
+function RouteGuard({ allowed, fallbackPath, children }) {
+  if (allowed) return children;
+  if (fallbackPath) return <Navigate to={fallbackPath} replace />;
+
+  return (
+    <section className="login-page">
+      <div className="login-card">
+        <h2>Chưa có quyền truy cập</h2>
+        <p>Tài khoản của bạn chưa được cấp quyền cho bất kỳ màn hình nào.</p>
+      </div>
+    </section>
+  );
+}
 
 function App() {
-  const { user, loading: authLoading, isUnauthorized, profileError, logout } = useAuth();
+  const { user, loading: authLoading, isUnauthorized, profileError, logout, can, isAdmin } = useAuth();
   const { loading } = useAppStore();
+  const visibleMenuItems = getVisibleMenuItems(can, isAdmin);
+  const fallbackPath = visibleMenuItems[0]?.path;
 
   if (authLoading) {
     return (
@@ -108,14 +145,29 @@ function App() {
       </div>
     );
   }
-  
+
+  if (!fallbackPath) {
+    return (
+      <>
+        <AppToaster />
+        <div className="login-page">
+          <section className="login-card">
+            <h2>Chưa có quyền truy cập</h2>
+            <p>Tài khoản của bạn chưa được cấp quyền cho bất kỳ màn hình nào.</p>
+            <Button onClick={logout}>Đăng xuất</Button>
+          </section>
+        </div>
+      </>
+    );
+  }
+
   if (loading) {
     return (
       <>
         <AppToaster />
-      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-        <p>Đang tải dữ liệu...</p>
-      </div>
+        <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
+          <p>Đang tải dữ liệu...</p>
+        </div>
       </>
     );
   }
@@ -128,14 +180,16 @@ function App() {
         <div className="main-content">
           <div className="page-wrapper">
             <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/purchases" element={<Purchases />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/orders" element={<Orders />} />
-              <Route path="/losses" element={<Losses />} />
-              <Route path="/profit" element={<Profit />} />
-              <Route path="/treasury" element={<Treasury />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route path="/" element={<RouteGuard allowed={can('dashboard', 'view')} fallbackPath={fallbackPath}><Dashboard /></RouteGuard>} />
+              <Route path="/purchases" element={<RouteGuard allowed={can('purchases', 'view')} fallbackPath={fallbackPath}><Purchases /></RouteGuard>} />
+              <Route path="/products" element={<RouteGuard allowed={can('products', 'view')} fallbackPath={fallbackPath}><Products /></RouteGuard>} />
+              <Route path="/orders" element={<RouteGuard allowed={can('orders', 'view')} fallbackPath={fallbackPath}><Orders /></RouteGuard>} />
+              <Route path="/losses" element={<RouteGuard allowed={can('losses', 'view')} fallbackPath={fallbackPath}><Losses /></RouteGuard>} />
+              <Route path="/profit" element={<RouteGuard allowed={can('profit', 'view')} fallbackPath={fallbackPath}><Profit /></RouteGuard>} />
+              <Route path="/treasury" element={<RouteGuard allowed={can('treasury', 'view')} fallbackPath={fallbackPath}><Treasury /></RouteGuard>} />
+              <Route path="/settings" element={<RouteGuard allowed={can('settings', 'view')} fallbackPath={fallbackPath}><Settings /></RouteGuard>} />
+              <Route path="/users" element={<RouteGuard allowed={isAdmin} fallbackPath={fallbackPath}><Users /></RouteGuard>} />
+              <Route path="*" element={<Navigate to={fallbackPath} replace />} />
             </Routes>
           </div>
         </div>

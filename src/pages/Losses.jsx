@@ -7,9 +7,11 @@ import { findProductByCode, productMatchesSearch } from '../domain/productSku';
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { useAuth } from '../lib/AuthContext';
 
 export default function Losses() {
   const { inventory, losses, addLoss, updateLoss, deleteLoss } = useAppStore();
+  const { can } = useAuth();
   const {
     inventoryAdjustments,
     addInventoryAdjustment,
@@ -33,6 +35,9 @@ export default function Losses() {
   const [unitCost, setUnitCost] = useState(0);
   const [editingAdjustmentId, setEditingAdjustmentId] = useState(null);
   const [deletingAdjustmentId, setDeletingAdjustmentId] = useState(null);
+  const formResource = adjustmentType === 'SURPLUS' ? 'products' : 'losses';
+  const formAction = editingLossId || editingAdjustmentId ? 'update' : 'create';
+  const canModifyForm = can(formResource, formAction);
   const [pendingAdjustmentDelete, setPendingAdjustmentDelete] = useState(null);
   const [statsSearch, setStatsSearch] = useState('');
 
@@ -347,7 +352,7 @@ export default function Losses() {
           <h1 className="page-title">Điều Chỉnh Kho</h1>
           <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Ghi nhận hao hụt hoặc hàng kiểm kê dư mà không làm sai lịch sử nhập hàng</p>
         </div>
-        {!showForm && (
+        {!showForm && (can('losses', 'create') || can('products', 'create')) && (
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>
             <Plus size={18} /> Ghi nhận điều chỉnh
           </button>
@@ -444,9 +449,9 @@ export default function Losses() {
                   />
                 </div>
               )}
-              <button className="btn btn-outline" onClick={handleAddItem} style={{ height: '42px' }}>
+              {canModifyForm && <button className="btn btn-outline" onClick={handleAddItem} style={{ height: '42px' }}>
                 <Plus size={16} /> {editingLossId || editingAdjustmentId ? 'Thay sản phẩm/SL' : 'Thêm'}
-              </button>
+              </button>}
             </div>
             
             {items.length > 0 && (
@@ -482,9 +487,9 @@ export default function Losses() {
                             {estimatedLoss.toLocaleString()} đ
                           </td>
                           <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                            <button onClick={() => handleRemoveItem(index)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}>
+                            {canModifyForm && <button onClick={() => handleRemoveItem(index)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}>
                               <X size={16} />
-                            </button>
+                            </button>}
                           </td>
                         </tr>
                       )
@@ -496,9 +501,9 @@ export default function Losses() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button icon={Save} loading={isSaving} onClick={handleSaveLoss} disabled={items.length === 0}>
+            {canModifyForm && <Button icon={Save} loading={isSaving} onClick={handleSaveLoss} disabled={items.length === 0}>
               {isSaving ? 'Đang lưu...' : editingLossId || editingAdjustmentId ? 'Lưu thay đổi' : 'Lưu Phiếu'}
-            </Button>
+            </Button>}
           </div>
         </div>
       )}
@@ -614,12 +619,12 @@ export default function Losses() {
                   <td style={{ fontWeight: 600, color: 'var(--color-danger)' }}>{l.totalCostDeducted?.toLocaleString() || 0} đ</td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button className="btn btn-outline" onClick={() => handleEditLoss(l)} aria-label={`Sửa ${lossDisplayCodes.get(l.id)}`} title="Sửa phiếu">
+                      {can('losses', 'update') && <button className="btn btn-outline" onClick={() => handleEditLoss(l)} aria-label={`Sửa ${lossDisplayCodes.get(l.id)}`} title="Sửa phiếu">
                         <Pencil size={15} />
-                      </button>
-                      <button className="btn btn-outline" onClick={() => handleDeleteLoss(l)} disabled={deletingLossId === l.id} aria-label={`Xóa ${lossDisplayCodes.get(l.id)}`} title="Xóa phiếu" style={{ color: 'var(--color-danger)' }}>
+                      </button>}
+                      {can('losses', 'delete') && <button className="btn btn-outline" onClick={() => handleDeleteLoss(l)} disabled={deletingLossId === l.id} aria-label={`Xóa ${lossDisplayCodes.get(l.id)}`} title="Xóa phiếu" style={{ color: 'var(--color-danger)' }}>
                         <Trash2 size={15} />
-                      </button>
+                      </button>}
                     </div>
                   </td>
                 </tr>
@@ -673,12 +678,12 @@ export default function Losses() {
                   <td style={{ fontWeight: 600, color: 'var(--color-success)' }}>{Number(adjustment.totalValue).toLocaleString()} đ</td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button className="btn btn-outline" onClick={() => handleEditAdjustment(adjustment)} aria-label={`Sửa ${adjustmentDisplayCodes.get(adjustment.id)}`} title="Sửa phiếu">
+                      {can('products', 'update') && <button className="btn btn-outline" onClick={() => handleEditAdjustment(adjustment)} aria-label={`Sửa ${adjustmentDisplayCodes.get(adjustment.id)}`} title="Sửa phiếu">
                         <Pencil size={15} />
-                      </button>
-                      <button className="btn btn-outline" onClick={() => handleDeleteAdjustment(adjustment)} disabled={deletingAdjustmentId === adjustment.id} aria-label={`Xóa ${adjustmentDisplayCodes.get(adjustment.id)}`} title="Xóa phiếu" style={{ color: 'var(--color-danger)' }}>
+                      </button>}
+                      {can('products', 'delete') && <button className="btn btn-outline" onClick={() => handleDeleteAdjustment(adjustment)} disabled={deletingAdjustmentId === adjustment.id} aria-label={`Xóa ${adjustmentDisplayCodes.get(adjustment.id)}`} title="Xóa phiếu" style={{ color: 'var(--color-danger)' }}>
                         <Trash2 size={15} />
-                      </button>
+                      </button>}
                     </div>
                   </td>
                 </tr>

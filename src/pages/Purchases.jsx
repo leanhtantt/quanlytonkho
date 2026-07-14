@@ -5,9 +5,11 @@ import { findProductByCode, productMatchesSearch } from '../domain/productSku';
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { useAuth } from '../lib/AuthContext';
 
 export default function Purchases() {
   const { purchases, addPurchase, updatePurchase, deletePurchase, products } = useAppStore();
+  const { can } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [expandedPurchaseId, setExpandedPurchaseId] = useState(null);
   const [editingPurchaseId, setEditingPurchaseId] = useState(null);
@@ -208,7 +210,7 @@ export default function Purchases() {
           <h1 className="page-title">Nhập Hàng</h1>
           <p style={{ color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Quản lý lô hàng nhập, tự động chia cước và giảm giá</p>
         </div>
-        {!showForm && (
+        {!showForm && can('purchases', 'create') && (
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>
             <Plus size={18} /> Nhập Lô Mới
           </button>
@@ -220,9 +222,9 @@ export default function Purchases() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <h3>{editingPurchaseId ? `Sửa Phiếu Nhập: ${editingPurchaseId}` : 'Tạo Lô Nhập Hàng Mới'}</h3>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <Button icon={Save} loading={isSavingPurchase} onClick={handleSavePurchase} disabled={items.length === 0}>
+            {can('purchases', editingPurchaseId ? 'update' : 'create') && <Button icon={Save} loading={isSavingPurchase} onClick={handleSavePurchase} disabled={items.length === 0}>
                 {isSavingPurchase ? 'Đang lưu...' : 'Lưu Phiếu Nhập'}
-              </Button>
+              </Button>}
               <button className="btn btn-outline" onClick={closeForm}><X size={16} /> Hủy</button>
             </div>
           </div>
@@ -302,7 +304,7 @@ export default function Purchases() {
                 <label style={labelStyle}>Tổng Cân Nặng (Kg)</label>
                 <input type="number" step="0.01" value={newItem.totalWeightKg} onChange={e => setNewItem({...newItem, totalWeightKg: e.target.value})} style={inputStyle} />
               </div>
-              <button className="btn btn-outline" onClick={handleAddItem} style={{ height: '42px' }}><Plus size={16} /> Thêm</button>
+              {can('purchases', editingPurchaseId ? 'update' : 'create') && <button className="btn btn-outline" onClick={handleAddItem} style={{ height: '42px' }}><Plus size={16} /> Thêm</button>}
             </div>
           </div>
 
@@ -338,8 +340,8 @@ export default function Purchases() {
                           {Math.round(calculateCost(item)).toLocaleString()} đ
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleEditItem(idx)}>Sửa</button>
-                          <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={() => handleRemoveItem(idx)}>Xoá</button>
+                          {can('purchases', editingPurchaseId ? 'update' : 'create') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleEditItem(idx)}>Sửa</button>}
+                          {can('purchases', editingPurchaseId ? 'update' : 'create') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={() => handleRemoveItem(idx)}>Xoá</button>}
                         </td>
                       </tr>
                     );
@@ -422,12 +424,12 @@ export default function Purchases() {
                       <td>{totalQty}</td>
                       <td style={{ fontWeight: 600, color: 'var(--color-success)' }}>{totalVnd.toLocaleString()} đ</td>
                       <td>
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={(e) => { e.stopPropagation(); handleEditPurchase(p); }}>
+                        {can('purchases', 'update') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={(e) => { e.stopPropagation(); handleEditPurchase(p); }}>
                           Sửa
-                        </button>
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={(e) => { e.stopPropagation(); handleDeletePurchase(p); }}>
+                        </button>}
+                        {can('purchases', 'delete') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={(e) => { e.stopPropagation(); handleDeletePurchase(p); }}>
                           Xóa
-                        </button>
+                        </button>}
                       </td>
                     </tr>
                     {isExpanded && (

@@ -8,6 +8,7 @@ import { findProductByCode } from '../domain/productSku';
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { useAuth } from '../lib/AuthContext';
 
 const normalizeExcelText = (value) => String(value ?? '')
   .normalize('NFD')
@@ -51,6 +52,7 @@ const findHeaderIndex = (headers, aliases) => headers.findIndex((header) => {
 
 export default function Orders() {
   const { products, orders, shops, addOrder, updateOrder, deleteOrder, defaultPackagingCost, defaultReturnFee } = useAppStore();
+  const { can } = useAuth();
   const availableShops = React.useMemo(() => Array.from(new Set([
     ...shops,
     ...orders.map(order => order.shop).filter(Boolean)
@@ -666,17 +668,17 @@ export default function Orders() {
               <select value={importShop} onChange={e => setImportShop(e.target.value)}>
                 {availableShops.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              <Button variant="secondary" icon={Upload} loading={isImportingOrders} style={{ border: 'none', borderColor: 'transparent', color: 'var(--color-primary)' }} onClick={() => importInputRef.current.click()}>
+              {can('orders', 'create') && <Button variant="secondary" icon={Upload} loading={isImportingOrders} style={{ border: 'none', borderColor: 'transparent', color: 'var(--color-primary)' }} onClick={() => importInputRef.current.click()}>
                 {isImportingOrders ? 'Đang nhập...' : 'Import Đơn Mới'}
-              </Button>
+              </Button>}
             </div>
 
-            <Button variant="secondary" icon={Upload} loading={isReconciling} style={{ borderColor: 'var(--color-success)', color: 'var(--color-success)' }} onClick={() => fileInputRef.current.click()}>
+            {can('orders', 'update') && <Button variant="secondary" icon={Upload} loading={isReconciling} style={{ borderColor: 'var(--color-success)', color: 'var(--color-success)' }} onClick={() => fileInputRef.current.click()}>
               {isReconciling ? 'Đang đối soát...' : 'Đối Soát (Excel)'}
-            </Button>
-            <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+            </Button>}
+            {can('orders', 'create') && <button className="btn btn-primary" onClick={() => setShowForm(true)}>
               <Plus size={18} /> Nhập Đơn Tay
-            </button>
+            </button>}
           </div>
         )}
       </div>
@@ -782,7 +784,7 @@ export default function Orders() {
                   Bị hoàn trả
                 </label>
               </div>
-              <button className="btn btn-outline" onClick={handleAddItem} style={{ height: '42px' }}><Plus size={16} /> Thêm</button>
+              {can('orders', editingOrderId || importFixOrderId ? 'update' : 'create') && <button className="btn btn-outline" onClick={handleAddItem} style={{ height: '42px' }}><Plus size={16} /> Thêm</button>}
             </div>
           </div>
 
@@ -822,8 +824,8 @@ export default function Orders() {
                         {item.isReturned ? <span className="badge badge-danger">Đã hoàn trả</span> : <span className="badge badge-success">Đã bán</span>}
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleEditItem(idx)}>Sửa</button>
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={() => handleRemoveItem(idx)}>Xoá</button>
+                        {can('orders', editingOrderId || importFixOrderId ? 'update' : 'create') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleEditItem(idx)}>Sửa</button>}
+                        {can('orders', editingOrderId || importFixOrderId ? 'update' : 'create') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={() => handleRemoveItem(idx)}>Xoá</button>}
                       </td>
                     </tr>
                     );
@@ -834,9 +836,9 @@ export default function Orders() {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button icon={Save} loading={isSavingOrder} onClick={handleSaveOrder} disabled={items.length === 0 || !orderId}>
+            {can('orders', editingOrderId || importFixOrderId ? 'update' : 'create') && <Button icon={Save} loading={isSavingOrder} onClick={handleSaveOrder} disabled={items.length === 0 || !orderId}>
               {isSavingOrder ? 'Đang lưu...' : 'Lưu Đơn Hàng'}
-            </Button>
+            </Button>}
           </div>
         </div>
       )}
@@ -870,7 +872,7 @@ export default function Orders() {
                     <td>{issue.date}</td>
                     <td style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>{issue.reason}</td>
                     <td style={{ textAlign: 'center' }}>
-                      <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleFixImportIssue(issue)}>Sửa</button>
+                      {can('orders', 'update') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={() => handleFixImportIssue(issue)}>Sửa</button>}
                       <button
                         className="btn btn-outline"
                         style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}
@@ -1034,12 +1036,12 @@ export default function Orders() {
                         {profit.toLocaleString()} đ
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={(e) => { e.stopPropagation(); handleEditOrder(o); }}>
+                        {can('orders', 'update') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', marginRight: '0.5rem' }} onClick={(e) => { e.stopPropagation(); handleEditOrder(o); }}>
                           Sửa
-                        </button>
-                        <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={(e) => { e.stopPropagation(); handleDeleteOrder(o); }}>
+                        </button>}
+                        {can('orders', 'delete') && <button className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={(e) => { e.stopPropagation(); handleDeleteOrder(o); }}>
                           Xóa
-                        </button>
+                        </button>}
                       </td>
                     </tr>
                     

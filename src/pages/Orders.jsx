@@ -235,10 +235,15 @@ export default function Orders() {
   const handleSaveOrder = async () => {
     if (items.length === 0 || !orderId) return;
 
-    // Validate manual save: ensure all products exist in inventory
-    const invalidItems = items.filter(item => !products.find(p => p.id === item.productId));
+    // Resolve legacy SKU/aliases before saving so orders created before an SKU
+    // rename keep their original product identity.
+    const resolvedItems = items.map(item => {
+      const product = findProductByCode(products, item.productId) || findProductByCode(products, item.sku);
+      return product ? { ...item, productId: product.id } : item;
+    });
+    const invalidItems = resolvedItems.filter(item => !products.some(product => product.id === item.productId));
     if (invalidItems.length > 0) {
-      toast.error(`Các mã SP sau không có trong kho: ${invalidItems.map(i => i.productId).join(', ')}. Vui lòng chọn lại mã đúng!`);
+      toast.error(`Các mã SP sau không có trong kho: ${invalidItems.map(item => item.sku || item.productId).join(', ')}. Vui lòng chọn lại mã đúng!`);
       return;
     }
 
@@ -256,7 +261,7 @@ export default function Orders() {
       actualRevenue: actualRevenue !== '' ? Number(actualRevenue) : null,
       settlementDate: settlementDate !== '' ? settlementDate : null,
       note: note.trim() || null,
-      items,
+      items: resolvedItems,
       hasError: false // Đã sửa xong thì clear lỗi
     };
 

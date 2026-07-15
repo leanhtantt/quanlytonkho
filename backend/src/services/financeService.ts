@@ -1,4 +1,5 @@
 import { prisma } from '../prismaClient';
+import { HEAVY_TX_OPTIONS } from '../transactionOptions';
 import { deductStockFIFO } from './inventoryService';
 
 async function writeLossEffects(tx: any, lossId: string, productId: string, qty: number) {
@@ -42,7 +43,7 @@ export async function recordLoss(productId: string, qty: number, reason: string,
     const fifoResult = await writeLossEffects(tx, loss.id, productId, qty);
 
     return { loss, deductions: fifoResult.deductions, totalLossValue: fifoResult.totalCogs };
-  });
+  }, HEAVY_TX_OPTIONS);
 }
 
 export async function replaceLoss(lossId: string, productId: string, qty: number, reason: string, occurredAt?: Date) {
@@ -59,7 +60,7 @@ export async function replaceLoss(lossId: string, productId: string, qty: number
     const fifoResult = await writeLossEffects(tx, loss.id, productId, qty);
 
     return { loss, deductions: fifoResult.deductions, totalLossValue: fifoResult.totalCogs };
-  });
+  }, HEAVY_TX_OPTIONS);
 }
 
 export async function deleteLoss(lossId: string) {
@@ -69,5 +70,5 @@ export async function deleteLoss(lossId: string) {
 
     await reverseLossEffects(tx, lossId);
     await tx.loss.delete({ where: { id: lossId } });
-  });
+  }, HEAVY_TX_OPTIONS);
 }

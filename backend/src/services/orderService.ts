@@ -1,4 +1,5 @@
 import { prisma } from '../prismaClient';
+import { HEAVY_TX_OPTIONS } from '../transactionOptions';
 import { deductStockFIFO } from './inventoryService';
 
 export interface OrderInput {
@@ -107,7 +108,7 @@ export async function createOrder(input: OrderInput) {
       where: { id: order.id },
       data: { expectedRevenue }
     });
-  });
+  }, HEAVY_TX_OPTIONS);
 }
 
 // Edit an order by reversing its old items/stock and writing the new ones, in one transaction.
@@ -119,7 +120,7 @@ export async function replaceOrder(orderId: string, input: OrderInput) {
       where: { id: orderId },
       data: orderColumns(input, expectedRevenue)
     });
-  });
+  }, HEAVY_TX_OPTIONS);
 }
 
 // Delete an order: give its stock back to inventory, then remove the order and its items.
@@ -127,5 +128,5 @@ export async function deleteOrder(orderId: string) {
   return await prisma.$transaction(async (tx) => {
     await reverseOrderItems(tx, orderId);
     await tx.order.delete({ where: { id: orderId } });
-  });
+  }, HEAVY_TX_OPTIONS);
 }

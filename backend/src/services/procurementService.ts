@@ -1,4 +1,5 @@
 import { prisma } from '../prismaClient';
+import { HEAVY_TX_OPTIONS } from '../transactionOptions';
 import { allocatePurchaseItemCosts } from './procurementMath';
 
 interface PurchaseInput {
@@ -157,14 +158,14 @@ async function cleanupUnusedProductsTx(tx: any, productIds: string[]) {
 }
 
 export async function createPurchaseOrder(input: PurchaseInput) {
-  return await prisma.$transaction((tx) => createPurchaseOrderTx(tx, input));
+  return await prisma.$transaction((tx) => createPurchaseOrderTx(tx, input), HEAVY_TX_OPTIONS);
 }
 
 export async function deletePurchaseOrder(poId: string) {
   return await prisma.$transaction(async (tx) => {
     const productIds = await deletePurchaseOrderTx(tx, poId);
     await cleanupUnusedProductsTx(tx, productIds);
-  });
+  }, HEAVY_TX_OPTIONS);
 }
 
 // Edit = reverse the old purchase order and recreate it with the same code, in one transaction.
@@ -174,5 +175,5 @@ export async function replacePurchaseOrder(poId: string, input: PurchaseInput) {
     const po = await createPurchaseOrderTx(tx, input);
     await cleanupUnusedProductsTx(tx, productIds);
     return po;
-  });
+  }, HEAVY_TX_OPTIONS);
 }

@@ -1,5 +1,6 @@
 import { prisma } from '../prismaClient';
 import { randomUUID } from 'crypto';
+import { HEAVY_TX_OPTIONS } from '../transactionOptions';
 
 interface SurplusInput {
   productId: string;
@@ -74,18 +75,18 @@ async function assertUnusedAndRemoveEffects(tx: any, adjustmentId: string) {
 }
 
 export async function createSurplusAdjustment(input: SurplusInput) {
-  return prisma.$transaction(async tx => createAdjustmentEffects(tx, randomUUID(), input));
+  return prisma.$transaction(async tx => createAdjustmentEffects(tx, randomUUID(), input), HEAVY_TX_OPTIONS);
 }
 
 export async function replaceSurplusAdjustment(adjustmentId: string, input: SurplusInput) {
   return prisma.$transaction(async tx => {
     await assertUnusedAndRemoveEffects(tx, adjustmentId);
     return createAdjustmentEffects(tx, adjustmentId, input);
-  });
+  }, HEAVY_TX_OPTIONS);
 }
 
 export async function deleteSurplusAdjustment(adjustmentId: string) {
   return prisma.$transaction(async tx => {
     await assertUnusedAndRemoveEffects(tx, adjustmentId);
-  });
+  }, HEAVY_TX_OPTIONS);
 }

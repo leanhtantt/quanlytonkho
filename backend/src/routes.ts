@@ -521,7 +521,7 @@ function buildOrderInput(data: any, dbProducts: any[]): OrderInput {
   const unresolved: string[] = [];
   const items = data.items.map((it: any) => {
     // Match by SKU or internal id, case-insensitively (see note in buildPurchaseInput).
-    const prod = findProductByCode(dbProducts, it.productId);
+    const prod = findProductByCode(dbProducts, it.productId) || findProductByCode(dbProducts, it.sku);
     if (!prod) unresolved.push(it.productId || '(trống)');
     return {
       productId: prod ? prod.id : it.productId,

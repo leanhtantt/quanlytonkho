@@ -1,4 +1,5 @@
 import { prisma } from '../prismaClient';
+import { HEAVY_TX_OPTIONS } from '../transactionOptions';
 import { planFifoDeductions } from './inventoryMath';
 
 export async function deductStockFIFO(
@@ -66,5 +67,5 @@ export async function deductStockFIFO(
     };
   };
 
-  return providedTx ? run(providedTx) : prisma.$transaction(run);
+  return providedTx ? run(providedTx) : prisma.$transaction(run, HEAVY_TX_OPTIONS);
 }

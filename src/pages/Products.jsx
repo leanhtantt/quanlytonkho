@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppStore } from '../store/appStoreContext';
 import { IconX as X, IconBox as PackageOpen, IconChevronDown as ChevronDown, IconChevronUp as ChevronUp, IconArrowDown as ArrowDown, IconArrowUp as ArrowUp, IconGripVertical as GripVertical, IconPencil as Pencil, IconRefresh } from '@tabler/icons-react';
 import { calculateSuggestedPrice } from '../domain/inventory';
@@ -344,20 +345,18 @@ export default function Products() {
                             title="Bấm để tải ảnh mới"
                             aria-label={`Tải ảnh cho sản phẩm ${product.sku || product.id}`}
                           >
-                            <ProductImage imageId={product.imageId} alt={product.name} size={40} />
+                            <ProductImage imageId={product.imageId} alt={product.name} size={52} />
                             <input className="ui-visually-hidden" type="file" accept="image/*" onChange={(e) => handleImageUpload(product.id, e)} disabled={uploadingId === product.id} />
-                          </label> : <ProductImage imageId={product.imageId} alt={product.name} size={40} />}
+                          </label> : <ProductImage imageId={product.imageId} alt={product.name} size={52} />}
                           {product.imageId && can('products', 'delete') && (
-                            <Button
-                              variant="danger-ghost"
-                              size="sm"
-                              icon={X}
-                              iconOnly
+                            <button
+                              type="button"
                               className="inventory-image-remove"
                               onClick={(e) => handleRemoveImage(product, e)}
                               aria-label={`Xóa hình của ${product.sku || product.id}`}
-                              loading={uploadingId === product.id}
-                            />
+                            >
+                              <X size={10} />
+                            </button>
                           )}
                         </div>
                       </td>
@@ -455,14 +454,15 @@ export default function Products() {
         </div>
       </div>
 
-      {imagePreview && (
+      {imagePreview && createPortal(
         <div
           role="img"
           aria-label={`Ảnh phóng to: ${imagePreview.name}`}
           className="inventory-image-preview"
         >
           <ProductImage imageId={imagePreview.imageId} alt={imagePreview.name} size={320} />
-        </div>
+        </div>,
+        document.body
       )}
       <ConfirmDialog
         open={Boolean(pendingImageRemoval)}

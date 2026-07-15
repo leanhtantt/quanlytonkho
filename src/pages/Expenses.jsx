@@ -27,7 +27,7 @@ export default function Expenses() {
   const { can } = useAuth();
 
   // ── Ad form state ──
-  const [adMonth, setAdMonth] = useState('');
+  const [adMonth, setAdMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [adShop, setAdShop] = useState('');
   const [adAmount, setAdAmount] = useState('');
   const [adSource, setAdSource] = useState('DEDUCTED_FROM_REVENUE');

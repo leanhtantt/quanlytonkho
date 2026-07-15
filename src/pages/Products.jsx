@@ -233,7 +233,8 @@ export default function Products() {
       <div className="card inventory-card">
         <div className="inventory-toolbar">
           <div className="inventory-toolbar-grid">
-            <FormField label="Tìm sản phẩm theo mã SKU" className="inventory-search-field">
+            <div className="ui-form-field inventory-search-field">
+              <label htmlFor="inventory-sku-search">Tìm sản phẩm theo mã SKU</label>
               <div className="inventory-search-control">
                 <SearchInput
                   id="inventory-sku-search"
@@ -255,7 +256,7 @@ export default function Products() {
               <span className="inventory-search-meta" aria-live="polite">
                 {normalizedSearch ? `Tìm thấy ${filteredProducts.length} sản phẩm phù hợp` : `${filteredProducts.length} sản phẩm trong kho`}
               </span>
-            </FormField>
+            </div>
             <FormField label="Trạng thái tồn kho" className="inventory-filter-field">
               <select id="inventory-stock-filter" value={filterStock} onChange={(event) => setFilterStock(event.target.value)}>
                 <option value="all">Tất cả sản phẩm</option>

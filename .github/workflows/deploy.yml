@@ -1,9 +1,7 @@
 name: Build and Deploy
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 env:
   PROJECT_ID: tanle-dev
@@ -15,13 +13,6 @@ jobs:
   # --- Deploy Frontend to Firebase Hosting ---
   deploy-frontend:
     runs-on: ubuntu-latest
-    # Only run when frontend files change
-    if: >
-      contains(toJSON(github.event.commits.*.modified), 'src/') ||
-      contains(toJSON(github.event.commits.*.added), 'src/') ||
-      contains(toJSON(github.event.commits.*.modified), 'index.html') ||
-      contains(toJSON(github.event.commits.*.modified), 'package.json') ||
-      contains(toJSON(github.event.commits.*.modified), 'vite.config.js')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,12 +43,6 @@ jobs:
     permissions:
       contents: 'read'
       id-token: 'write'
-    # Only run when backend files change
-    if: >
-      contains(toJSON(github.event.commits.*.modified), 'backend/') ||
-      contains(toJSON(github.event.commits.*.added), 'backend/') ||
-      contains(toJSON(github.event.commits.*.modified), '.github/workflows/deploy.yml')
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4

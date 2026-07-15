@@ -155,6 +155,15 @@ export default function Treasury() {
         ))
         .reverse(),
     }));
+
+    // Đảm bảo TK Châu nằm ở cuối cùng vì ít dùng
+    return mapped.sort((a, b) => {
+      const aIsChau = a.account.toLowerCase().includes('châu');
+      const bIsChau = b.account.toLowerCase().includes('châu');
+      if (aIsChau && !bIsChau) return 1;
+      if (!aIsChau && bIsChau) return -1;
+      return 0;
+    });
   }, [accounts, filterMonth, filterType, transactionsWithBalance]);
 
   const handleSave = async () => {
@@ -457,8 +466,10 @@ export default function Treasury() {
             <EmptyState icon={Wallet} title="Chưa có tài khoản để hiển thị lịch sử" description="Thêm tài khoản hoặc quỹ trong Cài Đặt để bắt đầu ghi nhận dòng tiền." />
           ) : (
             <div className="treasury-history-grid">
-              {visibleAccountHistories.map(({ account: accountName, transactions: accountTransactions }, accountIndex) => (
-              <section key={accountName} className={`treasury-account-history treasury-tone-${accountIndex % 6}`}>
+              {visibleAccountHistories.map(({ account: accountName, transactions: accountTransactions }, accountIndex) => {
+                const isChau = accountName.toLowerCase().includes('châu');
+                return (
+              <section key={accountName} className={`treasury-account-history treasury-tone-${accountIndex % 6} ${isChau ? 'treasury-account-full-width' : ''}`}>
                 <div className="treasury-account-history__header">
                   <div className="treasury-account-history__name">
                     <Wallet size={20} />
@@ -534,7 +545,8 @@ export default function Treasury() {
                   </table>
                 </div>
               </section>
-              ))}
+              );
+            })}
             </div>
           )}
         </div>

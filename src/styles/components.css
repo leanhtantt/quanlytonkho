@@ -936,6 +936,10 @@ th {
   min-width: 0;
 }
 
+.treasury-account-full-width {
+  grid-column: 1 / -1;
+}
+
 .treasury-history-heading,
 .treasury-history-filters,
 .treasury-account-history__header,

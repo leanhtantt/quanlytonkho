@@ -28,6 +28,21 @@ export default function Modal({
   const dialogRef = useRef(null);
   const titleId = useId();
 
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Focus initial element only when modal opens
+  useEffect(() => {
+    if (!open) return;
+    const focusInitialElement = () => {
+      const el = initialFocusRef?.current || dialogRef.current?.querySelector(focusableSelector) || dialogRef.current;
+      el?.focus();
+    };
+    const timer = window.setTimeout(focusInitialElement, 0);
+    return () => window.clearTimeout(timer);
+  }, [open, initialFocusRef]);
+
+  // Body lock, keyboard trap, restore focus
   useEffect(() => {
     if (!open) return undefined;
 
@@ -35,18 +50,10 @@ export default function Modal({
     openModalCount += 1;
     document.body.classList.add('ui-modal-open');
 
-    const focusInitialElement = () => {
-      const focusableElements = dialogRef.current?.querySelectorAll(focusableSelector);
-      const initialElement = initialFocusRef?.current || focusableElements?.[0] || dialogRef.current;
-      initialElement?.focus();
-    };
-
-    const focusTimer = window.setTimeout(focusInitialElement, 0);
-
     const handleKeyDown = (event) => {
       if (event.key === 'Escape' && closeOnEscape) {
         event.preventDefault();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
 
@@ -74,13 +81,12 @@ export default function Modal({
     document.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      window.clearTimeout(focusTimer);
       document.removeEventListener('keydown', handleKeyDown);
       openModalCount -= 1;
       if (openModalCount === 0) document.body.classList.remove('ui-modal-open');
       previousActiveElement?.focus?.();
     };
-  }, [closeOnEscape, initialFocusRef, onClose, open]);
+  }, [closeOnEscape, open]);
 
   if (!open || typeof document === 'undefined') return null;
 

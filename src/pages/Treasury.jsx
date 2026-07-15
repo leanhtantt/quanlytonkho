@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import { calculateAdAdvanceSummary, calculateMarketplaceWalletSummary, calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { IconEdit as Edit, IconWallet as Wallet, IconArrowUpRight as ArrowUpRight, IconArrowDownRight as ArrowDownRight, IconArrowsExchange as ArrowRightLeft, IconPlus as Plus, IconTrash as Trash2, IconFilter as Filter, IconRefresh } from '@tabler/icons-react';
@@ -16,15 +16,8 @@ function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
 }
 
-function getAdSourceLabel(source) {
-  if (source === 'SELF_FUNDED') return 'Chi trực tiếp từ quỹ shop';
-  if (source === 'PERSONAL_ADVANCE') return 'Cá nhân ứng trước';
-  if (source === 'SHOPEE_WALLET') return 'Ví Shopee';
-  return 'Shopee tự trừ trong đơn';
-}
-
 export default function Treasury() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, addAd, reimburseAdAdvance, deleteAd, accounts, partners, shops, refresh, refreshing } = useAppStore();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, accounts, partners, shops, refresh, refreshing } = useAppStore();
   const { can } = useAuth();
 
   const [showForm, setShowForm] = useState(false);
@@ -49,129 +42,11 @@ export default function Treasury() {
   const [person, setPerson] = useState(partners.length > 0 ? partners[0].name : ''); 
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
-  const [withdrawalDate, setWithdrawalDate] = useState(new Date().toISOString().split('T')[0]);
-  const [withdrawalShop, setWithdrawalShop] = useState('');
-  const [withdrawalAccount, setWithdrawalAccount] = useState(accounts[0] || '');
-  const [withdrawalAmount, setWithdrawalAmount] = useState('');
-  const [withdrawalNote, setWithdrawalNote] = useState('');
-  const [isSavingWithdrawal, setIsSavingWithdrawal] = useState(false);
-  const [adMonth, setAdMonth] = useState('');
-  const [adShop, setAdShop] = useState('');
-  const [adAmount, setAdAmount] = useState('');
-  const [adSource, setAdSource] = useState('DEDUCTED_FROM_REVENUE');
-  const [adAccount, setAdAccount] = useState(accounts[0] || '');
-  const [adAdvancedBy, setAdAdvancedBy] = useState(partners[0]?.name || '');
-  const [adDate, setAdDate] = useState(new Date().toISOString().split('T')[0]);
-  const [adNote, setAdNote] = useState('');
-  const [isSavingAd, setIsSavingAd] = useState(false);
-  const [repayingAdvanceId, setRepayingAdvanceId] = useState(null);
-  const [reimbursementAmount, setReimbursementAmount] = useState('');
-  const [reimbursementDate, setReimbursementDate] = useState(new Date().toISOString().split('T')[0]);
-  const [reimbursementSource, setReimbursementSource] = useState('TREASURY_ACCOUNT');
-  const [reimbursementAccount, setReimbursementAccount] = useState(accounts[0] || '');
-  const [reimbursementNote, setReimbursementNote] = useState('');
-  const [isSavingReimbursement, setIsSavingReimbursement] = useState(false);
   const [isSavingTransaction, setIsSavingTransaction] = useState(false);
   const [pendingTransactionDelete, setPendingTransactionDelete] = useState(null);
   const [isDeletingTransaction, setIsDeletingTransaction] = useState(false);
-  const [pendingAdDelete, setPendingAdDelete] = useState(null);
-  const [isDeletingAd, setIsDeletingAd] = useState(false);
 
-  const handleSaveWithdrawal = async (event) => {
-    event.preventDefault();
-    if (!withdrawalDate || !withdrawalShop || !withdrawalAccount || Number(withdrawalAmount) <= 0) return;
 
-    setIsSavingWithdrawal(true);
-    try {
-      await addTransaction({
-        date: withdrawalDate,
-        type: 'THU',
-        account: withdrawalAccount,
-        category: 'Rút tiền từ Sàn',
-        shop: withdrawalShop,
-        amount: Number(withdrawalAmount),
-        note: withdrawalNote.trim()
-      });
-      setWithdrawalAmount('');
-      setWithdrawalNote('');
-      toast.success(`Đã ghi nhận ${formatCurrency(withdrawalAmount)} từ ${withdrawalShop} về ${withdrawalAccount}.`);
-    } catch (error) {
-      toast.error(`Không thể lưu tiền rút về: ${error.message}`);
-    } finally {
-      setIsSavingWithdrawal(false);
-    }
-  };
-
-  const handleSaveAd = async (event) => {
-    event.preventDefault();
-    if (!adMonth || !adShop || Number(adAmount) <= 0) return;
-    if (adSource === 'SELF_FUNDED' && !adAccount) return;
-    if (adSource === 'PERSONAL_ADVANCE' && !adAdvancedBy.trim()) return;
-
-    setIsSavingAd(true);
-    try {
-      await addAd({
-        month: adMonth,
-        shop: adShop,
-        amount: Number(adAmount),
-        source: adSource,
-        account: adSource === 'SELF_FUNDED' ? adAccount : null,
-        advancedBy: adSource === 'PERSONAL_ADVANCE' ? adAdvancedBy.trim() : null,
-        date: adSource !== 'DEDUCTED_FROM_REVENUE' ? adDate : null,
-        note: adNote.trim() || null,
-      });
-      setAdAmount('');
-      setAdNote('');
-      toast.success(`Đã lưu chi phí quảng cáo ${adShop} tháng ${adMonth}.`);
-    } catch (error) {
-      toast.error(`Không thể lưu chi phí quảng cáo: ${error.message}`);
-    } finally {
-      setIsSavingAd(false);
-    }
-  };
-
-  const openReimbursementForm = (advance) => {
-    setRepayingAdvanceId(advance.id);
-    setReimbursementAmount('');
-    setReimbursementDate(new Date().toISOString().split('T')[0]);
-    setReimbursementSource('TREASURY_ACCOUNT');
-    setReimbursementAccount(accounts[0] || '');
-    setReimbursementNote('');
-  };
-
-  const closeReimbursementForm = () => {
-    setRepayingAdvanceId(null);
-    setReimbursementAmount('');
-    setReimbursementNote('');
-  };
-
-  const handleSaveReimbursement = async (event) => {
-    event.preventDefault();
-    const advance = calculateAdAdvanceSummary(ads).advances.find(item => item.id === repayingAdvanceId);
-    const amountToReimburse = Number(reimbursementAmount);
-    if (!advance || amountToReimburse <= 0 || amountToReimburse > advance.outstanding) {
-      toast.error('Số tiền hoàn ứng không hợp lệ hoặc vượt quá công nợ còn lại.');
-      return;
-    }
-    if (reimbursementSource === 'TREASURY_ACCOUNT' && !reimbursementAccount) return;
-
-    setIsSavingReimbursement(true);
-    try {
-      await reimburseAdAdvance(advance.id, {
-        amount: amountToReimburse,
-        source: reimbursementSource,
-        account: reimbursementSource === 'TREASURY_ACCOUNT' ? reimbursementAccount : null,
-        date: reimbursementDate,
-        note: reimbursementNote.trim() || null,
-      });
-      closeReimbursementForm();
-      toast.success(`Đã hoàn ${formatCurrency(amountToReimburse)} cho ${advance.advancedBy || advance.shop}.`);
-    } catch (error) {
-      toast.error(`Không thể hoàn ứng: ${error.message}`);
-    } finally {
-      setIsSavingReimbursement(false);
-    }
-  };
 
   // 1. Calculate Balances dynamically based on accounts
   const balances = {};
@@ -268,7 +143,7 @@ export default function Treasury() {
   }, [transactions, accounts]);
 
   const visibleAccountHistories = useMemo(() => {
-    return accounts.map(accountName => ({
+    const mapped = accounts.map(accountName => ({
       account: accountName,
       transactions: transactionsWithBalance
         .filter(transaction => !filterMonth || transaction.date.startsWith(filterMonth))
@@ -280,6 +155,15 @@ export default function Treasury() {
         ))
         .reverse(),
     }));
+
+    // Đảm bảo TK Châu nằm ở cuối cùng vì ít dùng
+    return mapped.sort((a, b) => {
+      const aIsChau = a.account.toLowerCase().includes('châu');
+      const bIsChau = b.account.toLowerCase().includes('châu');
+      if (aIsChau && !bIsChau) return 1;
+      if (!aIsChau && bIsChau) return -1;
+      return 0;
+    });
   }, [accounts, filterMonth, filterType, transactionsWithBalance]);
 
   const handleSave = async () => {
@@ -374,20 +258,6 @@ export default function Treasury() {
     }
   };
 
-  const confirmDeleteAd = async () => {
-    if (!pendingAdDelete) return;
-    setIsDeletingAd(true);
-    try {
-      await deleteAd(pendingAdDelete.id);
-      toast.success(`Đã xóa chi phí quảng cáo ${pendingAdDelete.shop} tháng ${pendingAdDelete.month}.`);
-      setPendingAdDelete(null);
-    } catch (error) {
-      toast.error(`Không thể xóa chi phí quảng cáo ${pendingAdDelete.shop}: ${error.message}`);
-    } finally {
-      setIsDeletingAd(false);
-    }
-  };
-
   const getCategoryOptions = () => {
     if (type === 'THU') return ['Rút tiền từ Sàn', 'Nhận vốn góp', 'Thu khác'];
     if (type === 'CHI') return ['Tiền nhập hàng', 'Mua vật liệu đóng gói', 'Tiền quảng cáo (Ads)', 'Rút vốn / Chia lợi nhuận', 'Chi phí khác'];
@@ -460,100 +330,6 @@ export default function Treasury() {
         <p className="treasury-section__warning">
           Số dư tạm tính chưa bao gồm số dư ví sàn đã có trước khi dữ liệu được nhập vào ứng dụng.
         </p>
-      </section>
-
-      <section className="card treasury-section treasury-withdrawal" aria-labelledby="treasury-withdrawal-title">
-        <h2 id="treasury-withdrawal-title" className="h3">Nhập Tiền Rút Về Tài Khoản</h2>
-        <p className="treasury-section__description">
-          Ghi nhận tiền chuyển từ ví sàn về tài khoản nhận; khoản này không cộng lại vào doanh thu hoặc lợi nhuận.
-        </p>
-        <form onSubmit={handleSaveWithdrawal} className="treasury-form-grid">
-          <FormField label="Ngày rút"><input type="date" value={withdrawalDate} onChange={e => setWithdrawalDate(e.target.value)} required /></FormField>
-          <FormField label="Shop"><select value={withdrawalShop} onChange={e => setWithdrawalShop(e.target.value)} required><option value="">Chọn shop</option>{shops.map(shopName => <option key={shopName} value={shopName}>{shopName}</option>)}</select></FormField>
-          <FormField label="Tài khoản nhận"><select value={withdrawalAccount} onChange={e => setWithdrawalAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></FormField>
-          <FormField label="Số tiền (VND)"><input className="num" type="number" min="1" value={withdrawalAmount} onChange={e => setWithdrawalAmount(e.target.value)} required /></FormField>
-          <FormField label="Ghi chú" className="treasury-form-grid__wide"><input type="text" value={withdrawalNote} onChange={e => setWithdrawalNote(e.target.value)} placeholder="VD: Rút tiền Shopee tuần 2" /></FormField>
-          {can('treasury', 'create') && <Button type="submit" loading={isSavingWithdrawal}>{isSavingWithdrawal ? 'Đang lưu...' : 'Ghi nhận tiền về'}</Button>}
-        </form>
-      </section>
-
-      <section className="card treasury-section treasury-ads" aria-labelledby="treasury-ads-title">
-        <h2 id="treasury-ads-title" className="h3">Nhập Chi Phí Quảng Cáo</h2>
-        <p className="treasury-section__description">
-          Chi phí luôn được tính vào lợi nhuận. Chỉ nguồn chi trực tiếp từ quỹ mới trừ tài khoản ngay; cá nhân ứng trước sẽ tạo công nợ để hoàn lại sau.
-        </p>
-        <form onSubmit={handleSaveAd} className="treasury-form-grid treasury-form-grid--ads">
-          <FormField label="Tháng"><input type="month" value={adMonth} onChange={e => setAdMonth(e.target.value)} required /></FormField>
-          <FormField label="Shop"><input type="text" list="treasury-ad-shops" value={adShop} onChange={e => setAdShop(e.target.value)} placeholder="Chọn hoặc nhập shop..." required /></FormField>
-          <FormField label="Chi phí (VND)"><input className="num" type="number" min="1" value={adAmount} onChange={e => setAdAmount(e.target.value)} required /></FormField>
-          <FormField label="Nguồn thanh toán"><select value={adSource} onChange={e => setAdSource(e.target.value)}><option value="DEDUCTED_FROM_REVENUE">Shopee tự trừ trong đơn</option><option value="SHOPEE_WALLET">Nạp thủ công từ Ví Shopee</option><option value="SELF_FUNDED">Chi trực tiếp từ quỹ shop</option><option value="PERSONAL_ADVANCE">Cá nhân ứng trước (không trừ quỹ)</option></select></FormField>
-          {adSource !== 'DEDUCTED_FROM_REVENUE' && <FormField label="Ngày chi"><input type="date" value={adDate} onChange={e => setAdDate(e.target.value)} required /></FormField>}
-          {adSource === 'SELF_FUNDED' && <FormField label="Tài khoản quỹ chi"><select value={adAccount} onChange={e => setAdAccount(e.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></FormField>}
-          {adSource === 'PERSONAL_ADVANCE' && <FormField label="Người ứng tiền"><input type="text" list="treasury-ad-advance-people" value={adAdvancedBy} onChange={e => setAdAdvancedBy(e.target.value)} placeholder="Chọn hoặc nhập tên..." required /></FormField>}
-          <FormField label="Ghi chú" className="treasury-form-grid__wide"><input type="text" value={adNote} onChange={e => setAdNote(e.target.value)} placeholder="VD: QC Shopee tháng 7" /></FormField>
-          {can('treasury', 'create') && <Button type="submit" loading={isSavingAd}>{isSavingAd ? 'Đang lưu...' : 'Lưu chi phí'}</Button>}
-        </form>
-        <datalist id="treasury-ad-shops">{shops.map(shopName => <option key={shopName} value={shopName} />)}</datalist>
-        <datalist id="treasury-ad-advance-people">{partners.map(partner => <option key={partner.name} value={partner.name} />)}</datalist>
-        {adSource === 'PERSONAL_ADVANCE' && <div className="surface-subtle treasury-source-note"><strong>Khoản này không trừ tài khoản quỹ.</strong> Hệ thống chỉ ghi nhận chi phí quảng cáo và công nợ phải hoàn cho người ứng.</div>}
-        {adSource === 'SELF_FUNDED' && <div className="surface-subtle treasury-source-note"><strong>Khoản này sẽ trừ ngay tài khoản quỹ đã chọn</strong> và vẫn được tính là chi phí quảng cáo.</div>}
-        {ads.length > 0 ? (<div className="table-responsive treasury-ads-table"><table className="table"><thead><tr><th>Tháng</th><th>Shop</th><th>Nguồn</th><th>Tài khoản / Người ứng</th><th>Số tiền</th><th>Ghi chú</th><th></th></tr></thead><tbody>{ads.map(ad => (<tr key={ad.id}><td>{ad.month}</td><td>{ad.shop}</td><td>{getAdSourceLabel(ad.source)}</td><td>{ad.source === 'PERSONAL_ADVANCE' ? ad.advancedBy : ad.account || '-'}</td><td className="num">{formatCurrency(ad.amount)}</td><td>{ad.note || '-'}</td><td>{can('treasury', 'delete') && <Button type="button" variant="danger-ghost" size="sm" icon={Trash2} iconOnly aria-label={`Xóa chi phí quảng cáo ${ad.shop} ${ad.month}`} onClick={() => setPendingAdDelete(ad)} />}</td></tr>))}</tbody></table></div>) : <EmptyState icon={Wallet} title="Chưa có chi phí quảng cáo" description="Chi phí đã lưu sẽ xuất hiện tại đây." />}
-
-        <div className="treasury-advance-section">
-          <div className="treasury-advance-heading">
-            <div>
-              <h4>Công nợ tạm ứng quảng cáo</h4>
-              <p>Theo dõi số cá nhân đã ứng, số đã hoàn và số shop còn phải trả.</p>
-            </div>
-            <Badge variant="warning">Còn phải trả {formatCurrency(advanceSummary.totalOutstanding)}</Badge>
-          </div>
-
-          <div className="table-responsive">
-            <table className="table treasury-advance-table">
-              <thead><tr><th>Người ứng</th><th>Ngày</th><th>Shop</th><th>Đã ứng</th><th>Đã hoàn</th><th>Còn phải trả</th><th>Trạng thái</th><th></th></tr></thead>
-              <tbody>
-                {advanceSummary.advances.length === 0 ? <tr><td colSpan="8" className="treasury-empty-cell"><EmptyState icon={Wallet} title="Chưa có khoản cá nhân ứng trước" description="Các khoản ứng quảng cáo sẽ được theo dõi tại đây." /></td></tr> : advanceSummary.advances.map(advance => (
-                  <React.Fragment key={advance.id}>
-                    <tr>
-                      <td><strong>{advance.advancedBy || 'Chưa xác định'}</strong></td>
-                      <td>{advance.date || `${advance.month}-01`}</td>
-                      <td>{advance.shop}</td>
-                      <td className="num">{formatCurrency(advance.amount)}</td>
-                      <td className="num">{formatCurrency(advance.reimbursed)}</td>
-                      <td className="num"><strong>{formatCurrency(advance.outstanding)}</strong></td>
-                      <td><Badge variant={advance.status === 'PAID' ? 'success' : advance.status === 'PARTIAL' ? 'info' : 'warning'}>{advance.status === 'PAID' ? 'Đã hoàn đủ' : advance.status === 'PARTIAL' ? 'Hoàn một phần' : 'Chưa hoàn'}</Badge></td>
-                      <td>{advance.outstanding > 0 && can('treasury', 'create') && <Button type="button" variant="secondary" size="sm" onClick={() => openReimbursementForm(advance)}>Hoàn ứng</Button>}</td>
-                    </tr>
-                    {repayingAdvanceId === advance.id && (
-                      <tr className="treasury-reimbursement-row"><td colSpan="8">
-                        <form className="treasury-reimbursement-form" onSubmit={handleSaveReimbursement}>
-                          <FormField label="Số tiền trả lần này" helpText={`Còn nợ ${formatCurrency(advance.outstanding)}. Có thể nhập số tiền trả một phần.`}>
-                            <input
-                              type="number"
-                              min="1"
-                              max={advance.outstanding}
-                              step="1"
-                              value={reimbursementAmount}
-                              onChange={event => setReimbursementAmount(event.target.value)}
-                              placeholder="Nhập số tiền muốn trả"
-                              required
-                            />
-                          </FormField>
-                          <FormField label="Ngày hoàn"><input type="date" value={reimbursementDate} onChange={event => setReimbursementDate(event.target.value)} required /></FormField>
-                          <FormField label="Nguồn hoàn ứng"><select value={reimbursementSource} onChange={event => setReimbursementSource(event.target.value)}><option value="TREASURY_ACCOUNT">Từ tài khoản quỹ shop</option><option value="SHOPEE_WALLET">Trực tiếp từ Ví Shopee</option></select></FormField>
-                          {reimbursementSource === 'TREASURY_ACCOUNT' && <FormField label="Tài khoản trả"><select value={reimbursementAccount} onChange={event => setReimbursementAccount(event.target.value)} required><option value="">Chọn tài khoản</option>{accounts.map(accountName => <option key={accountName} value={accountName}>{accountName}</option>)}</select></FormField>}
-                          <FormField label="Ghi chú" className="treasury-reimbursement-note"><input type="text" value={reimbursementNote} onChange={event => setReimbursementNote(event.target.value)} placeholder="VD: Hoàn ứng QC tháng 7" /></FormField>
-                          <div className="treasury-reimbursement-actions"><Button type="button" variant="secondary" onClick={() => setReimbursementAmount(String(advance.outstanding))}>Điền toàn bộ</Button><Button type="button" variant="secondary" onClick={closeReimbursementForm}>Hủy</Button>{can('treasury', 'create') && <Button type="submit" loading={isSavingReimbursement}>{isSavingReimbursement ? 'Đang lưu...' : 'Xác nhận hoàn ứng'}</Button>}</div>
-                        </form>
-                        <p className="treasury-reimbursement-help">Hoàn từ tài khoản quỹ sẽ trừ số dư tài khoản. Hoàn trực tiếp từ Ví Shopee chỉ trừ số dư ví sàn tạm tính.</p>
-                      </td></tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </section>
 
       {showForm && (
@@ -690,8 +466,10 @@ export default function Treasury() {
             <EmptyState icon={Wallet} title="Chưa có tài khoản để hiển thị lịch sử" description="Thêm tài khoản hoặc quỹ trong Cài Đặt để bắt đầu ghi nhận dòng tiền." />
           ) : (
             <div className="treasury-history-grid">
-              {visibleAccountHistories.map(({ account: accountName, transactions: accountTransactions }, accountIndex) => (
-              <section key={accountName} className={`treasury-account-history treasury-tone-${accountIndex % 6}`}>
+              {visibleAccountHistories.map(({ account: accountName, transactions: accountTransactions }, accountIndex) => {
+                const isChau = accountName.toLowerCase().includes('châu');
+                return (
+              <section key={accountName} className={`treasury-account-history treasury-tone-${accountIndex % 6} ${isChau ? 'treasury-account-full-width' : ''}`}>
                 <div className="treasury-account-history__header">
                   <div className="treasury-account-history__name">
                     <Wallet size={20} />
@@ -767,20 +545,13 @@ export default function Treasury() {
                   </table>
                 </div>
               </section>
-              ))}
+              );
+            })}
             </div>
           )}
         </div>
       </div>
-      <ConfirmDialog
-        open={Boolean(pendingAdDelete)}
-        onClose={() => !isDeletingAd && setPendingAdDelete(null)}
-        onConfirm={confirmDeleteAd}
-        title="Xóa chi phí quảng cáo"
-        itemName={pendingAdDelete ? `${pendingAdDelete.shop} tháng ${pendingAdDelete.month}` : undefined}
-        description={pendingAdDelete ? `Xóa chi phí quảng cáo ${pendingAdDelete.shop} tháng ${pendingAdDelete.month}? Bút toán liên quan sẽ được cập nhật theo logic hiện tại.` : undefined}
-        loading={isDeletingAd}
-      />
+
       <ConfirmDialog
         open={Boolean(pendingTransactionDelete)}
         onClose={() => !isDeletingTransaction && setPendingTransactionDelete(null)}

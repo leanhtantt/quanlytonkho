@@ -12,6 +12,7 @@ import {
   IconUsers as UsersIcon,
   IconClipboardText as ClipboardText,
   IconUser as UserIcon,
+  IconReceipt as ReceiptIcon,
 } from '@tabler/icons-react';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
@@ -20,6 +21,7 @@ import Purchases from './pages/Purchases';
 import Losses from './pages/Losses';
 import Profit from './pages/Profit';
 import Treasury from './pages/Treasury';
+import Expenses from './pages/Expenses';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
 import Activity from './pages/Activity';
@@ -39,6 +41,7 @@ const menuItems = [
   { path: '/losses', name: 'Điều Chỉnh Kho', icon: ShieldAlert, resource: 'losses' },
   { path: '/profit', name: 'Lợi Nhuận', icon: TrendingUp, resource: 'profit' },
   { path: '/treasury', name: 'Sổ Quỹ', icon: Wallet, resource: 'treasury' },
+  { path: '/expenses', name: 'Chi Phí', icon: ReceiptIcon, resource: 'treasury' },
   { path: '/settings', name: 'Cài Đặt', icon: SettingsIcon, resource: 'settings' },
   { path: '/users', name: 'Người dùng', icon: UsersIcon, adminOnly: true },
   { path: '/activity', name: 'Lịch sử hoạt động', icon: ClipboardText, resource: 'activity' },
@@ -228,6 +231,7 @@ function App() {
               <Route path="/losses" element={<RouteGuard allowed={can('losses', 'view')} fallbackPath={fallbackPath}><Losses /></RouteGuard>} />
               <Route path="/profit" element={<RouteGuard allowed={can('profit', 'view')} fallbackPath={fallbackPath}><Profit /></RouteGuard>} />
               <Route path="/treasury" element={<RouteGuard allowed={can('treasury', 'view')} fallbackPath={fallbackPath}><Treasury /></RouteGuard>} />
+              <Route path="/expenses" element={<RouteGuard allowed={can('treasury', 'view')} fallbackPath={fallbackPath}><Expenses /></RouteGuard>} />
               <Route path="/settings" element={<RouteGuard allowed={can('settings', 'view')} fallbackPath={fallbackPath}><Settings /></RouteGuard>} />
               <Route path="/users" element={<RouteGuard allowed={isAdmin} fallbackPath={fallbackPath}><Users /></RouteGuard>} />
               <Route path="/activity" element={<RouteGuard allowed={can('activity', 'view')} fallbackPath={fallbackPath}><Activity /></RouteGuard>} />

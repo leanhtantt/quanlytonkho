@@ -72,6 +72,7 @@ export default function Orders() {
   const [isDeletingOrder, setIsDeletingOrder] = useState(false);
   const [updatingFeeKey, setUpdatingFeeKey] = useState(null);
   const [showClearImportIssuesDialog, setShowClearImportIssuesDialog] = useState(false);
+  const [reconNotFoundIds, setReconNotFoundIds] = useState([]);
   
   // Filters
   const [search, setSearch] = useState('');
@@ -378,7 +379,7 @@ export default function Orders() {
 
         const orderById = new Map(orders.map(order => [normalizeExcelText(order.id), order]));
         const updatesByOrderId = new Map();
-        let notFoundCount = 0;
+        const notFoundIds = [];
         let skipCount = 0;
         let invalidCount = 0;
 
@@ -397,7 +398,9 @@ export default function Orders() {
 
           const existingOrder = orderById.get(normalizeExcelText(importedId));
           if (!existingOrder) {
-            notFoundCount++;
+            if (importedId && !notFoundIds.includes(importedId)) {
+              notFoundIds.push(importedId);
+            }
             return;
           }
 
@@ -416,10 +419,12 @@ export default function Orders() {
 
         for (const [id, updates] of updatesByOrderId) await updateOrder(id, updates);
 
+        setReconNotFoundIds(notFoundIds);
+
         toast.success(
           `Hoàn tất đối soát!\n` +
           `- Cập nhật Thực tế (Nhận): ${updatesByOrderId.size} đơn\n` +
-          `- Không tìm thấy mã đơn: ${notFoundCount} đơn\n` +
+          `- Không tìm thấy mã đơn: ${notFoundIds.length} đơn\n` +
           `- Bỏ qua dòng sản phẩm: ${skipCount} dòng\n` +
           `- Dòng thiếu/sai dữ liệu: ${invalidCount} dòng`,
           { id: toastId }
@@ -698,6 +703,27 @@ export default function Orders() {
           </div>
         ) : null}
       />
+
+      {reconNotFoundIds.length > 0 && (
+        <section className="card orders-import-issues" style={{ borderColor: 'var(--color-warning)' }}>
+          <div className="orders-import-issues__heading">
+            <h3 style={{ color: 'var(--color-warning)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <IconAlertTriangle size={22} aria-hidden="true" /> {reconNotFoundIds.length} mã đơn không tìm thấy khi đối soát
+            </h3>
+            <Button variant="ghost" size="sm" icon={X} onClick={() => setReconNotFoundIds([])}>Đóng</Button>
+          </div>
+          <div style={{ padding: '0 var(--space-5) var(--space-5)' }}>
+            <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-3)' }}>
+              Các mã đơn sau có trong file excel đối soát nhưng chưa có trên hệ thống:
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+              {reconNotFoundIds.map((id, idx) => (
+                <Badge key={idx} variant="warning" style={{ userSelect: 'text' }}>{id}</Badge>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {showForm && (
         <section className="card animate-fade-in orders-form-card">

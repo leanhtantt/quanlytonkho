@@ -927,13 +927,23 @@ th {
 
 .treasury-history-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
   align-items: start;
+}
+
+@media (max-width: 1280px) {
+  .treasury-history-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .treasury-history-grid section {
   min-width: 0;
+}
+
+.treasury-account-full-width {
+  grid-column: 1 / -1;
 }
 
 .treasury-history-heading,
@@ -2747,10 +2757,6 @@ tbody tr:hover td {
 }
 
 @media (max-width: 900px) {
-  .treasury-history-grid {
-    grid-template-columns: 1fr;
-  }
-
   .treasury-reimbursement-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2794,3 +2800,27 @@ tbody tr:hover td {
     width: 100%;
   }
 }
+
+/* ─── Expenses Page ─── */
+
+.expenses-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.expenses-section__description {
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+  line-height: 1.6;
+}
+
+.expenses-packaging-table {
+  table-layout: fixed;
+}
+
+.expenses-packaging-table th:first-child { width: 18%; }
+.expenses-packaging-table th:nth-child(2) { width: 22%; }
+.expenses-packaging-table th:nth-child(3) { width: 26%; }
+.expenses-packaging-table th:nth-child(4) { width: 12%; }
+.expenses-packaging-table th:nth-child(5) { width: 22%; }

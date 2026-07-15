@@ -1774,6 +1774,7 @@ tbody tr:hover td {
 
 .ui-form-field {
   display: grid;
+  align-content: start;
   gap: var(--space-2);
 }
 

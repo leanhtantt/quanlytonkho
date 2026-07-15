@@ -2800,16 +2800,12 @@ tbody tr:hover td {
 .expenses-page {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg);
-}
-
-.expenses-section {
-  padding: var(--spacing-lg);
+  gap: var(--space-6);
 }
 
 .expenses-section__description {
   color: var(--color-text-secondary);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--space-4);
   line-height: 1.6;
 }
 
@@ -2817,19 +2813,8 @@ tbody tr:hover td {
   table-layout: fixed;
 }
 
-.expenses-packaging-table th,
-.expenses-packaging-table td {
-  padding: var(--spacing-sm) var(--spacing-md);
-  vertical-align: middle;
-}
-
 .expenses-packaging-table th:first-child { width: 18%; }
 .expenses-packaging-table th:nth-child(2) { width: 22%; }
 .expenses-packaging-table th:nth-child(3) { width: 26%; }
 .expenses-packaging-table th:nth-child(4) { width: 12%; }
 .expenses-packaging-table th:nth-child(5) { width: 22%; }
-
-.expenses-packaging-table th.num,
-.expenses-packaging-table td.num {
-  text-align: right;
-}

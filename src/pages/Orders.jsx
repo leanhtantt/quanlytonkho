@@ -101,7 +101,7 @@ export default function Orders() {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [selectedProductName, setSelectedProductName] = useState('');
   const [qty, setQty] = useState(1);
-  const [sellingPrice, setSellingPrice] = useState(0);
+  const [sellingPrice, setSellingPrice] = useState('');
   const [isReturned, setIsReturned] = useState(false);
   
   const [importShop, setImportShop] = useState(defaultShop);
@@ -164,7 +164,7 @@ export default function Orders() {
     setSelectedProductId('');
     setSelectedProductName('');
     setQty(1);
-    setSellingPrice(0);
+    setSellingPrice('');
     setIsReturned(false);
   };
 

@@ -1915,7 +1915,7 @@ tbody tr:hover td {
 
 .orders-form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-4);
   margin-bottom: var(--space-8);
 }
@@ -1953,10 +1953,9 @@ tbody tr:hover td {
 }
 
 .orders-return-toggle {
-  align-self: stretch;
   display: flex;
-  align-items: flex-end;
-  padding-bottom: var(--space-3);
+  align-items: center;
+  min-height: 2.75rem;
 }
 
 .orders-return-toggle label {
@@ -1967,6 +1966,15 @@ tbody tr:hover td {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.orders-return-toggle input[type="checkbox"] {
+  width: auto;
+  min-height: auto;
+}
+
+.orders-item-editor__grid > .ui-button {
+  min-height: 2.75rem;
 }
 
 .orders-form-items {
@@ -2194,10 +2202,12 @@ tbody tr:hover td {
   }
 
   .orders-filters,
+  .orders-form-grid,
   .orders-item-editor__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .orders-form-grid__wide,
   .orders-filters__search,
   .orders-item-editor__name {
     grid-column: span 2;

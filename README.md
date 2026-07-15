@@ -4,7 +4,7 @@ Ung dung web quan ly ban hang va ton kho cho shop phu kien decor "Phu kien Decor
 
 🔗 **Live**: [https://tanle-dev-lynstore.web.app](https://tanle-dev-lynstore.web.app)
 
-> Trang thai: lo trinh phat trien 10 dot da hoan tat (2026-07-15). Dang o giai doan test tong the truoc khi deploy mot lan.
+> Trang thai: lo trinh phat trien 10 dot da hoan tat, **da deploy production lan dau ngay 2026-07-15**. Xem `docs/deploy/README.md` de biet cach deploy lai.
 
 ## Stack ky thuat
 
@@ -12,11 +12,12 @@ Ung dung web quan ly ban hang va ton kho cho shop phu kien decor "Phu kien Decor
 |-----------|-----------|
 | Frontend | React 19 + Vite, react-router-dom, recharts |
 | UI | Font Plus Jakarta Sans (self-host), icon `@tabler/icons-react`, toast `sonner`, CSS token thuan (light-mode) |
-| Backend | Express 5 + TypeScript, Prisma ORM, PostgreSQL |
+| Backend | Express 5 + TypeScript, Prisma ORM |
+| Database | **Neon** (Postgres serverless) o production; Postgres local/Docker o dev |
 | Auth | Firebase Auth (Email/Password) + phan quyen backend (default-deny) |
 | Monitoring | Sentry (FE `@sentry/react`, BE `@sentry/node`) — bat khi co DSN |
 | Hosting | Firebase Hosting (site: `tanle-dev-lynstore`) |
-| Backend Deploy | Google Cloud Run (Docker, Artifact Registry) |
+| Backend Deploy | Google Cloud Run (Docker, Artifact Registry, WIF) |
 | Project | GCP/Firebase project: `tanle-dev` |
 
 ## Chay du an
@@ -112,7 +113,7 @@ npm test             # test BE (Vitest)
 │   ├── business_rules.md          Quy tac nghiep vu (FIFO, phan bo phi...)
 │   ├── ui_rules.md                Design system v2 (Premium Light)
 │   ├── Memory.md                  Nhat ky phat trien va quyet dinh
-│   ├── deploy/                    Huong dan deploy preview (workflow de xuat)
+│   ├── deploy/                    Runbook deploy that (hien tai da deploy production)
 │   └── reports/                   Cac plan da duyet (phan quyen, UI, de xuat bo sung)
 │
 └── AGENTS.md                      Rang buoc cho AI agents lam viec trong repo
@@ -161,6 +162,13 @@ Browser -> Firebase Auth (Email/Password) -> JWT ID Token
   `npm run db:restore` (doi DB dich rong + xac nhan; xem huong dan trong scripts).
 - `npm run db:backup:dump` -> ban pg_dump custom format (`.dump`) de phuc hoi nguyen trang.
 - Chi tiet 2 dinh dang va khi nao dung cai nao: xem `docs/Memory.md`.
+
+## Deploy
+
+Xem `docs/deploy/README.md` de biet chi tiet (trigger, cach deploy backend/frontend, luu y ve IAM). Tom tat:
+- Deploy chi chay khi **kich hoat thu cong** (`workflow_dispatch`), khong tu dong theo push.
+- Backend: `gh workflow run "Build and Deploy" --ref main` (deploy len Cloud Run qua WIF).
+- Frontend: hien phai deploy thu cong qua Firebase CLI (`npm run build && firebase deploy --only hosting:lynstore --project tanle-dev`) do IAM cua service account CI chua du quyen Hosting.
 
 ## Monitoring (Sentry)
 

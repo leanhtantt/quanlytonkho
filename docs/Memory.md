@@ -30,8 +30,53 @@ data khong hien. Da sua: tai data theo `onAuthStateChanged` (chi fetch khi co to
 Quyet dinh chot: teal `#0f766e`; brand "Phu kien Decor"; font Plus Jakarta Sans; toast sonner; icon Tabler;
 chi light-mode; 1 admin duy nhat qua custom claim; khong xoa user/lich su.
 
-Con lai: test tong the local roi deploy MOT LAN (chu du an tu lam). Luu y khi deploy: reconcile migration,
-`deploy.yml` co `if:` bi loi (job deploy skip), workflow files can push thu cong, `set-admin` can service account key `tanle-dev`.
+---
+
+## 2026-07-15 - Deploy production lan dau + fix CI
+
+**Database chuyen sang Neon** (Postgres serverless, thay the ke hoach dung Cloud SQL). Ly do: `deploy.yml`
+chi can 1 `DATABASE_URL` bat ky, khong co san VPC Connector/Cloud SQL Auth Proxy; Neon co free tier that
+va tu ngu khi ranh, phu hop quy mo 1 shop. Da tung xem xet Supabase (rui ro: free tier tu pause sau 7 ngay
+khong hoat dong, phai vao dashboard resume thu cong — bo qua vi app dung hang ngay nen it xay ra, nhung
+Neon van an toan hon cho ca "khong ai dung 1 tuan"). Khong bat Neon Data API / Neon Auth — app da co
+tang Express/Prisma rieng xu ly quyen + audit, bat Data API se bo qua het kiem tra quyen.
+
+**Restore data that vao Neon**: dung `backend/scripts/restore.ts` (backup JSON co checksum), 8345 dong /
+18 bang, verify khop voi DB local. Luu y: `restore.ts` insert tung dong tuan tu trong 1 transaction —
+voi Neon o xa (us-east-1) co the mat 20-40 phut cho vai nghin dong do do tre mang, khong co tien do quan
+sat duoc giua chung (chi thay ket qua khi commit xong).
+
+**Fix bug CI nghiem trong**: dieu kien `if: contains(toJSON(github.event.commits.*.modified), ...)` trong
+`deploy.yml` KHONG hoat dong voi squash-merge qua API (moi merge trong repo deu squash) — ca 2 job deploy
+bi skip o TAT CA ~15 lan push gan nhat, chua tung deploy tu dong thanh cong du workflow "chay" moi lan.
+Sua: bo trigger `push`, chuyen sang `workflow_dispatch` (kich hoat thu cong), bo dieu kien `if:` khong
+dang tin — khop dung trietly "test xong moi deploy 1 lan". Phat hien them: Artifact Registry repo dung
+sai ten (`cloud-run-source-deploy` co san, workflow can `bap-repo` chua ton tai) — da tao bo sung.
+
+**Setup GCP cho CI** (WIF cho Cloud Run, khong dung JSON key): tao Service Account
+`github-actions-deployer@tanle-dev.iam.gserviceaccount.com` (role run.admin, artifactregistry.writer,
+iam.serviceAccountUser) + Workload Identity Pool/Provider gioi han chi repo `leanhtantt/quanlytonkho`.
+4 GitHub Secrets can co: `DATABASE_URL`, `FIREBASE_SERVICE_ACCOUNT_TANLE_DEV`, `WIF_PROVIDER`,
+`WIF_SERVICE_ACCOUNT` — da set du.
+
+**Ket qua**: `deploy-backend` chay qua CI thanh cong (health check xac nhan `api:true, db:true`).
+`deploy-frontend` qua CI **loi 403** — service account trong `FIREBASE_SERVICE_ACCOUNT_TANLE_DEV` la
+`firebase-adminsdk-fbsvc@tanle-dev.iam.gserviceaccount.com` (SA cua Admin SDK, dung cho backend runtime)
+thieu quyen `firebasehosting.sites.update`. **Chua sua IAM nay** (can chu du an xac nhan cap role
+`Firebase Hosting Admin` cho SA hien co, hoac tao SA rieng — 2 phuong an da neu, chua chot). Thay vao do
+deploy frontend thu cong qua Firebase CLI (`firebase deploy --only hosting:lynstore --project tanle-dev`,
+da dang nhap san bang tai khoan chu du an) — hoat dong tot, dung cho lan deploy dau tien nay.
+
+Sau khi backend len Cloud Run, cap nhat `.env.production` (`VITE_API_URL`) tro dung URL Cloud Run, build
+sach (xoa `dist/` truoc — tich luy nhieu bundle cu qua nhieu lan build trong session), deploy Hosting.
+Verify end-to-end tren production that: dang nhap admin, moi API call goi dung Cloud Run (khong con
+localhost), console sach, du lieu that hien dung.
+
+Xem chi tiet + huong dan deploy lai: `docs/deploy/README.md`.
+
+**Con treo**: dong mat khau Neon (da lo trong 1 doan chat, chu du an chon giu nguyen roi tu xoa doan chat
+do thay vi doi mat khau); IAM cho `deploy-frontend` qua CI; cold start Cloud Run vai giay sau khi ranh
+(chua can `min-instances`, quy mo nho).
 
 ---
 

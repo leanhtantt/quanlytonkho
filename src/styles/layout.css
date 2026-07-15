@@ -97,9 +97,9 @@
 }
 
 .nav-item.active {
-  background: var(--color-bg-selected);
-  color: var(--color-primary);
-  box-shadow: inset 3px 0 0 var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: none;
 }
 
 /* --- Sidebar footer --- */
@@ -177,6 +177,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sidebar-user-role {
+  font-size: 0.675rem;
+  color: var(--color-primary);
+  font-weight: 600;
+  opacity: 0.85;
 }
 
 .logout-btn {
@@ -264,7 +271,7 @@
   }
 
   .nav-item.active {
-    box-shadow: inset 0 -3px 0 var(--color-primary);
+    box-shadow: none;
   }
 
   .sidebar-footer {

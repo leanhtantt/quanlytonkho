@@ -1019,10 +1019,10 @@ apiRouter.delete('/ads/:id', async (req, res) => {
       if (expense.reimbursements.length > 0) {
         throw new Error('Không thể xóa khoản quảng cáo đã có lịch sử hoàn ứng.');
       }
-      await tx.monthlyAdExpense.delete({ where: { id: expense.id } });
       if (expense.treasuryTransactionId) {
-        await tx.treasuryTransaction.delete({ where: { id: expense.treasuryTransactionId } });
+        await tx.treasuryTransaction.deleteMany({ where: { id: expense.treasuryTransactionId } });
       }
+      await tx.monthlyAdExpense.delete({ where: { id: expense.id } });
     });
     res.json({ success: true });
   } catch (error: any) {

@@ -1,7 +1,7 @@
 # Plan: Refactor toàn bộ giao diện (UI Redesign — Premium Light)
 
 Ngày: 2026-07-13
-Trạng thái: **Đã duyệt 2026-07-13** (các quyết định chốt ở mục 12) — chưa triển khai code, chờ giao việc theo phase.
+Trạng thái: **Đã triển khai xong 2026-07-15** (Đợt 3 + Đợt 8 của lộ trình — PR #5, #6, #7, #12–#16). Design system v2 đã chốt tại `docs/ui_rules.md`; các quyết định chốt ở mục 12.
 
 Plan này gồm 2 phần: (A) bộ quy tắc design system mới — sau khi duyệt sẽ trở thành `docs/ui_rules.md` v2; (B) kế hoạch triển khai theo phase.
 

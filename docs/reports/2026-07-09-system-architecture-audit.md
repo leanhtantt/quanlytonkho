@@ -1,5 +1,7 @@
 # Báo cáo Kiến trúc Hệ thống — Quản lý Tồn kho BAP
 
+> ⚠️ **Tài liệu lịch sử (2026-07-09).** Mô tả hiện trạng *trước* khi triển khai lộ trình 10 đợt. Backend, phân quyền, activity log, UI redesign đã hoàn tất (xem `docs/Memory.md`). Giữ làm bản ghi audit.
+
 > **Ngày**: 2026-07-09  
 > **Phạm vi**: Toàn bộ hệ thống (Frontend, Backend, Database, Hosting, CI/CD)  
 > **Trạng thái tổng quan**: MVP hoạt động ở frontend, backend chưa kết nối

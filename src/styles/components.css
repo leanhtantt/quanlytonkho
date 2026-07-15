@@ -2810,7 +2810,7 @@ tbody tr:hover td {
 }
 
 .expenses-section__description {
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   margin-bottom: var(--space-4);
   line-height: 1.6;
 }

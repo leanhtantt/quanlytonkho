@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { IconReceipt as Receipt, IconWallet as Wallet, IconTrash as Trash2 } from '@tabler/icons-react';
+import { IconWallet as Wallet, IconTrash as Trash2 } from '@tabler/icons-react';
 import { useAppStore } from '../store/appStoreContext';
 import { calculateAdAdvanceSummary } from '../domain/profitAnalytics';
 import { toast } from '../components/ui/toastHelper';

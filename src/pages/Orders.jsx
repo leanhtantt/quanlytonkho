@@ -713,7 +713,7 @@ export default function Orders() {
             <Button variant="ghost" size="sm" icon={X} onClick={() => setReconNotFoundIds([])}>Đóng</Button>
           </div>
           <div style={{ padding: '0 var(--space-5) var(--space-5)' }}>
-            <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-3)' }}>
+            <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-3)' }}>
               Các mã đơn sau có trong file excel đối soát nhưng chưa có trên hệ thống:
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>

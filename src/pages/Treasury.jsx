@@ -143,7 +143,7 @@ export default function Treasury() {
   }, [transactions, accounts]);
 
   const visibleAccountHistories = useMemo(() => {
-    return accounts.map(accountName => ({
+    const mapped = accounts.map(accountName => ({
       account: accountName,
       transactions: transactionsWithBalance
         .filter(transaction => !filterMonth || transaction.date.startsWith(filterMonth))

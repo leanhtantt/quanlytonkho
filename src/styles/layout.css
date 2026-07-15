@@ -231,11 +231,7 @@
   box-shadow: var(--shadow-sm);
 }
 
-@media (max-width: 1280px) {
-  .treasury-history-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
+
 
 @media (max-width: 900px) {
   .app-container {
@@ -339,9 +335,6 @@
     position: static;
   }
 
-  .treasury-history-grid {
-    grid-template-columns: 1fr;
-  }
 
   .treasury-advance-heading {
     align-items: flex-start;

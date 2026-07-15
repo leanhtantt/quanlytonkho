@@ -52,7 +52,7 @@ function getVisibleMenuItems(can, isAdmin) {
 
 function Sidebar() {
   const location = useLocation();
-  const { logout, user, can, isAdmin } = useAuth();
+  const { logout, user, profile, can, isAdmin } = useAuth();
   const visibleMenuItems = getVisibleMenuItems(can, isAdmin);
 
   return (
@@ -90,6 +90,7 @@ function Sidebar() {
           <span className="sidebar-user-details">
             <span className="sidebar-user-label">Tài khoản</span>
             <span className="sidebar-user-email">{user?.email}</span>
+            {profile?.role && <span className="sidebar-user-role">{{ admin: 'Admin', manager: 'Quản lý', staff: 'Nhân viên', viewer: 'Chỉ xem' }[profile.role] || profile.role}</span>}
           </span>
         </div>
         <button className="nav-item logout-btn" onClick={logout}>

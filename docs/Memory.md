@@ -4,6 +4,37 @@ File nay ghi lai quyet dinh, bai hoc va moc phat trien quan trong cua du an.
 
 ---
 
+## 2026-07-13 -> 2026-07-15 - Lo trinh 10 dot (backend that + phan quyen + UI + audit)
+
+Chuyen tu MVP (mock/localStorage) sang san pham that, chay theo lo trinh 10 dot.
+Quy trinh: Codex code -> review doi chieu tai lieu -> merge vao `main` (branch protection, CI xanh).
+Tai lieu chuan: `docs/reports/2026-07-13-*.md`.
+
+Cac dot da hoan tat:
+- **Dot 1-2**: Backup DB (JSON co checksum + pg_dump) + khoa `wipe.ts` + CI build/lint/test tren PR; test tien/FIFO.
+- **Dot 3**: UI foundation - token CSS, font Plus Jakarta Sans (self-host), icon Tabler (bo lucide),
+  bo component chuan `src/components/ui/`, toast `sonner`, ConfirmDialog (bo alert/confirm). Mau chu dao teal `#0f766e`.
+- **Dot 4-5**: Phan quyen backend default-deny (`requirePermission`, `/api/me`, admin qua Firebase custom claim,
+  khong API nang admin, chi disable khong xoa user) + API quan ly user admin-only + frontend guard + trang `Users.jsx` (ma tran quyen).
+- **Dot 6**: Anh san pham -> Firebase Storage (`storage.rules`, bucket `tanle-dev.firebasestorage.app`).
+- **Dot 7**: Activity Log - Prisma extension + AsyncLocalStorage tu dong ghi CRUD, `GET /api/activity`, trang `Activity.jsx`.
+- **Dot 8**: UI redesign toan bo 9 trang (xoa ~328 inline style, dung component chuan, loading/toast moi mutation),
+  design system v2 = `docs/ui_rules.md`. Sidebar them Nguoi dung + Lich su hoat dong.
+- **Dot 9**: Sentry FE/BE (tat khi khong co DSN, loc PII) + workflow deploy preview de xuat (`docs/deploy/`).
+- **Dot 10**: Refetch da user (on-focus + nut Lam moi); C1 Dashboard da dung data that; C2 sua/xoa loss da co san
+  (backend `replaceLoss`/`deleteLoss` + `reverseLossEffects`), chot dung cach hien tai (Activity Log da ghi dau vet).
+
+Bug bat duoc khi QA (2026-07-15): `StoreContext` goi API luc mount truoc khi Firebase cap token -> 401,
+data khong hien. Da sua: tai data theo `onAuthStateChanged` (chi fetch khi co token).
+
+Quyet dinh chot: teal `#0f766e`; brand "Phu kien Decor"; font Plus Jakarta Sans; toast sonner; icon Tabler;
+chi light-mode; 1 admin duy nhat qua custom claim; khong xoa user/lich su.
+
+Con lai: test tong the local roi deploy MOT LAN (chu du an tu lam). Luu y khi deploy: reconcile migration,
+`deploy.yml` co `if:` bi loi (job deploy skip), workflow files can push thu cong, `set-admin` can service account key `tanle-dev`.
+
+---
+
 ## 2026-07-09 - Firebase Hosting + Auth + CI/CD
 
 ### Firebase Hosting

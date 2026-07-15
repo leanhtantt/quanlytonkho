@@ -13,6 +13,12 @@ dist-ssr
 *.local
 .firebase/
 
+# Secrets & credentials
+.env
+.env.*
+!.env.example
+**/serviceAccountKey*.json
+
 # Local agent/tooling caches
 .codex/
 tools/agy-plugin-cc/

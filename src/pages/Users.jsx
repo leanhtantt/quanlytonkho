@@ -30,6 +30,7 @@ const permissionActions = [
 ];
 
 const roleLabels = {
+  admin: 'Admin',
   manager: 'Quản lý',
   staff: 'Nhân viên',
   viewer: 'Chỉ xem',

@@ -1,7 +1,7 @@
 # Plan: Hệ thống phân quyền + Lịch sử hoạt động (Activity Log)
 
 Ngày: 2026-07-13
-Trạng thái: **Đã duyệt 2026-07-13** (các quyết định chốt ở mục 6) — chưa triển khai code, chờ giao việc theo phase.
+Trạng thái: **Đã triển khai xong 2026-07-15** (Đợt 4, 5, 7 của lộ trình — PR #8, #9, #10, #11). Tài liệu giữ làm nguồn thiết kế; các quyết định chốt ở mục 6.
 
 ---
 

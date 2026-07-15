@@ -1,5 +1,7 @@
 # Kế hoạch Migration: localStorage → Local PostgreSQL → Google Cloud
 
+> ⚠️ **Tài liệu lịch sử (2026-07-09).** Việc chuyển localStorage → PostgreSQL đã hoàn tất; app hiện chạy backend thật với data thật. Bước deploy Cloud còn lại (làm một lần cuối kỳ). Giữ làm tham chiếu.
+
 > **Ngày**: 2026-07-09  
 > **Mục tiêu**: Chuyển toàn bộ dữ liệu từ localStorage sang PostgreSQL local, test với data thật, sau đó deploy lên Google Cloud  
 > **Trạng thái**: 📋 Chờ duyệt

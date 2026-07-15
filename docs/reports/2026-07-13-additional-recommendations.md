@@ -1,7 +1,7 @@
 # Đề xuất bổ sung ngoài 2 plan Phân quyền & UI
 
 Ngày: 2026-07-13
-Trạng thái: **Chờ duyệt** — danh sách đề xuất, anh chọn cái nào thì giao việc cái đó.
+Trạng thái: **Đã triển khai xong 2026-07-15** — tất cả đề xuất (A1 ảnh Storage, A2 backup, A3 deploy preview, B1 CI, B2 test, B3 Sentry, nhóm C) đã làm qua các đợt của lộ trình. Tài liệu giữ làm tham chiếu.
 
 Bối cảnh: app vận hành shop thật (tiền thật, sổ sách thật), chủ app không làm tech và phát triển bằng AI. Vì vậy các đề xuất xếp ưu tiên theo nguyên tắc: **bảo vệ dữ liệu trước → lưới an toàn khi vibe code → tiện nghi sau**.
 

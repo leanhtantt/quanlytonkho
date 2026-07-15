@@ -1,43 +1,55 @@
-# Deploy Preview — Hướng dẫn cài đặt
+# Deploy — Runbook
 
-## Mục đích
+Trạng thái: **đã deploy production lần đầu ngày 2026-07-15.** Tài liệu này mô tả quy trình thật đang dùng (không phải đề xuất).
 
-Workflow `preview-workflow.yml` tạo **Firebase Hosting preview channel** cho mỗi Pull Request. Khi mở PR, GitHub Actions sẽ:
+## Hạ tầng
 
-1. Build frontend (`npm ci && npm run build`)
-2. Deploy lên preview channel `pr-<số PR>` (tự hết hạn sau 7 ngày)
-3. Comment URL preview trực tiếp vào PR để xem bằng mắt trước khi merge
+| Thành phần | Dịch vụ | Ghi chú |
+|---|---|---|
+| Frontend | Firebase Hosting (`tanle-dev-lynstore`) | https://tanle-dev-lynstore.web.app |
+| Backend | Cloud Run (`bap-backend-api`, `asia-southeast1`) | scale-to-zero (không cấu hình min-instances → cold start vài giây sau khi rảnh) |
+| Database | **Neon** (Postgres serverless, region `us-east-1`) | thay cho Postgres local/Docker chỉ dùng ở dev |
+| Auth | Firebase Auth + custom claim `admin` | không đổi |
 
-## Cài đặt (chủ dự án làm 1 lần)
+## Trigger deploy
 
-### 1. Copy workflow vào đúng vị trí
+`.github/workflows/deploy.yml` chỉ chạy khi **kích hoạt thủ công** (`workflow_dispatch`), không tự động theo mỗi lần push `main`. Lý do: điều kiện `if:` cũ dựa vào `github.event.commits.*.modified` không tin cậy với squash-merge qua API (đã bị skip toàn bộ trước đó) — bỏ luôn, đồng thời khớp đúng quy trình "test tổng thể xong mới deploy một lần".
 
-```bash
-cp docs/deploy/preview-workflow.yml .github/workflows/preview.yml
+Cách chạy: GitHub → Actions → "Build and Deploy" → **Run workflow**, hoặc `gh workflow run "Build and Deploy" --ref main`.
+
+## ⚠️ Job `deploy-backend` chạy tự động OK — `deploy-frontend` hiện KHÔNG tự chạy được qua CI
+
+Service account trong `FIREBASE_SERVICE_ACCOUNT_TANLE_DEV` (`firebase-adminsdk-fbsvc@tanle-dev.iam.gserviceaccount.com`) thiếu quyền `firebasehosting.sites.update` → job `deploy-frontend` lỗi 403. **Chưa sửa** (2 lựa chọn từng đưa ra: cấp thêm role `Firebase Hosting Admin` cho chính SA này, hoặc tạo SA riêng — cần chủ dự án xác nhận, IAM permission tôi không tự cấp khi chưa được nêu rõ).
+
+**Cách deploy frontend hiện tại (thủ công, đã dùng cho lần đầu):**
+
+```powershell
+# 1. Lấy URL Cloud Run mới nhất (nếu backend vừa deploy lại)
+gcloud run services describe bap-backend-api --project=tanle-dev --region=asia-southeast1 --format="value(status.url)"
+
+# 2. Đảm bảo .env.production có đúng URL đó (VITE_API_URL="https://...")
+
+# 3. Build sạch + deploy
+Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue
+npm run build
+firebase deploy --only hosting:lynstore --project tanle-dev
 ```
 
-### 2. Kiểm tra GitHub Secret
+Cần đăng nhập `firebase login` bằng tài khoản có quyền trên project `tanle-dev` (chủ dự án đã đăng nhập sẵn khi deploy lần đầu).
 
-Workflow cần secret `FIREBASE_SERVICE_ACCOUNT_TANLE_DEV` — secret này **đã có sẵn** trong repo (được dùng bởi `deploy.yml` hiện tại). Không cần thêm secret mới.
+## Database — Neon
 
-### 3. Commit và push
+- Connection string nằm trong GitHub Secret `DATABASE_URL` (Neon Console → Connection Details để xem/đổi lại khi cần).
+- **Không bật Neon Data API / Neon Auth** — app đã có tầng Express/Prisma xử lý quyền + audit log riêng; bật Data API sẽ cho phép ghi thẳng bảng bỏ qua toàn bộ kiểm tra quyền.
+- Restore data: dùng `backend/scripts/restore.ts` như hướng dẫn trong `README.md`, trỏ `RESTORE_DATABASE_URL` vào Neon.
+- Migrate: `DATABASE_URL=<neon-url> npx prisma migrate deploy` (chạy từ `backend/`).
 
-```bash
-git add .github/workflows/preview.yml
-git commit -m "ci: thêm workflow preview deploy cho PR"
-git push
-```
+## GitHub Secrets cần có (đã set đủ)
 
-Từ đây, mỗi PR mới sẽ tự có URL preview.
+`DATABASE_URL`, `FIREBASE_SERVICE_ACCOUNT_TANLE_DEV`, `WIF_PROVIDER`, `WIF_SERVICE_ACCOUNT`.
 
-## Chi tiết kỹ thuật
+## GCP resources đã dựng cho CI (2026-07-15)
 
-- **Action**: `FirebaseExtended/action-hosting-deploy@v0` (cùng action với deploy production)
-- **Project**: `tanle-dev`, target `lynstore` (hosting site `tanle-dev-lynstore`)
-- **Channel**: `pr-<number>` — mỗi PR có URL riêng, ví dụ `https://tanle-dev-lynstore--pr-16-xxxxx.web.app`
-- **Hết hạn**: 7 ngày sau lần deploy cuối (tự dọn dẹp)
-- **Comment**: Action tự comment URL preview vào PR (dùng `GITHUB_TOKEN`)
-
-## Tại sao file workflow nằm ở `docs/deploy/` thay vì `.github/workflows/`?
-
-Để tránh rủi ro CI kích hoạt không đúng lúc khi workflow chưa được review, file được đặt tại `docs/deploy/` như đề xuất. Chủ dự án copy thủ công vào `.github/workflows/` khi sẵn sàng.
+- Artifact Registry repo `bap-repo` (`asia-southeast1`) — `deploy.yml` push image vào đây.
+- Service account `github-actions-deployer@tanle-dev.iam.gserviceaccount.com` — role `run.admin`, `artifactregistry.writer`, `iam.serviceAccountUser`.
+- Workload Identity Pool `github-pool` + Provider `github-provider` — giới hạn chỉ repo `leanhtantt/quanlytonkho` được impersonate service account trên (không dùng JSON key cho Cloud Run, chỉ Firebase Hosting còn dùng key).

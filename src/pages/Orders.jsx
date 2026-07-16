@@ -12,6 +12,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import EmptyState from '../components/ui/EmptyState';
 import FormField from '../components/ui/FormField';
 import SearchInput from '../components/ui/SearchInput';
+import TablePagination from '../components/ui/TablePagination';
 import { useAuth } from '../lib/AuthContext';
 import PageHeader from '../components/ui/PageHeader';
 
@@ -49,6 +50,8 @@ const parseExcelDate = (value) => {
 };
 
 const isFullyReturned = (items = []) => items.length > 0 && items.every(item => item.isReturned);
+const LONG_OPERATION_TOAST_DURATION = 12_000;
+const ORDERS_PAGE_SIZE = 50;
 
 const findHeaderIndex = (headers, aliases) => headers.findIndex((header) => {
   const normalized = normalizeExcelText(header);
@@ -82,6 +85,7 @@ export default function Orders() {
   const [profitFilter, setProfitFilter] = useState('all'); // all | negative
   const [deliveryFilter, setDeliveryFilter] = useState('all'); // all | returned | delivered
   const [dateSort, setDateSort] = useState('newest'); // newest | oldest
+  const [ordersPage, setOrdersPage] = useState(1);
   
   // Form State
   const [orderId, setOrderId] = useState('');
@@ -432,11 +436,11 @@ export default function Orders() {
           `- Không tìm thấy mã đơn: ${notFoundIds.length} đơn\n` +
           `- Bỏ qua dòng sản phẩm: ${skipCount} dòng\n` +
           `- Dòng thiếu/sai dữ liệu: ${invalidCount} dòng`,
-          { id: toastId }
+          { id: toastId, duration: LONG_OPERATION_TOAST_DURATION }
         );
       } catch (err) {
         console.error(err);
-        toast.error(`Không thể đối soát file Excel: ${err.message}`, { id: toastId });
+        toast.error(`Không thể đối soát file Excel: ${err.message}`, { id: toastId, duration: LONG_OPERATION_TOAST_DURATION });
       } finally {
         setIsReconciling(false);
         if (fileInputRef.current) {
@@ -446,7 +450,7 @@ export default function Orders() {
     };
     reader.onerror = () => {
       setIsReconciling(false);
-      toast.error('Không thể đọc file đối soát.', { id: toastId });
+      toast.error('Không thể đọc file đối soát.', { id: toastId, duration: LONG_OPERATION_TOAST_DURATION });
       if (fileInputRef.current) fileInputRef.current.value = null;
     };
     reader.readAsBinaryString(file);
@@ -635,10 +639,10 @@ export default function Orders() {
         if (newIssues.length > 0) {
           msg += `\n⚠️ ${newIssues.length} đơn cần xử lý (mã SP không khớp hoặc lưu thất bại). Xem danh sách "Đơn cần xử lý" bên dưới để sửa nhanh.`;
         }
-        toast.success(msg, { id: toastId });
+        toast.success(msg, { id: toastId, duration: LONG_OPERATION_TOAST_DURATION });
       } catch (err) {
         console.error(err);
-        toast.error(`Có lỗi xảy ra khi đọc file Excel: ${err.message}`, { id: toastId });
+        toast.error(`Có lỗi xảy ra khi đọc file Excel: ${err.message}`, { id: toastId, duration: LONG_OPERATION_TOAST_DURATION });
       } finally {
         setIsImportingOrders(false);
       }
@@ -646,7 +650,7 @@ export default function Orders() {
     };
     reader.onerror = () => {
       setIsImportingOrders(false);
-      toast.error('Không thể đọc file đơn hàng.', { id: toastId });
+      toast.error('Không thể đọc file đơn hàng.', { id: toastId, duration: LONG_OPERATION_TOAST_DURATION });
       e.target.value = null;
     };
     reader.readAsBinaryString(file);
@@ -680,6 +684,12 @@ export default function Orders() {
       ? String(b.id || '').localeCompare(String(a.id || ''))
       : String(a.id || '').localeCompare(String(b.id || ''));
   });
+  const ordersPageCount = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PAGE_SIZE));
+  const activeOrdersPage = Math.min(ordersPage, ordersPageCount);
+  const paginatedOrders = filteredOrders.slice(
+    (activeOrdersPage - 1) * ORDERS_PAGE_SIZE,
+    activeOrdersPage * ORDERS_PAGE_SIZE,
+  );
 
   return (
     <div className="animate-fade-in orders-page">
@@ -908,6 +918,7 @@ export default function Orders() {
                   setShop(shopName);
                   setImportShop(shopName);
                   setExpandedOrderId(null);
+                  setOrdersPage(1);
                 }}
               >
                 <span>{shopName}</span>
@@ -917,31 +928,31 @@ export default function Orders() {
           })}
         </div>
         <div className="orders-filters">
-          <SearchInput className="orders-filters__search" label="Tìm đơn hàng" placeholder="Mã đơn, ghi chú..." value={search} onChange={(e) => setSearch(e.target.value)} />
-          <FormField label="Từ ngày"><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} /></FormField>
-          <FormField label="Đến ngày"><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} /></FormField>
+          <SearchInput className="orders-filters__search" label="Tìm đơn hàng" placeholder="Mã đơn, ghi chú..." value={search} onChange={(e) => { setSearch(e.target.value); setOrdersPage(1); }} />
+          <FormField label="Từ ngày"><input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setOrdersPage(1); }} /></FormField>
+          <FormField label="Đến ngày"><input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setOrdersPage(1); }} /></FormField>
           <FormField label="Trạng thái đối soát">
-            <select value={reconFilter} onChange={e => setReconFilter(e.target.value)}>
+            <select value={reconFilter} onChange={e => { setReconFilter(e.target.value); setOrdersPage(1); }}>
               <option value="all">Tất cả</option>
               <option value="unreconciled">Chưa có Doanh Thu Thực Tế</option>
               <option value="reconciled">Đã đối soát</option>
             </select>
           </FormField>
           <FormField label="Lợi nhuận gộp">
-            <select value={profitFilter} onChange={e => setProfitFilter(e.target.value)}>
+            <select value={profitFilter} onChange={e => { setProfitFilter(e.target.value); setOrdersPage(1); }}>
               <option value="all">Tất cả</option>
               <option value="negative">Chỉ đơn bị âm</option>
             </select>
           </FormField>
           <FormField label="Trạng thái giao hàng">
-            <select value={deliveryFilter} onChange={e => setDeliveryFilter(e.target.value)}>
+            <select value={deliveryFilter} onChange={e => { setDeliveryFilter(e.target.value); setOrdersPage(1); }}>
               <option value="all">Tất cả</option>
               <option value="returned">Đơn bị hoàn</option>
               <option value="delivered">Đơn đã giao</option>
             </select>
           </FormField>
           <FormField label="Sắp xếp theo ngày">
-            <select value={dateSort} onChange={e => setDateSort(e.target.value)}>
+            <select value={dateSort} onChange={e => { setDateSort(e.target.value); setOrdersPage(1); }}>
               <option value="newest">Ngày mới nhất</option>
               <option value="oldest">Ngày cũ nhất</option>
             </select>
@@ -949,7 +960,7 @@ export default function Orders() {
         </div>
 
         <div className="orders-result-count" aria-live="polite">
-          Shop <strong>{activeShop || 'Chưa cấu hình'}</strong>: đang hiển thị <strong>{filteredOrders.length}</strong> / {shopOrders.length} đơn
+          Shop <strong>{activeShop || 'Chưa cấu hình'}</strong>: lọc được <strong>{filteredOrders.length}</strong> / {shopOrders.length} đơn
         </div>
 
         <div className="table-container orders-table-container">
@@ -975,7 +986,7 @@ export default function Orders() {
                   <td colSpan={11}><EmptyState title="Không tìm thấy đơn hàng" description="Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm." /></td>
                 </tr>
               )}
-              {filteredOrders.map(o => {
+              {paginatedOrders.map(o => {
                 const totalRevenue = o.items.reduce((sum, item) => sum + (item.isReturned ? 0 : (item.qty * item.sellingPrice)), 0);
                 const profit = calculateOrderGrossProfit(o);
                 const isExpanded = expandedOrderId === o.id;
@@ -1094,6 +1105,17 @@ export default function Orders() {
             </tbody>
           </table>
         </div>
+        <TablePagination
+          className="orders-pagination"
+          page={activeOrdersPage}
+          totalItems={filteredOrders.length}
+          pageSize={ORDERS_PAGE_SIZE}
+          itemLabel="đơn"
+          onPageChange={(page) => {
+            setOrdersPage(page);
+            setExpandedOrderId(null);
+          }}
+        />
       </section>
       <ConfirmDialog
         open={Boolean(pendingOrderDelete)}

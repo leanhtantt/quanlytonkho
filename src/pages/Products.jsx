@@ -18,6 +18,9 @@ import EmptyState from '../components/ui/EmptyState';
 import FormField from '../components/ui/FormField';
 import Modal from '../components/ui/Modal';
 import SearchInput from '../components/ui/SearchInput';
+import TablePagination from '../components/ui/TablePagination';
+
+const INVENTORY_PAGE_SIZE = 50;
 
 export default function Products() {
   const { inventory, inventoryAdjustments, updateProduct, renameProductSku, reorderProducts, refresh, refreshing } = useAppStore();
@@ -29,6 +32,7 @@ export default function Products() {
   const [uploadingId, setUploadingId] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [sortMode, setSortMode] = useState('custom');
+  const [inventoryPage, setInventoryPage] = useState(1);
   const [reorderBusy, setReorderBusy] = useState(false);
   const [reorderingProductId, setReorderingProductId] = useState(null);
   const [draggedProductId, setDraggedProductId] = useState(null);
@@ -132,6 +136,7 @@ export default function Products() {
       setReorderBusy(true);
       setReorderingProductId(productId);
       await reorderProducts(nextOrder.map(product => product.id));
+      setSortMode('custom');
       const movedProduct = orderedInventory[currentIndex];
       toast.success(`Đã đổi thứ tự sản phẩm ${movedProduct.sku || movedProduct.id}.`);
     } catch (error) {
@@ -143,7 +148,7 @@ export default function Products() {
   };
 
   const handleDragStart = (productId, event) => {
-    if (sortMode !== 'custom' || reorderBusy) {
+    if (reorderBusy) {
       event.preventDefault();
       return;
     }
@@ -171,6 +176,7 @@ export default function Products() {
       setReorderBusy(true);
       setReorderingProductId(sourceProductId);
       await reorderProducts(nextOrder.map(product => product.id));
+      setSortMode('custom');
       toast.success(`Đã đổi thứ tự sản phẩm ${movedProduct.sku || movedProduct.id}.`);
     } catch (error) {
       toast.error(`Không thể đổi thứ tự sản phẩm: ${error.message}`);
@@ -222,6 +228,13 @@ export default function Products() {
     return true;
   });
 
+  const inventoryPageCount = Math.max(1, Math.ceil(filteredProducts.length / INVENTORY_PAGE_SIZE));
+  const activeInventoryPage = Math.min(inventoryPage, inventoryPageCount);
+  const paginatedProducts = filteredProducts.slice(
+    (activeInventoryPage - 1) * INVENTORY_PAGE_SIZE,
+    activeInventoryPage * INVENTORY_PAGE_SIZE,
+  );
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -241,7 +254,10 @@ export default function Products() {
                   label="Tìm sản phẩm theo mã SKU"
                   placeholder="Nhập mã SKU, ví dụ: LX01..."
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setInventoryPage(1);
+                  }}
                   autoComplete="off"
                 />
                 {search ? <Button
@@ -258,14 +274,20 @@ export default function Products() {
               </span>
             </div>
             <FormField label="Trạng thái tồn kho" className="inventory-filter-field">
-              <select id="inventory-stock-filter" value={filterStock} onChange={(event) => setFilterStock(event.target.value)}>
+              <select id="inventory-stock-filter" value={filterStock} onChange={(event) => {
+                setFilterStock(event.target.value);
+                setInventoryPage(1);
+              }}>
                 <option value="all">Tất cả sản phẩm</option>
                 <option value="low">Sắp hết hàng</option>
                 <option value="out">Đã hết hàng</option>
               </select>
             </FormField>
             <FormField label="Sắp xếp sản phẩm" className="inventory-filter-field">
-              <select id="inventory-sort-mode" value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+              <select id="inventory-sort-mode" value={sortMode} onChange={(event) => {
+                setSortMode(event.target.value);
+                setInventoryPage(1);
+              }}>
                 <option value="custom">Thứ tự tùy chỉnh</option>
                 <option value="sku">Theo mã SKU</option>
               </select>
@@ -281,10 +303,10 @@ export default function Products() {
                 <th className="inventory-image-column">Hình</th>
                 <th>Mã SP</th>
                 <th>Sản phẩm</th>
+                <th className="num">Tổng Tồn (Thực)</th>
                 <th className="num">Đã nhập</th>
                 <th className="num">Đã bán</th>
                 <th className="num">Hao hụt</th>
-                <th className="num">Tổng Tồn (Thực)</th>
                 <th>Trạng thái</th>
                 <th className="inventory-order-column">Thứ tự</th>
               </tr>
@@ -301,7 +323,7 @@ export default function Products() {
                   </td>
                 </tr>
               )}
-              {filteredProducts.map(product => {
+              {paginatedProducts.map(product => {
                 const isExpanded = expandedId === product.id;
                 const remainingBatches = product.batches.filter(b => b.qtyRemaining > 0);
                 
@@ -312,7 +334,7 @@ export default function Products() {
                       onClick={() => setExpandedId(isExpanded ? null : product.id)}
                       onDragOver={(event) => {
                         if (!canUpdateProducts) return;
-                        if (sortMode !== 'custom' || reorderBusy) return;
+                        if (reorderBusy) return;
                         event.preventDefault();
                         event.dataTransfer.dropEffect = 'move';
                         setDragOverProductId(product.id);
@@ -382,10 +404,10 @@ export default function Products() {
                         )}
                       </td>
                       <td className="inventory-product-name">{product.name}</td>
+                      <td className="num inventory-stock-value">{product.stock}</td>
                       <td className="num inventory-value-success">{product.totalImported}</td>
                       <td className="num inventory-value-primary">{product.totalSold}</td>
                       <td className="num inventory-value-danger">{product.totalLost}</td>
-                      <td className="num inventory-stock-value">{product.stock}</td>
                       <td>
                         {(() => {
                           const threshold = product.id.includes('LX') ? 50 : 10;
@@ -399,7 +421,7 @@ export default function Products() {
                         })()}
                       </td>
                       <td className="inventory-order-actions" onClick={(e) => e.stopPropagation()}>
-                        {sortMode === 'custom' && canUpdateProducts && (
+                        {canUpdateProducts && (
                           <>
                             <span
                               draggable={!reorderBusy}
@@ -453,6 +475,17 @@ export default function Products() {
             </tbody>
           </table>
         </div>
+        <TablePagination
+          className="inventory-pagination"
+          page={activeInventoryPage}
+          totalItems={filteredProducts.length}
+          pageSize={INVENTORY_PAGE_SIZE}
+          itemLabel="sản phẩm"
+          onPageChange={(page) => {
+            setInventoryPage(page);
+            setExpandedId(null);
+          }}
+        />
       </div>
 
       {imagePreview && createPortal(

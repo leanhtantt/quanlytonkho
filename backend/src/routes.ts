@@ -347,9 +347,17 @@ apiRouter.put('/products/reorder', async (req, res) => {
     return res.status(400).json({ error: 'Danh sách có sản phẩm không tồn tại.' });
   }
 
-  await prisma.$transaction(parsed.data.productIds.map((id, index) => (
-    prisma.product.update({ where: { id }, data: { displayOrder: index + 1 } })
-  )));
+  try {
+    await prisma.$executeRaw`
+      UPDATE "Product" AS p
+      SET "displayOrder" = v.ord::integer
+      FROM unnest(${parsed.data.productIds}::text[]) WITH ORDINALITY AS v(id, ord)
+      WHERE p.id = v.id
+    `;
+  } catch (error: any) {
+    console.error('reorder failed:', error);
+    return res.status(500).json({ error: 'Kh\u00f4ng th\u1ec3 \u0111\u1ed5i th\u1ee9 t\u1ef1 s\u1ea3n ph\u1ea9m.' });
+  }
 
   const products = await prisma.product.findMany({
     include: { skuAliases: true },

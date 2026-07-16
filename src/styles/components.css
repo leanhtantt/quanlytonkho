@@ -1169,7 +1169,9 @@ tbody tr:hover td {
 
 .activity-filter-actions,
 .activity-pagination,
-.activity-pagination > div {
+.activity-pagination > div,
+.table-pagination,
+.table-pagination > div {
   display: flex;
   gap: 0.5rem;
   align-items: center;
@@ -1188,6 +1190,14 @@ tbody tr:hover td {
   justify-content: space-between;
   margin-top: 1rem;
   color: var(--color-text-muted);
+}
+
+.table-pagination {
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-6);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
 }
 
 .activity-detail-list {
@@ -1894,6 +1904,13 @@ tbody tr:hover td {
     flex-direction: column;
   }
 
+  .activity-pagination > div,
+  .table-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .table-pagination > div,
   .activity-pagination > div {
     justify-content: space-between;
   }

@@ -49,6 +49,7 @@ const parseExcelDate = (value) => {
 };
 
 const isFullyReturned = (items = []) => items.length > 0 && items.every(item => item.isReturned);
+const LONG_OPERATION_TOAST_DURATION = 12_000;
 
 const findHeaderIndex = (headers, aliases) => headers.findIndex((header) => {
   const normalized = normalizeExcelText(header);
@@ -432,11 +433,11 @@ export default function Orders() {
           `- Không tìm thấy mã đơn: ${notFoundIds.length} đơn\n` +
           `- Bỏ qua dòng sản phẩm: ${skipCount} dòng\n` +
           `- Dòng thiếu/sai dữ liệu: ${invalidCount} dòng`,
-          { id: toastId }
+          { id: toastId, duration: LONG_OPERATION_TOAST_DURATION }
         );
       } catch (err) {
         console.error(err);
-        toast.error(`Không thể đối soát file Excel: ${err.message}`, { id: toastId });
+        toast.error(`Không thể đối soát file Excel: ${err.message}`, { id: toastId, duration: LONG_OPERATION_TOAST_DURATION });
       } finally {
         setIsReconciling(false);
         if (fileInputRef.current) {
@@ -446,7 +447,7 @@ export default function Orders() {
     };
     reader.onerror = () => {
       setIsReconciling(false);
-      toast.error('Không thể đọc file đối soát.', { id: toastId });
+      toast.error('Không thể đọc file đối soát.', { id: toastId, duration: LONG_OPERATION_TOAST_DURATION });
       if (fileInputRef.current) fileInputRef.current.value = null;
     };
     reader.readAsBinaryString(file);
@@ -635,10 +636,10 @@ export default function Orders() {
         if (newIssues.length > 0) {
           msg += `\n⚠️ ${newIssues.length} đơn cần xử lý (mã SP không khớp hoặc lưu thất bại). Xem danh sách "Đơn cần xử lý" bên dưới để sửa nhanh.`;
         }
-        toast.success(msg, { id: toastId });
+        toast.success(msg, { id: toastId, duration: LONG_OPERATION_TOAST_DURATION });
       } catch (err) {
         console.error(err);
-        toast.error(`Có lỗi xảy ra khi đọc file Excel: ${err.message}`, { id: toastId });
+        toast.error(`Có lỗi xảy ra khi đọc file Excel: ${err.message}`, { id: toastId, duration: LONG_OPERATION_TOAST_DURATION });
       } finally {
         setIsImportingOrders(false);
       }
@@ -646,7 +647,7 @@ export default function Orders() {
     };
     reader.onerror = () => {
       setIsImportingOrders(false);
-      toast.error('Không thể đọc file đơn hàng.', { id: toastId });
+      toast.error('Không thể đọc file đơn hàng.', { id: toastId, duration: LONG_OPERATION_TOAST_DURATION });
       e.target.value = null;
     };
     reader.readAsBinaryString(file);

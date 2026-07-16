@@ -281,10 +281,10 @@ export default function Products() {
                 <th className="inventory-image-column">Hình</th>
                 <th>Mã SP</th>
                 <th>Sản phẩm</th>
+                <th className="num">Tổng Tồn (Thực)</th>
                 <th className="num">Đã nhập</th>
                 <th className="num">Đã bán</th>
                 <th className="num">Hao hụt</th>
-                <th className="num">Tổng Tồn (Thực)</th>
                 <th>Trạng thái</th>
                 <th className="inventory-order-column">Thứ tự</th>
               </tr>
@@ -382,10 +382,10 @@ export default function Products() {
                         )}
                       </td>
                       <td className="inventory-product-name">{product.name}</td>
+                      <td className="num inventory-stock-value">{product.stock}</td>
                       <td className="num inventory-value-success">{product.totalImported}</td>
                       <td className="num inventory-value-primary">{product.totalSold}</td>
                       <td className="num inventory-value-danger">{product.totalLost}</td>
-                      <td className="num inventory-stock-value">{product.stock}</td>
                       <td>
                         {(() => {
                           const threshold = product.id.includes('LX') ? 50 : 10;

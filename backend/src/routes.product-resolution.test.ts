@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   productFindMany: vi.fn(),
   aliasFindMany: vi.fn(),
   orderFindUnique: vi.fn(),
+  orderFindMany: vi.fn(),
   createOrder: vi.fn(),
   replaceOrder: vi.fn(),
   deleteOrder: vi.fn(),
@@ -23,7 +24,7 @@ vi.mock('./prismaClient', () => ({
   prisma: {
     product: { findMany: mocks.productFindMany },
     productSkuAlias: { findMany: mocks.aliasFindMany },
-    order: { findUnique: mocks.orderFindUnique },
+    order: { findUnique: mocks.orderFindUnique, findMany: mocks.orderFindMany },
   },
 }));
 
@@ -91,6 +92,13 @@ const aliasProduct = {
 function orderPostHandler() {
   const layer = (apiRouter as any).stack.find((entry: any) => (
     entry.route?.path === '/orders' && entry.route.methods.post
+  ));
+  return layer.route.stack[0].handle;
+}
+
+function orderGetHandler() {
+  const layer = (apiRouter as any).stack.find((entry: any) => (
+    entry.route?.path === '/orders' && entry.route.methods.get
   ));
   return layer.route.stack[0].handle;
 }
@@ -202,6 +210,21 @@ describe('POST /orders product-code resolution', () => {
         ],
       },
     }));
+  });
+
+  it('lists orders newest first', async () => {
+    mocks.orderFindMany.mockResolvedValue([mappedOrder(product.id)]);
+    const response = createResponse();
+
+    await orderGetHandler()({}, response);
+
+    expect(mocks.orderFindMany).toHaveBeenCalledWith({
+      include: { orderItems: { include: { product: true } } },
+      orderBy: { orderedAt: 'desc' },
+    });
+    expect(response.json).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ id: 'DH-S2-001' }),
+    ]));
   });
 
   it('keeps the existing error for a missing SKU', async () => {

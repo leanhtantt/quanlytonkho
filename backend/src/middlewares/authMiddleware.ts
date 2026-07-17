@@ -4,9 +4,11 @@ import { getAuth, DecodedIdToken } from 'firebase-admin/auth';
 import { prisma } from '../prismaClient';
 import { runWithActivityContext } from '../audit/activityContext';
 
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'tanle-dev';
+
 if (!getApps().length) {
   initializeApp({
-    projectId: 'tanle-dev',
+    projectId: FIREBASE_PROJECT_ID,
   });
 }
 

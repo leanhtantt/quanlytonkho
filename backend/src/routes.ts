@@ -15,8 +15,11 @@ import { flushActivityLogsBeforeResponse } from './middlewares/activityLogMiddle
 import { writeLoginActivityOnce } from './audit/loginActivity';
 import { findProductByCode, normalizeSkuCode, resolveProductsByCodes } from './services/productResolver';
 
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'tanle-dev';
+const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'tanle-dev.firebasestorage.app';
+
 if (!getApps().length) {
-  initializeApp({ projectId: 'tanle-dev', storageBucket: 'tanle-dev.firebasestorage.app' });
+  initializeApp({ projectId: FIREBASE_PROJECT_ID, storageBucket: FIREBASE_STORAGE_BUCKET });
 }
 
 export const apiRouter = Router();
@@ -580,7 +583,8 @@ async function loadMappedOrder(orderId: string) {
 
 apiRouter.get('/orders', async (req, res) => {
   const orders = await prisma.order.findMany({
-    include: { orderItems: { include: { product: true } } }
+    include: { orderItems: { include: { product: true } } },
+    orderBy: { orderedAt: 'desc' },
   });
   const mapped = orders.map(o => ({
     ...o,
@@ -852,27 +856,27 @@ apiRouter.post('/product-images', async (req, res) => {
   const safeProductId = parsed.data.productId.replace(/[^a-zA-Z0-9_-]/g, '_');
   const objectPath = `product-images/${safeProductId}/${Date.now()}.webp`;
   const downloadToken = randomUUID();
-  const file = getStorage().bucket('tanle-dev.firebasestorage.app').file(objectPath);
+  const file = getStorage().bucket(FIREBASE_STORAGE_BUCKET).file(objectPath);
   await file.save(buffer, {
     resumable: false,
     contentType: match[1],
     metadata: { metadata: { firebaseStorageDownloadTokens: downloadToken, productId: parsed.data.productId } }
   });
 
-  const imageUrl = `https://firebasestorage.googleapis.com/v0/b/tanle-dev.firebasestorage.app/o/${encodeURIComponent(objectPath)}?alt=media&token=${downloadToken}`;
+  const imageUrl = `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o/${encodeURIComponent(objectPath)}?alt=media&token=${downloadToken}`;
   res.json({ imageUrl });
 });
 
 apiRouter.delete('/product-images', async (req, res) => {
   const imageUrl = String(req.body?.imageUrl || '');
   const match = imageUrl.match(/\/o\/([^?]+)/);
-  if (!imageUrl.includes('/b/tanle-dev.firebasestorage.app/') || !match) {
+  if (!imageUrl.includes(`/b/${FIREBASE_STORAGE_BUCKET}/`) || !match) {
     return res.status(400).json({ error: 'Invalid Firebase Storage image URL' });
   }
   const objectPath = decodeURIComponent(match[1]);
   if (!objectPath.startsWith('product-images/')) return res.status(400).json({ error: 'Invalid image path' });
 
-  await getStorage().bucket('tanle-dev.firebasestorage.app').file(objectPath).delete({ ignoreNotFound: true });
+  await getStorage().bucket(FIREBASE_STORAGE_BUCKET).file(objectPath).delete({ ignoreNotFound: true });
   res.json({ success: true });
 });
 

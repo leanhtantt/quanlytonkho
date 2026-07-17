@@ -1,6 +1,7 @@
 import { prisma } from '../prismaClient';
 import { HEAVY_TX_OPTIONS } from '../transactionOptions';
 import { deductStockFIFO } from './inventoryService';
+import { BusinessError } from '../errors/BusinessError';
 
 async function writeLossEffects(tx: any, lossId: string, productId: string, qty: number) {
   const fifoResult = await deductStockFIFO(productId, qty, 'LOSS', lossId, tx);
@@ -49,7 +50,7 @@ export async function recordLoss(productId: string, qty: number, reason: string,
 export async function replaceLoss(lossId: string, productId: string, qty: number, reason: string, occurredAt?: Date) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.loss.findUnique({ where: { id: lossId } });
-    if (!existing) throw new Error('Không tìm thấy phiếu hao hụt.');
+    if (!existing) throw new BusinessError('Không tìm thấy phiếu hao hụt.');
 
     await reverseLossEffects(tx, lossId);
     const loss = await tx.loss.update({
@@ -66,7 +67,7 @@ export async function replaceLoss(lossId: string, productId: string, qty: number
 export async function deleteLoss(lossId: string) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.loss.findUnique({ where: { id: lossId } });
-    if (!existing) throw new Error('Không tìm thấy phiếu hao hụt.');
+    if (!existing) throw new BusinessError('Không tìm thấy phiếu hao hụt.');
 
     await reverseLossEffects(tx, lossId);
     await tx.loss.delete({ where: { id: lossId } });

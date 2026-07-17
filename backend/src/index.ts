@@ -5,6 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import { apiRouter } from './routes';
 import { requireAuth } from './middlewares/authMiddleware';
+import { errorHandler } from './middlewares/errorHandler';
 
 const app = express();
 app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:5174', 'https://tanle-dev-lynstore.web.app'] }));
@@ -16,7 +17,7 @@ app.get('/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     res.json({ status: 'ok', api: true, db: true, time: new Date() });
-  } catch (error) {
+  } catch {
     res.status(503).json({ status: 'error', api: true, db: false, time: new Date() });
   }
 });
@@ -28,10 +29,7 @@ app.use('/api', requireAuth, apiRouter);
 Sentry.setupExpressErrorHandler(app);
 
 // Error handler cuối cùng
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Unhandled error:', err.message);
-  res.status(500).json({ error: 'Internal server error' });
-});
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

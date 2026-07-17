@@ -14,6 +14,7 @@ import { activityRouter } from './routes/activity';
 import { flushActivityLogsBeforeResponse } from './middlewares/activityLogMiddleware';
 import { writeLoginActivityOnce } from './audit/loginActivity';
 import { findProductByCode, normalizeSkuCode, resolveProductsByCodes } from './services/productResolver';
+import { BusinessError } from './errors/BusinessError';
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'tanle-dev';
 const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'tanle-dev.firebasestorage.app';
@@ -250,7 +251,7 @@ apiRouter.get('/products', async (req, res) => {
   res.json(products.map(mapProductWithAliases));
 });
 
-apiRouter.post('/products', async (req, res) => {
+apiRouter.post('/products', async (req, res, next) => {
   const body = { ...req.body };
   if (body.id && !body.sku) body.sku = body.id;
   
@@ -272,13 +273,12 @@ apiRouter.post('/products', async (req, res) => {
       include: { skuAliases: true }
     });
     res.json(mapProductWithAliases(product));
-  } catch (error: any) {
-    console.error("Error upserting product:", error);
-    res.status(500).json({ error: 'Failed to create/update product' });
+  } catch (error) {
+    return next(error);
   }
 });
 
-apiRouter.put('/products/:id/sku', async (req, res) => {
+apiRouter.put('/products/:id/sku', async (req, res, next) => {
   const parsed = skuRenameSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -299,12 +299,12 @@ apiRouter.put('/products/:id/sku', async (req, res) => {
         where: { sku: { equals: newSku, mode: 'insensitive' } }
       });
       if (conflictingProduct && conflictingProduct.id !== product.id) {
-        throw new Error(`SKU ${newSku} đang được dùng cho sản phẩm khác.`);
+        throw new BusinessError(`SKU ${newSku} đang được dùng cho sản phẩm khác.`);
       }
 
       const conflictingAlias = await tx.productSkuAlias.findUnique({ where: { sku: newSku } });
       if (conflictingAlias && conflictingAlias.productId !== product.id) {
-        throw new Error(`SKU ${newSku} là mã cũ của sản phẩm khác.`);
+        throw new BusinessError(`SKU ${newSku} là mã cũ của sản phẩm khác.`);
       }
 
       if (conflictingAlias?.productId === product.id) {
@@ -325,12 +325,12 @@ apiRouter.put('/products/:id/sku', async (req, res) => {
     });
 
     res.json(mapProductWithAliases(updated));
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
-apiRouter.put('/products/reorder', async (req, res) => {
+apiRouter.put('/products/reorder', async (req, res, next) => {
   const parsed = productOrderSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -346,9 +346,8 @@ apiRouter.put('/products/reorder', async (req, res) => {
       FROM unnest(${parsed.data.productIds}::text[]) WITH ORDINALITY AS v(id, ord)
       WHERE p.id = v.id
     `;
-  } catch (error: any) {
-    console.error('reorder failed:', error);
-    return res.status(500).json({ error: 'Kh\u00f4ng th\u1ec3 \u0111\u1ed5i th\u1ee9 t\u1ef1 s\u1ea3n ph\u1ea9m.' });
+  } catch (error) {
+    return next(error);
   }
 
   const products = await prisma.product.findMany({
@@ -358,7 +357,7 @@ apiRouter.put('/products/reorder', async (req, res) => {
   res.json(products.map(mapProductWithAliases));
 });
 
-apiRouter.put('/products/:id', async (req, res) => {
+apiRouter.put('/products/:id', async (req, res, next) => {
   try {
     let product = await prisma.product.findUnique({ where: { sku: req.params.id } });
     if (!product) {
@@ -372,8 +371,8 @@ apiRouter.put('/products/:id', async (req, res) => {
       include: { skuAliases: true }
     });
     res.json(mapProductWithAliases(updated));
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -463,7 +462,7 @@ async function loadMappedPurchase(poId: string) {
   };
 }
 
-apiRouter.post('/purchases', async (req, res) => {
+apiRouter.post('/purchases', async (req, res, next) => {
   const parsed = purchaseSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
@@ -472,14 +471,14 @@ apiRouter.post('/purchases', async (req, res) => {
     const po = await createPurchaseOrder(buildPurchaseInput(data, dbProducts));
 
     const mapped = await loadMappedPurchase(po.id);
-    if (!mapped) return res.status(500).json({ error: 'Failed to load created PO' });
+    if (!mapped) throw new Error('Không thể tải phiếu nhập vừa tạo.');
     res.json(mapped);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
-apiRouter.put('/purchases/:id', async (req, res) => {
+apiRouter.put('/purchases/:id', async (req, res, next) => {
   try {
     // The frontend id is the purchase order's code; resolve it to the real UUID.
     const existing = await prisma.purchaseOrder.findUnique({ where: { code: req.params.id } });
@@ -494,14 +493,14 @@ apiRouter.put('/purchases/:id', async (req, res) => {
     const po = await replacePurchaseOrder(existing.id, buildPurchaseInput(data, dbProducts));
 
     const mapped = await loadMappedPurchase(po.id);
-    if (!mapped) return res.status(500).json({ error: 'Failed to load updated PO' });
+    if (!mapped) throw new Error('Không thể tải phiếu nhập vừa cập nhật.');
     res.json(mapped);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
-apiRouter.delete('/purchases/:id', async (req, res) => {
+apiRouter.delete('/purchases/:id', async (req, res, next) => {
   try {
     // The frontend id is the purchase order's code; resolve it to the real UUID.
     const existing = await prisma.purchaseOrder.findUnique({ where: { code: req.params.id } });
@@ -509,8 +508,8 @@ apiRouter.delete('/purchases/:id', async (req, res) => {
 
     await deletePurchaseOrder(existing.id);
     res.json({ success: true });
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -532,7 +531,7 @@ function buildOrderInput(data: any, dbProducts: any[]): OrderInput {
     };
   });
   if (unresolved.length > 0) {
-    throw new Error(`Không tìm thấy sản phẩm với mã SKU: ${[...new Set(unresolved)].join(', ')}. Vui lòng tạo sản phẩm này trước khi tạo đơn.`);
+    throw new BusinessError(`Không tìm thấy sản phẩm với mã SKU: ${[...new Set(unresolved)].join(', ')}. Vui lòng tạo sản phẩm này trước khi tạo đơn.`);
   }
   return {
     externalCode: data.id,
@@ -610,7 +609,7 @@ apiRouter.get('/orders', async (req, res) => {
   res.json(mapped);
 });
 
-apiRouter.post('/orders', async (req, res) => {
+apiRouter.post('/orders', async (req, res, next) => {
   const parsed = orderSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
@@ -620,12 +619,12 @@ apiRouter.post('/orders', async (req, res) => {
     const order = await createOrder(buildOrderInput(parsed.data, dbProducts));
     const mapped = await loadMappedOrder(order.id);
     res.json(mapped);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
-apiRouter.put('/orders/:id', async (req, res) => {
+apiRouter.put('/orders/:id', async (req, res, next) => {
   try {
     // The frontend id is the order's externalCode; resolve it to the real UUID.
     const existing = await prisma.order.findUnique({ where: { externalCode: req.params.id } });
@@ -664,12 +663,12 @@ apiRouter.put('/orders/:id', async (req, res) => {
 
     const mapped = await loadMappedOrder(existing.id);
     res.json(mapped);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
-apiRouter.delete('/orders/:id', async (req, res) => {
+apiRouter.delete('/orders/:id', async (req, res, next) => {
   try {
     // The frontend id is the order's externalCode; resolve it to the real UUID.
     const existing = await prisma.order.findUnique({ where: { externalCode: req.params.id } });
@@ -677,8 +676,8 @@ apiRouter.delete('/orders/:id', async (req, res) => {
 
     await deleteOrder(existing.id);
     res.json({ success: true });
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -694,7 +693,7 @@ apiRouter.get('/losses', async (req, res) => {
   res.json(mapped);
 });
 
-apiRouter.post('/losses', async (req, res) => {
+apiRouter.post('/losses', async (req, res, next) => {
   const parsed = lossSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
@@ -705,8 +704,8 @@ apiRouter.post('/losses', async (req, res) => {
     const occurredAt = parsed.data.date ? new Date(`${parsed.data.date}T00:00:00.000Z`) : undefined;
     const result = await recordLoss(resolvedProductId, parsed.data.qty, parsed.data.reason, occurredAt);
     res.json(result);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -759,7 +758,7 @@ apiRouter.get('/treasury/transactions', async (req, res) => {
   res.json(transactions.map(mapTreasuryTransaction));
 });
 
-apiRouter.put('/losses/:id', async (req, res) => {
+apiRouter.put('/losses/:id', async (req, res, next) => {
   const parsed = lossSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
@@ -769,17 +768,17 @@ apiRouter.put('/losses/:id', async (req, res) => {
     const occurredAt = parsed.data.date ? new Date(`${parsed.data.date}T00:00:00.000Z`) : undefined;
     const result = await replaceLoss(req.params.id, resolvedProductId, parsed.data.qty, parsed.data.reason, occurredAt);
     res.json(result);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
-apiRouter.delete('/losses/:id', async (req, res) => {
+apiRouter.delete('/losses/:id', async (req, res, next) => {
   try {
     await deleteLoss(req.params.id);
     res.json({ success: true });
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -799,48 +798,48 @@ apiRouter.get('/inventory-adjustments', async (_req, res) => {
   })));
 });
 
-apiRouter.post('/inventory-adjustments', async (req, res) => {
+apiRouter.post('/inventory-adjustments', async (req, res, next) => {
   const parsed = inventoryAdjustmentSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const dbProducts = await resolveProductsByCodes([parsed.data.productId]);
     const product = findProductByCode(dbProducts, parsed.data.productId);
-    if (!product) throw new Error('Không tìm thấy sản phẩm.');
+    if (!product) throw new BusinessError('Không tìm thấy sản phẩm.');
     const adjustment = await createSurplusAdjustment({
       ...parsed.data,
       productId: product.id,
       occurredAt: new Date(`${parsed.data.date}T00:00:00.000Z`)
     });
     res.json({ ...adjustment, unitCost: Number(adjustment.unitCost), name: product.name, sku: product.sku, date: adjustment.occurredAt, type: 'SURPLUS' });
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
-apiRouter.put('/inventory-adjustments/:id', async (req, res) => {
+apiRouter.put('/inventory-adjustments/:id', async (req, res, next) => {
   const parsed = inventoryAdjustmentSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const dbProducts = await resolveProductsByCodes([parsed.data.productId]);
     const product = findProductByCode(dbProducts, parsed.data.productId);
-    if (!product) throw new Error('Không tìm thấy sản phẩm.');
+    if (!product) throw new BusinessError('Không tìm thấy sản phẩm.');
     const adjustment = await replaceSurplusAdjustment(req.params.id, {
       ...parsed.data,
       productId: product.id,
       occurredAt: new Date(`${parsed.data.date}T00:00:00.000Z`)
     });
     res.json({ ...adjustment, unitCost: Number(adjustment.unitCost), name: product.name, sku: product.sku, date: adjustment.occurredAt, type: 'SURPLUS' });
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
-apiRouter.delete('/inventory-adjustments/:id', async (req, res) => {
+apiRouter.delete('/inventory-adjustments/:id', async (req, res, next) => {
   try {
     await deleteSurplusAdjustment(req.params.id);
     res.json({ success: true });
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -955,7 +954,7 @@ apiRouter.post('/ads', async (req, res) => {
   res.json(mapAdExpense(expense));
 });
 
-apiRouter.post('/ads/:id/reimbursements', async (req, res) => {
+apiRouter.post('/ads/:id/reimbursements', async (req, res, next) => {
   const parsed = adAdvanceReimbursementSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -966,12 +965,12 @@ apiRouter.post('/ads/:id/reimbursements', async (req, res) => {
         where: { id: req.params.id },
         include: { reimbursements: true }
       });
-      if (!expense) throw new Error('Không tìm thấy khoản quảng cáo.');
-      if (expense.source !== 'PERSONAL_ADVANCE') throw new Error('Chỉ khoản cá nhân ứng trước mới được hoàn ứng.');
+      if (!expense) throw new BusinessError('Không tìm thấy khoản quảng cáo.');
+      if (expense.source !== 'PERSONAL_ADVANCE') throw new BusinessError('Chỉ khoản cá nhân ứng trước mới được hoàn ứng.');
 
       const reimbursed = expense.reimbursements.reduce((sum, item) => sum + Number(item.amount), 0);
       const outstanding = Number(expense.amount) - reimbursed;
-      if (data.amount > outstanding) throw new Error(`Số tiền hoàn ứng vượt quá công nợ còn lại ${outstanding.toLocaleString('vi-VN')} VND.`);
+      if (data.amount > outstanding) throw new BusinessError(`Số tiền hoàn ứng vượt quá công nợ còn lại ${outstanding.toLocaleString('vi-VN')} VND.`);
 
       let treasuryTransactionId: string | null = null;
       if (data.source === 'TREASURY_ACCOUNT') {
@@ -1008,12 +1007,12 @@ apiRouter.post('/ads/:id/reimbursements', async (req, res) => {
       include: { reimbursements: { orderBy: [{ date: 'desc' }, { createdAt: 'desc' }] } }
     });
     res.json(mapAdExpense(updated));
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 
-apiRouter.delete('/ads/:id', async (req, res) => {
+apiRouter.delete('/ads/:id', async (req, res, next) => {
   try {
     await prisma.$transaction(async tx => {
       const expense = await tx.monthlyAdExpense.findUnique({
@@ -1022,7 +1021,7 @@ apiRouter.delete('/ads/:id', async (req, res) => {
       });
       if (!expense) return;
       if (expense.reimbursements.length > 0) {
-        throw new Error('Không thể xóa khoản quảng cáo đã có lịch sử hoàn ứng.');
+        throw new BusinessError('Không thể xóa khoản quảng cáo đã có lịch sử hoàn ứng.');
       }
       if (expense.treasuryTransactionId) {
         await tx.treasuryTransaction.deleteMany({ where: { id: expense.treasuryTransactionId } });
@@ -1030,8 +1029,8 @@ apiRouter.delete('/ads/:id', async (req, res) => {
       await tx.monthlyAdExpense.delete({ where: { id: expense.id } });
     });
     res.json({ success: true });
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
+  } catch (error) {
+    return next(error);
   }
 });
 

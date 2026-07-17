@@ -13,6 +13,7 @@ import { usersRouter } from './routes/users';
 import { activityRouter } from './routes/activity';
 import { flushActivityLogsBeforeResponse } from './middlewares/activityLogMiddleware';
 import { writeLoginActivityOnce } from './audit/loginActivity';
+import { findProductByCode, normalizeSkuCode, resolveProductsByCodes } from './services/productResolver';
 
 if (!getApps().length) {
   initializeApp({ projectId: 'tanle-dev', storageBucket: 'tanle-dev.firebasestorage.app' });
@@ -164,18 +165,6 @@ const skuRenameSchema = z.object({
   sku: z.string().trim().min(1).max(100),
 });
 
-function normalizeSkuCode(value: unknown) {
-  return String(value || '').trim().toUpperCase();
-}
-
-function findProductByCode(dbProducts: any[], value: unknown) {
-  const code = normalizeSkuCode(value);
-  return dbProducts.find(product => (
-    normalizeSkuCode(product.sku) === code
-    || normalizeSkuCode(product.id) === code
-    || product.skuAliases?.some((alias: any) => normalizeSkuCode(alias.sku) === code)
-  ));
-}
 
 function mapProductWithAliases(product: any) {
   return {
@@ -476,7 +465,7 @@ apiRouter.post('/purchases', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const data = parsed.data;
-    const dbProducts = await prisma.product.findMany({ include: { skuAliases: true } });
+    const dbProducts = await resolveProductsByCodes(data.items.map(item => item.productId));
     const po = await createPurchaseOrder(buildPurchaseInput(data, dbProducts));
 
     const mapped = await loadMappedPurchase(po.id);
@@ -498,7 +487,7 @@ apiRouter.put('/purchases/:id', async (req, res) => {
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
     const data = parsed.data;
-    const dbProducts = await prisma.product.findMany({ include: { skuAliases: true } });
+    const dbProducts = await resolveProductsByCodes(data.items.map(item => item.productId));
     const po = await replacePurchaseOrder(existing.id, buildPurchaseInput(data, dbProducts));
 
     const mapped = await loadMappedPurchase(po.id);
@@ -621,7 +610,9 @@ apiRouter.post('/orders', async (req, res) => {
   const parsed = orderSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const dbProducts = await prisma.product.findMany({ include: { skuAliases: true } });
+    const dbProducts = await resolveProductsByCodes(parsed.data.items.flatMap(item => [
+      item.productId, item.sku,
+    ]));
     const order = await createOrder(buildOrderInput(parsed.data, dbProducts));
     const mapped = await loadMappedOrder(order.id);
     res.json(mapped);
@@ -643,7 +634,9 @@ apiRouter.put('/orders/:id', async (req, res) => {
       const body = { ...b, id: b.id || req.params.id };
       const parsed = orderSchema.safeParse(body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-      const dbProducts = await prisma.product.findMany({ include: { skuAliases: true } });
+      const dbProducts = await resolveProductsByCodes(parsed.data.items.flatMap(item => [
+        item.productId, item.sku,
+      ]));
       await replaceOrder(existing.id, buildOrderInput(parsed.data, dbProducts));
     } else {
       // Partial inline update (e.g. reconciliation, editing a single fee): only touch columns.
@@ -701,7 +694,7 @@ apiRouter.post('/losses', async (req, res) => {
   const parsed = lossSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const dbProducts = await prisma.product.findMany({ include: { skuAliases: true } });
+    const dbProducts = await resolveProductsByCodes([parsed.data.productId]);
     const prod = findProductByCode(dbProducts, parsed.data.productId);
     const resolvedProductId = prod ? prod.id : req.body.productId;
 
@@ -766,7 +759,7 @@ apiRouter.put('/losses/:id', async (req, res) => {
   const parsed = lossSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const dbProducts = await prisma.product.findMany({ include: { skuAliases: true } });
+    const dbProducts = await resolveProductsByCodes([parsed.data.productId]);
     const product = findProductByCode(dbProducts, parsed.data.productId);
     const resolvedProductId = product?.id || parsed.data.productId;
     const occurredAt = parsed.data.date ? new Date(`${parsed.data.date}T00:00:00.000Z`) : undefined;
@@ -806,7 +799,7 @@ apiRouter.post('/inventory-adjustments', async (req, res) => {
   const parsed = inventoryAdjustmentSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const dbProducts = await prisma.product.findMany({ include: { skuAliases: true } });
+    const dbProducts = await resolveProductsByCodes([parsed.data.productId]);
     const product = findProductByCode(dbProducts, parsed.data.productId);
     if (!product) throw new Error('Không tìm thấy sản phẩm.');
     const adjustment = await createSurplusAdjustment({
@@ -824,7 +817,7 @@ apiRouter.put('/inventory-adjustments/:id', async (req, res) => {
   const parsed = inventoryAdjustmentSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const dbProducts = await prisma.product.findMany({ include: { skuAliases: true } });
+    const dbProducts = await resolveProductsByCodes([parsed.data.productId]);
     const product = findProductByCode(dbProducts, parsed.data.productId);
     if (!product) throw new Error('Không tìm thấy sản phẩm.');
     const adjustment = await replaceSurplusAdjustment(req.params.id, {

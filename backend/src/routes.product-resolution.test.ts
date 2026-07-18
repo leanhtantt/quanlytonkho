@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { BusinessError } from './errors/BusinessError';
 
 const mocks = vi.hoisted(() => ({
   allow: (_req: unknown, _res: unknown, next: () => void) => next(),
@@ -155,10 +156,11 @@ function mappedOrder(productId: string) {
 
 async function postOrder(body: ReturnType<typeof createOrderBody>) {
   const response = createResponse();
+  const next = vi.fn();
   mocks.createOrder.mockResolvedValue({ id: 'order-db-id' });
   mocks.orderFindUnique.mockResolvedValue(mappedOrder(product.id));
-  await orderPostHandler()({ body }, response);
-  return response;
+  await orderPostHandler()({ body }, response, next);
+  return { response, next };
 }
 
 describe('POST /orders product-code resolution', () => {
@@ -228,12 +230,11 @@ describe('POST /orders product-code resolution', () => {
   });
 
   it('keeps the existing error for a missing SKU', async () => {
-    const response = await postOrder(createOrderBody('khong-ton-tai'));
+    const { response, next } = await postOrder(createOrderBody('khong-ton-tai'));
 
     expect(mocks.createOrder).not.toHaveBeenCalled();
-    expect(response.status).toHaveBeenCalledWith(400);
-    expect(response.json).toHaveBeenCalledWith({
-      error: expect.stringContaining('khong-ton-tai'),
-    });
+    expect(response.status).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(expect.any(BusinessError));
+    expect(next.mock.calls[0][0].message).toContain('khong-ton-tai');
   });
 });

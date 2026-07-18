@@ -1,6 +1,7 @@
 import { prisma } from '../prismaClient';
 import { HEAVY_TX_OPTIONS } from '../transactionOptions';
 import { planFifoDeductions } from './inventoryMath';
+import { BusinessError } from '../errors/BusinessError';
 
 export async function deductStockFIFO(
   productId: string,
@@ -33,7 +34,7 @@ export async function deductStockFIFO(
       });
       const sku = product?.sku || productId;
       const productName = product?.name ? ` – ${product.name}` : '';
-      throw new Error(`Không đủ tồn kho cho SKU ${sku}${productName}. Tồn khả dụng: ${plan.deductedQty}, cần: ${requestedQty}, thiếu: ${plan.remaining}.`);
+      throw new BusinessError(`Không đủ tồn kho cho SKU ${sku}${productName}. Tồn khả dụng: ${plan.deductedQty}, cần: ${requestedQty}, thiếu: ${plan.remaining}.`);
     }
 
     for (const deduction of plan.deductions) {

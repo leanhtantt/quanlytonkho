@@ -4,6 +4,7 @@ import { auth } from '../lib/firebase';
 import { buildDerivedStore, DEFAULT_PRODUCTS, repairProductNames } from '../domain/inventory';
 import { StoreContext } from './appStoreContext';
 import { api } from '../lib/api';
+import { toast } from '../components/ui/toastHelper';
 
 const DEFAULT_SHOPS = ['Chà Tiktok', 'Chà Shopee', 'Lyn WD', 'Lyn - Phụ kiện', 'Lyn Tiktok'];
 
@@ -50,14 +51,14 @@ export function StoreProvider({ children }) {
     lastRefreshRef.current = now;
     try {
       const [prodRes, purRes, ordRes, lossRes, adjustmentRes, txRes, adRes, setRes] = await Promise.all([
-        api.getProducts().catch(() => []),
-        api.getPurchases().catch(() => []),
-        api.getOrders().catch(() => []),
-        api.getLosses().catch(() => []),
-        api.getInventoryAdjustments().catch(() => []),
-        api.getTransactions().catch(() => []),
-        api.getAds().catch(() => []),
-        api.getSettings().catch(() => ({}))
+        api.getProducts(),
+        api.getPurchases(),
+        api.getOrders(),
+        api.getLosses(),
+        api.getInventoryAdjustments(),
+        api.getTransactions(),
+        api.getAds(),
+        api.getSettings()
       ]);
       
       setProducts(repairProductNames(prodRes.length ? prodRes : DEFAULT_PRODUCTS));
@@ -74,8 +75,8 @@ export function StoreProvider({ children }) {
       if (setRes.packagingCost !== undefined) setDefaultPackagingCost(setRes.packagingCost);
       if (setRes.returnFee !== undefined) setDefaultReturnFee(setRes.returnFee);
     } catch (err) {
-      console.error("Failed to refresh data", err);
-      throw err;
+      console.error('Failed to refresh data', err);
+      toast.error('Tải dữ liệu thất bại');
     } finally {
       setRefreshing(false);
     }

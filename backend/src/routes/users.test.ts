@@ -198,6 +198,7 @@ describe('users API handlers', () => {
     mocks.prismaCreate.mockRejectedValue(new Error('database unavailable'));
     const response = createResponse();
 
+    const next = vi.fn();
     await createUser(
       createRequest({
         email: 'staff@example.com',
@@ -206,11 +207,12 @@ describe('users API handlers', () => {
         permissions: {},
       }) as never,
       response as never,
-      vi.fn()
+      next
     );
 
     expect(mocks.firebaseDeleteUser).toHaveBeenCalledWith('staff-uid');
-    expect(response.status).toHaveBeenCalledWith(500);
+    expect(response.status).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(expect.any(Error));
   });
 
   it('từ chối nâng role thành admin qua PUT', async () => {

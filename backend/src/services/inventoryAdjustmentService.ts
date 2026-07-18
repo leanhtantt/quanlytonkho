@@ -1,6 +1,7 @@
 import { prisma } from '../prismaClient';
 import { randomUUID } from 'crypto';
 import { HEAVY_TX_OPTIONS } from '../transactionOptions';
+import { BusinessError } from '../errors/BusinessError';
 
 interface SurplusInput {
   productId: string;
@@ -63,9 +64,9 @@ async function assertUnusedAndRemoveEffects(tx: any, adjustmentId: string) {
     where: { id: adjustmentId },
     include: { batch: true }
   });
-  if (!adjustment) throw new Error('Không tìm thấy phiếu kiểm kê dư.');
+  if (!adjustment) throw new BusinessError('Không tìm thấy phiếu kiểm kê dư.');
   if (adjustment.batch.qtyRemaining !== adjustment.batch.qtyInitial) {
-    throw new Error('Lô hàng dư này đã được xuất dùng. Hãy tạo phiếu điều chỉnh ngược thay vì sửa/xóa lịch sử.');
+    throw new BusinessError('Lô hàng dư này đã được xuất dùng. Hãy tạo phiếu điều chỉnh ngược thay vì sửa/xóa lịch sử.');
   }
 
   await tx.stockTransaction.deleteMany({ where: { referenceType: 'ADJUSTMENT', referenceId: adjustmentId } });

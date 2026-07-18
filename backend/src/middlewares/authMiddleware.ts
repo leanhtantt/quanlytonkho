@@ -134,8 +134,7 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
       req.userRecord = userRecord;
       return next();
     } catch (error) {
-      console.error('Error loading authorization record:', error);
-      return res.status(500).json({ error: 'Internal server error: Không thể kiểm tra quyền tài khoản.' });
+      return next(error);
     }
   });
 };

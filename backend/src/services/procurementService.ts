@@ -1,6 +1,7 @@
 import { prisma } from '../prismaClient';
 import { HEAVY_TX_OPTIONS } from '../transactionOptions';
 import { allocatePurchaseItemCosts } from './procurementMath';
+import { BusinessError } from '../errors/BusinessError';
 
 interface PurchaseInput {
   code: string;
@@ -110,14 +111,14 @@ async function deletePurchaseOrderTx(tx: any, poId: string) {
     where: { id: poId },
     include: { purchaseItems: { include: { inventoryBatches: true } } }
   });
-  if (!po) throw new Error('Không tìm thấy phiếu nhập để xóa.');
+  if (!po) throw new BusinessError('Không tìm thấy phiếu nhập để xóa.');
 
   const batchIds: string[] = [];
   for (const pItem of po.purchaseItems) {
     for (const batch of pItem.inventoryBatches) {
       // If some units have already left this batch, block the delete.
       if (batch.qtyRemaining !== batch.qtyInitial) {
-        throw new Error(
+        throw new BusinessError(
           'Không thể xóa phiếu nhập này vì hàng trong lô đã được bán hoặc xuất bớt. ' +
           'Hãy hoàn tác các đơn/hao hụt liên quan trước.'
         );

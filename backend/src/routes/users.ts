@@ -1,4 +1,4 @@
-import { RequestHandler, Response, Router } from 'express';
+import { NextFunction, RequestHandler, Response, Router } from 'express';
 import { getAuth, UpdateRequest, UserRecord } from 'firebase-admin/auth';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -101,7 +101,7 @@ function isCredentialError(error: unknown) {
     || /credential|permission/i.test(message);
 }
 
-function sendFirebaseError(res: Response, error: unknown, action: string) {
+function sendFirebaseError(res: Response, next: NextFunction, error: unknown, action: string) {
   const code = getErrorCode(error);
   if (code === 'auth/email-already-exists') {
     return res.status(409).json({ error: 'Email đã tồn tại trong Firebase Authentication.' });
@@ -116,7 +116,7 @@ function sendFirebaseError(res: Response, error: unknown, action: string) {
   }
 
   console.error(`Firebase Admin error while ${action}:`, error);
-  return res.status(500).json({ error: `Không thể ${action} trên Firebase Authentication.` });
+  return next(error);
 }
 
 function getTargetUid(req: AuthRequest) {
@@ -144,7 +144,7 @@ export const listUsers: RequestHandler = async (_req, res) => {
   res.json(users);
 };
 
-export const createUser: RequestHandler = async (req, res) => {
+export const createUser: RequestHandler = async (req, res, next) => {
   const parsed = createUserSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -166,7 +166,7 @@ export const createUser: RequestHandler = async (req, res) => {
       disabled: false,
     });
   } catch (error) {
-    return sendFirebaseError(res, error, 'tạo user');
+    return sendFirebaseError(res, next, error, 'tạo user');
   }
 
   try {
@@ -198,25 +198,21 @@ export const createUser: RequestHandler = async (req, res) => {
     });
     return res.status(201).json(user);
   } catch (error) {
-    let rollbackSucceeded = true;
     try {
       await getAuth().deleteUser(firebaseUser.uid);
     } catch (rollbackError) {
-      rollbackSucceeded = false;
       console.error('Không thể rollback Firebase user sau lỗi Prisma:', rollbackError);
     }
 
     console.error('Không thể lưu User vào PostgreSQL:', error);
-    const status = getErrorCode(error) === 'P2002' ? 409 : 500;
-    return res.status(status).json({
-      error: rollbackSucceeded
-        ? 'Không thể lưu user vào cơ sở dữ liệu; tài khoản Firebase đã được rollback.'
-        : `Không thể lưu user và rollback Firebase. Cần xử lý thủ công UID ${firebaseUser.uid}.`,
-    });
+    if (getErrorCode(error) === 'P2002') {
+      return res.status(409).json({ error: 'User record đã tồn tại.' });
+    }
+    return next(error);
   }
 };
 
-export const updateUser: RequestHandler = async (req, res) => {
+export const updateUser: RequestHandler = async (req, res, next) => {
   const authReq = req as AuthRequest;
   const uid = getTargetUid(authReq);
   if (!uid) return res.status(400).json({ error: 'Firebase UID không hợp lệ.' });
@@ -228,7 +224,7 @@ export const updateUser: RequestHandler = async (req, res) => {
   try {
     firebaseUser = await getAuth().getUser(uid);
   } catch (error) {
-    return sendFirebaseError(res, error, 'đọc user');
+    return sendFirebaseError(res, next, error, 'đọc user');
   }
 
   if (isAdminUser(firebaseUser)) {
@@ -260,7 +256,7 @@ export const updateUser: RequestHandler = async (req, res) => {
     try {
       await getAuth().updateUser(uid, firebaseUpdate);
     } catch (error) {
-      return sendFirebaseError(res, error, 'cập nhật user');
+      return sendFirebaseError(res, next, error, 'cập nhật user');
     }
   }
 
@@ -325,11 +321,11 @@ export const updateUser: RequestHandler = async (req, res) => {
       }
     }
     console.error('Không thể cập nhật User record:', error);
-    return res.status(500).json({ error: 'Không thể cập nhật User record.' });
+    return next(error);
   }
 };
 
-export const resetUserPassword: RequestHandler = async (req, res) => {
+export const resetUserPassword: RequestHandler = async (req, res, next) => {
   const authReq = req as AuthRequest;
   const uid = getTargetUid(authReq);
   if (!uid) return res.status(400).json({ error: 'Firebase UID không hợp lệ.' });
@@ -341,7 +337,7 @@ export const resetUserPassword: RequestHandler = async (req, res) => {
   try {
     firebaseUser = await getAuth().getUser(uid);
   } catch (error) {
-    return sendFirebaseError(res, error, 'đọc user');
+    return sendFirebaseError(res, next, error, 'đọc user');
   }
 
   if (isAdminUser(firebaseUser)) {
@@ -359,7 +355,7 @@ export const resetUserPassword: RequestHandler = async (req, res) => {
     });
     return res.json({ success: true });
   } catch (error) {
-    return sendFirebaseError(res, error, 'đặt lại mật khẩu');
+    return sendFirebaseError(res, next, error, 'đặt lại mật khẩu');
   }
 };
 

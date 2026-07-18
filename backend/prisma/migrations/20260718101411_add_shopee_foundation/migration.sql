@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE "ShopeeShop" (
-    "id" INTEGER NOT NULL,
+    "id" BIGINT NOT NULL,
     "shopName" TEXT,
     "region" TEXT NOT NULL,
     "accessToken" TEXT NOT NULL,
@@ -17,10 +17,10 @@ CREATE TABLE "ShopeeShop" (
 -- CreateTable
 CREATE TABLE "ShopeeItemMap" (
     "id" TEXT NOT NULL,
-    "shopId" INTEGER NOT NULL,
+    "shopId" BIGINT NOT NULL,
     "productId" TEXT NOT NULL,
     "itemId" BIGINT NOT NULL,
-    "modelId" BIGINT,
+    "modelId" BIGINT NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ShopeeItemMap_pkey" PRIMARY KEY ("id")

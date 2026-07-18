@@ -10,9 +10,16 @@ import { ShopeeClient } from '../src/services/shopeeClient';
  * sau đó gọi v2.shop.get_shop_info bằng token đã được lưu mới.
  */
 const [shopIdArg, accessToken, refreshToken] = process.argv.slice(2);
-const shopId = Number(shopIdArg);
+let shopId: bigint;
 
-if (!Number.isInteger(shopId) || !accessToken || !refreshToken) {
+try {
+  shopId = BigInt(shopIdArg);
+} catch {
+  console.error('Cách dùng: npx tsx scripts/shopeeClientShopInfo.ts <shop_id> <access_token> <refresh_token>');
+  process.exit(1);
+}
+
+if (shopId <= 0n || !accessToken || !refreshToken) {
   console.error('Cách dùng: npx tsx scripts/shopeeClientShopInfo.ts <shop_id> <access_token> <refresh_token>');
   process.exit(1);
 }

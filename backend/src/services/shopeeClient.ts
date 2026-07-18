@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { prisma } from '../prismaClient';
+import { HEAVY_TX_OPTIONS } from '../transactionOptions';
 import { BusinessError } from '../errors/BusinessError';
 
 const ACCESS_TOKEN_REFRESH_WINDOW_MS = 30 * 60 * 1000;
@@ -10,7 +11,7 @@ const SHOPEE_HOSTS = {
 } as const;
 
 type ShopeeEnvironment = keyof typeof SHOPEE_HOSTS;
-type ShopeePrimitive = string | number | boolean;
+type ShopeePrimitive = string | number | boolean | bigint;
 
 interface ShopeeConfig {
   partnerId: string;
@@ -33,11 +34,16 @@ interface ShopeeResponse {
 }
 
 interface ShopeeShopRecord {
-  id: number;
+  id: bigint;
   accessToken: string;
   refreshToken: string;
   expiresAt: Date;
   isActive: boolean;
+}
+
+interface TokenDates {
+  expiresAt: Date;
+  authExpiresAt: Date | null;
 }
 
 export interface ShopeeTokenResponse extends ShopeeResponse {
@@ -94,9 +100,9 @@ export function signShopeeShopRequest(
   path: string,
   timestamp: number,
   accessToken: string,
-  shopId: number,
+  shopId: bigint,
 ): string {
-  return sign(partnerId + path + timestamp + accessToken + shopId, partnerKey);
+  return sign(partnerId + path + timestamp + accessToken + String(shopId), partnerKey);
 }
 
 function getShopeeError(payload: ShopeeResponse): string | null {
@@ -114,6 +120,25 @@ function mapShopeeError(payload: ShopeeResponse): void {
     ? ': ' + payload.message.trim()
     : '';
   throw new BusinessError('Shopee trả lỗi ' + error + message + '.');
+}
+
+function validateTokenResponse(token: ShopeeTokenResponse, now: number, action: string): TokenDates {
+  if (
+    typeof token.access_token !== 'string' || !token.access_token.trim()
+    || typeof token.refresh_token !== 'string' || !token.refresh_token.trim()
+    || !Number.isFinite(token.expire_in) || token.expire_in <= 0
+  ) {
+    throw new Error('Shopee trả về token ' + action + ' không đầy đủ.');
+  }
+
+  const authExpiresAt = Number.isFinite(token.refresh_token_expire_in) && (token.refresh_token_expire_in || 0) > 0
+    ? new Date(now + Number(token.refresh_token_expire_in) * 1000)
+    : null;
+
+  return {
+    expiresAt: new Date(now + token.expire_in * 1000),
+    authExpiresAt,
+  };
 }
 
 export class ShopeeClient {
@@ -134,18 +159,45 @@ export class ShopeeClient {
     return url.toString();
   }
 
-  async exchangeAuthorizationCode(code: string, shopId: number): Promise<ShopeeTokenResponse> {
-    return this.requestPublic<ShopeeTokenResponse>('/api/v2/auth/token/get', {
+  async exchangeAuthorizationCode(
+    code: string,
+    shopId: bigint,
+    region = this.config.environment === 'live' ? 'VN' : 'SG',
+  ): Promise<ShopeeTokenResponse> {
+    const token = await this.requestPublic<ShopeeTokenResponse>('/api/v2/auth/token/get', {
       method: 'POST',
       body: {
         code,
         partner_id: Number(this.config.partnerId),
-        shop_id: shopId,
+        shop_id: Number(shopId),
       },
     });
+    const dates = validateTokenResponse(token, this.now(), 'đổi authorization code');
+
+    await prisma.shopeeShop.upsert({
+      where: { id: shopId },
+      update: {
+        region,
+        accessToken: token.access_token,
+        refreshToken: token.refresh_token,
+        expiresAt: dates.expiresAt,
+        authExpiresAt: dates.authExpiresAt,
+        isActive: true,
+      },
+      create: {
+        id: shopId,
+        region,
+        accessToken: token.access_token,
+        refreshToken: token.refresh_token,
+        expiresAt: dates.expiresAt,
+        authExpiresAt: dates.authExpiresAt,
+      },
+    });
+
+    return token;
   }
 
-  async getShopInfo<T = ShopeeResponse>(shopId: number): Promise<T> {
+  async getShopInfo<T = ShopeeResponse>(shopId: bigint): Promise<T> {
     return this.requestForShop<T>(shopId, '/api/v2/shop/get_shop_info');
   }
 
@@ -159,7 +211,7 @@ export class ShopeeClient {
     }, options);
   }
 
-  async requestForShop<T>(shopId: number, path: string, options: ShopeeRequestOptions = {}): Promise<T> {
+  async requestForShop<T>(shopId: bigint, path: string, options: ShopeeRequestOptions = {}): Promise<T> {
     const shop = await this.getUsableShop(shopId);
     const timestamp = this.timestamp();
 
@@ -180,41 +232,57 @@ export class ShopeeClient {
     }, options);
   }
 
-  private async getUsableShop(shopId: number): Promise<ShopeeShopRecord> {
+  private async getUsableShop(shopId: bigint): Promise<ShopeeShopRecord> {
     const shop = await prisma.shopeeShop.findUnique({ where: { id: shopId } });
     if (!shop || !shop.isActive) {
       throw new BusinessError('Shop Shopee chưa được kết nối hoặc đã ngắt kết nối.');
     }
 
     if (shop.expiresAt.getTime() - this.now() < ACCESS_TOKEN_REFRESH_WINDOW_MS) {
-      return this.refreshAccessToken(shop);
+      return this.refreshAccessToken(shopId);
     }
 
     return shop;
   }
 
-  private async refreshAccessToken(shop: ShopeeShopRecord): Promise<ShopeeShopRecord> {
-    const token = await this.requestPublic<ShopeeTokenResponse>('/api/v2/auth/access_token/get', {
-      method: 'POST',
-      body: {
-        partner_id: Number(this.config.partnerId),
-        refresh_token: shop.refreshToken,
-        shop_id: shop.id,
-      },
-    });
+  private async refreshAccessToken(shopId: bigint): Promise<ShopeeShopRecord> {
+    return prisma.$transaction(async (tx) => {
+      const [shop] = await tx.$queryRaw<ShopeeShopRecord[]>`
+        SELECT "id", "accessToken", "refreshToken", "expiresAt", "isActive"
+        FROM "ShopeeShop"
+        WHERE "id" = ${shopId}
+        FOR UPDATE
+      `;
 
-    if (!token.access_token || !token.refresh_token || !Number.isFinite(token.expire_in)) {
-      throw new Error('Shopee trả về token refresh không đầy đủ.');
-    }
+      if (!shop || !shop.isActive) {
+        throw new BusinessError('Shop Shopee chưa được kết nối hoặc đã ngắt kết nối.');
+      }
 
-    return prisma.shopeeShop.update({
-      where: { id: shop.id },
-      data: {
-        accessToken: token.access_token,
-        refreshToken: token.refresh_token,
-        expiresAt: new Date(this.now() + token.expire_in * 1000),
-      },
-    });
+      // Một request khác có thể đã refresh token trong lúc request này chờ khóa.
+      if (shop.expiresAt.getTime() - this.now() >= ACCESS_TOKEN_REFRESH_WINDOW_MS) {
+        return shop;
+      }
+
+      const token = await this.requestPublic<ShopeeTokenResponse>('/api/v2/auth/access_token/get', {
+        method: 'POST',
+        body: {
+          partner_id: Number(this.config.partnerId),
+          refresh_token: shop.refreshToken,
+          shop_id: Number(shop.id),
+        },
+      });
+      const dates = validateTokenResponse(token, this.now(), 'refresh');
+
+      return tx.shopeeShop.update({
+        where: { id: shop.id },
+        data: {
+          accessToken: token.access_token,
+          refreshToken: token.refresh_token,
+          expiresAt: dates.expiresAt,
+          authExpiresAt: dates.authExpiresAt,
+        },
+      });
+    }, HEAVY_TX_OPTIONS);
   }
 
   private timestamp(): number {

@@ -11,7 +11,8 @@
     "scripts/restore.ts",
     "scripts/setAdminClaim.ts",
     "scripts/verifyBackup.ts",
-    "scripts/wipe.ts"
+    "scripts/wipe.ts",
+    "scripts/shopeeClientShopInfo.ts"
   ],
   "exclude": ["node_modules"]
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
 import {
   IconBuildingStore,
@@ -7,18 +7,32 @@ import {
   IconTrash as Trash2,
   IconUsers,
   IconWallet,
+  IconLink as LinkIcon,
+  IconShoppingBag,
+  IconUnlink as Unlink,
 } from '@tabler/icons-react';
 import { deleteImage, getImage } from '../domain/imageDb';
 import { deleteProductImage, isRemoteImage, uploadProductImage } from '../domain/imageStorage';
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import { useAuth } from '../lib/AuthContext';
+import { api } from '../lib/api';
 import PageHeader from '../components/ui/PageHeader';
 import Badge from '../components/ui/Badge';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import EmptyState from '../components/ui/EmptyState';
 import FormField from '../components/ui/FormField';
 
+function formatShopeeDate(value) {
+  if (!value) return 'Chưa có dữ liệu';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Chưa có dữ liệu';
+  return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+
+function getShopeeShopLabel(shop) {
+  return shop.shopName || `Shop #${shop.id}`;
+}
 export default function Settings() {
   const { accounts, setAccounts, shops, setShops, partners, setPartners, products, updateProduct, defaultPackagingCost, setDefaultPackagingCost, defaultReturnFee, setDefaultReturnFee } = useAppStore();
   const { can } = useAuth();
@@ -33,8 +47,32 @@ export default function Settings() {
   const [imageMigration, setImageMigration] = useState({ running: false, completed: 0, total: 0, failed: 0 });
   const [isSaving, setIsSaving] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState(null);
+  const [shopeeShops, setShopeeShops] = useState([]);
+  const [isShopeeLoading, setIsShopeeLoading] = useState(true);
+  const [isConnectingShopee, setIsConnectingShopee] = useState(false);
+  const [pendingShopeeDisconnect, setPendingShopeeDisconnect] = useState(null);
+  const [disconnectingShopId, setDisconnectingShopId] = useState(null);
 
   const legacyImageProducts = products.filter(product => product.imageId && !isRemoteImage(product.imageId));
+  useEffect(() => {
+    if (!can('settings', 'view')) return undefined;
+
+    let active = true;
+    api.getShopeeShops()
+      .then(({ shops: nextShops = [] }) => {
+        if (active) setShopeeShops(nextShops);
+      })
+      .catch((error) => {
+        if (active) toast.error(`Không thể tải trạng thái Shopee: ${error.message}`);
+      })
+      .finally(() => {
+        if (active) setIsShopeeLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [can]);
 
   const handleMigrateImages = async () => {
     if (legacyImageProducts.length === 0) {
@@ -73,6 +111,36 @@ export default function Settings() {
     }
   };
 
+
+  const handleConnectShopee = async () => {
+    if (!can('settings', 'update')) return;
+
+    setIsConnectingShopee(true);
+    try {
+      const { authorizationUrl } = await api.getShopeeAuthorizationUrl();
+      if (!authorizationUrl) throw new Error('Không nhận được link ủy quyền từ Shopee.');
+      window.location.assign(authorizationUrl);
+    } catch (error) {
+      toast.error(`Không thể bắt đầu kết nối Shopee: ${error.message}`);
+      setIsConnectingShopee(false);
+    }
+  };
+
+  const handleDisconnectShopee = async () => {
+    if (!pendingShopeeDisconnect) return;
+
+    setDisconnectingShopId(pendingShopeeDisconnect.id);
+    try {
+      const { shop } = await api.disconnectShopeeShop(pendingShopeeDisconnect.id);
+      setShopeeShops(current => current.map(item => item.id === shop.id ? shop : item));
+      toast.success(`Đã ngắt kết nối ${getShopeeShopLabel(shop)}.`);
+      setPendingShopeeDisconnect(null);
+    } catch (error) {
+      toast.error(`Không thể ngắt kết nối Shopee: ${error.message}`);
+    } finally {
+      setDisconnectingShopId(null);
+    }
+  };
   const handleAddShop = () => {
     const name = newShop.trim();
     if (!name) return;
@@ -216,6 +284,57 @@ export default function Settings() {
           </div>
         </div>
 
+        <div className="card settings-card settings-card--wide">
+          <h2 className="h3 settings-card__title settings-card__title--with-icon">
+            <IconShoppingBag size={22} aria-hidden="true" />
+            Kết Nối Shopee
+          </h2>
+          <p className="settings-card__description">
+            Ủy quyền shop Shopee để chuẩn bị đồng bộ đơn hàng và tồn kho. Access token chỉ được lưu ở backend, không hiển thị trên trình duyệt.
+          </p>
+
+          {isShopeeLoading ? <p className="settings-card__help" aria-busy="true">Đang tải trạng thái kết nối Shopee…</p> : null}
+          {!isShopeeLoading && shopeeShops.length === 0 ? (
+            <EmptyState icon={IconShoppingBag} title="Chưa kết nối shop Shopee" description="Bấm Kết nối Shopee để bắt đầu ủy quyền shop." />
+          ) : null}
+          {!isShopeeLoading && shopeeShops.length > 0 ? (
+            <ul className="settings-list shopee-shop-list">
+              {shopeeShops.map(shop => (
+                <li key={shop.id} className="settings-list__item">
+                  <div className="settings-list__content">
+                    <span className="settings-list__name">{getShopeeShopLabel(shop)}</span>
+                    <span className="settings-list__meta">
+                      {shop.region} · Token truy cập đến {formatShopeeDate(shop.expiresAt)} · Ủy quyền đến {formatShopeeDate(shop.authExpiresAt)}
+                    </span>
+                  </div>
+                  <div className="settings-list__actions">
+                    <Badge variant={shop.isActive ? 'success' : 'info'}>{shop.isActive ? 'Đang kết nối' : 'Đã ngắt'}</Badge>
+                    {can('settings', 'update') && shop.isActive ? (
+                      <Button
+                        variant="danger-ghost"
+                        size="sm"
+                        icon={Unlink}
+                        onClick={() => setPendingShopeeDisconnect(shop)}
+                        loading={disconnectingShopId === shop.id}
+                      >
+                        Ngắt kết nối
+                      </Button>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {can('settings', 'update') ? (
+            <div className="settings-migration shopee-connection-actions">
+              <Button icon={LinkIcon} loading={isConnectingShopee} onClick={handleConnectShopee}>
+                {isConnectingShopee ? 'Đang mở Shopee…' : 'Kết nối Shopee'}
+              </Button>
+              <span className="settings-card__help">Bạn sẽ được chuyển sang Shopee để ủy quyền, sau đó quay lại ứng dụng để hoàn tất.</span>
+            </div>
+          ) : null}
+        </div>
         {/* Shops Management */}
         <div className="card settings-card">
           <h2 className="h3 settings-card__title">Danh Sách Shop</h2>
@@ -316,6 +435,17 @@ export default function Settings() {
         title="Xóa mục khỏi cấu hình?"
         itemName={pendingRemoval?.label}
         description={pendingRemoval ? `Xóa ${pendingRemoval.label} khỏi cấu hình đang chỉnh sửa? Thay đổi chỉ được áp dụng khi bạn bấm Lưu Thay Đổi.` : undefined}
+      />
+      <ConfirmDialog
+        open={Boolean(pendingShopeeDisconnect)}
+        onClose={() => setPendingShopeeDisconnect(null)}
+        onConfirm={handleDisconnectShopee}
+        title="Ngắt kết nối shop Shopee?"
+        itemName={pendingShopeeDisconnect ? getShopeeShopLabel(pendingShopeeDisconnect) : undefined}
+        action="Ngắt kết nối"
+        confirmLabel="Ngắt kết nối"
+        description={pendingShopeeDisconnect ? `Ngắt ${getShopeeShopLabel(pendingShopeeDisconnect)}? Dữ liệu đã đồng bộ trong app không bị xóa; bạn có thể kết nối lại sau.` : undefined}
+        loading={Boolean(disconnectingShopId)}
       />
     </div>
   );

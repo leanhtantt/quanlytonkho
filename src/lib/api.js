@@ -82,6 +82,11 @@ export const api = {
   getSettings: () => authFetch('/api/settings'),
   updateSettings: (data) => authFetch('/api/settings', { method: 'PUT', body: JSON.stringify(data) }),
 
+  getShopeeShops: () => authFetch('/api/shopee/shops'),
+  getShopeeAuthorizationUrl: () => authFetch('/api/shopee/auth-url'),
+  connectShopee: (data) => authFetch('/api/shopee/connect', { method: 'POST', body: JSON.stringify(data) }),
+  disconnectShopeeShop: (shopId) => authFetch(`/api/shopee/shops/${encodeURIComponent(shopId)}/disconnect`, { method: 'POST' }),
+
   getAds: () => authFetch('/api/ads'),
   createAd: (data) => authFetch('/api/ads', { method: 'POST', body: JSON.stringify(data) }),
   reimburseAdAdvance: (id, data) => authFetch(`/api/ads/${id}/reimbursements`, { method: 'POST', body: JSON.stringify(data) }),

@@ -23,6 +23,7 @@ import Profit from './pages/Profit';
 import Treasury from './pages/Treasury';
 import Expenses from './pages/Expenses';
 import Settings from './pages/Settings';
+import ShopeeCallback from './pages/ShopeeCallback';
 import Users from './pages/Users';
 import Activity from './pages/Activity';
 import Login from './pages/Login';
@@ -233,6 +234,7 @@ function App() {
               <Route path="/treasury" element={<RouteGuard allowed={can('treasury', 'view')} fallbackPath={fallbackPath}><Treasury /></RouteGuard>} />
               <Route path="/expenses" element={<RouteGuard allowed={can('treasury', 'view')} fallbackPath={fallbackPath}><Expenses /></RouteGuard>} />
               <Route path="/settings" element={<RouteGuard allowed={can('settings', 'view')} fallbackPath={fallbackPath}><Settings /></RouteGuard>} />
+              <Route path="/shopee/callback" element={<RouteGuard allowed={can('settings', 'update')} fallbackPath={fallbackPath}><ShopeeCallback /></RouteGuard>} />
               <Route path="/users" element={<RouteGuard allowed={isAdmin} fallbackPath={fallbackPath}><Users /></RouteGuard>} />
               <Route path="/activity" element={<RouteGuard allowed={can('activity', 'view')} fallbackPath={fallbackPath}><Activity /></RouteGuard>} />
               <Route path="*" element={<Navigate to={fallbackPath} replace />} />

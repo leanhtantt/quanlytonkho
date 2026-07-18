@@ -15,6 +15,7 @@ import { flushActivityLogsBeforeResponse } from './middlewares/activityLogMiddle
 import { writeLoginActivityOnce } from './audit/loginActivity';
 import { findProductByCode, normalizeSkuCode, resolveProductsByCodes } from './services/productResolver';
 import { BusinessError } from './errors/BusinessError';
+import { ShopeeClient } from './services/shopeeClient';
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'tanle-dev';
 const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'tanle-dev.firebasestorage.app';
@@ -153,6 +154,39 @@ const settingsSchema = z.object({
   returnFee: z.number().nonnegative().optional(),
 });
 
+const shopeeShopIdSchema = z.string().trim().regex(/^[1-9]\d*$/, 'shop_id phải là số nguyên dương.');
+
+const shopeeConnectSchema = z.object({
+  code: z.string().trim().min(1),
+  shop_id: shopeeShopIdSchema,
+});
+
+const shopeeShopSelect = {
+  id: true,
+  shopName: true,
+  region: true,
+  expiresAt: true,
+  authExpiresAt: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+function serializeShopeeShop(shop: {
+  id: bigint;
+  shopName: string | null;
+  region: string;
+  expiresAt: Date;
+  authExpiresAt: Date | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    ...shop,
+    id: shop.id.toString(),
+  };
+}
 const productImageSchema = z.object({
   productId: z.string().min(1),
   dataUrl: z.string().startsWith('data:image/'),
@@ -730,6 +764,68 @@ apiRouter.get('/inventory', async (req, res) => {
   res.json(inventory);
 });
 
+// --- Shopee connection ---
+apiRouter.get('/shopee/shops', requirePermission('settings', 'view'), async (_req, res) => {
+  const shops = await prisma.shopeeShop.findMany({
+    select: shopeeShopSelect,
+    orderBy: { createdAt: 'asc' },
+  });
+  res.json({ shops: shops.map(serializeShopeeShop) });
+});
+
+apiRouter.get('/shopee/auth-url', requirePermission('settings', 'update'), (_req, res) => {
+  const authorizationUrl = new ShopeeClient().getAuthorizationUrl();
+  res.json({ authorizationUrl });
+});
+
+apiRouter.post('/shopee/connect', requirePermission('settings', 'update'), async (req, res) => {
+  const parsed = shopeeConnectSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const shopId = BigInt(parsed.data.shop_id);
+  const client = new ShopeeClient();
+  await client.exchangeAuthorizationCode(parsed.data.code, shopId);
+
+  // Token đã được lưu bởi client. Tên shop chỉ giúp UI dễ nhận diện; không làm hỏng kết nối nếu request này lỗi.
+  try {
+    const info = await client.getShopInfo<{ shop_name?: unknown }>(shopId);
+    if (typeof info.shop_name === 'string' && info.shop_name.trim()) {
+      await prisma.shopeeShop.update({
+        where: { id: shopId },
+        data: { shopName: info.shop_name.trim() },
+      });
+    }
+  } catch (error) {
+    console.warn(`Shopee shop ${shopId.toString()} đã kết nối nhưng chưa lấy được tên shop:`, error);
+  }
+
+  const shop = await prisma.shopeeShop.findUnique({
+    where: { id: shopId },
+    select: shopeeShopSelect,
+  });
+  if (!shop) throw new Error('Không tìm thấy shop Shopee sau khi kết nối.');
+
+  return res.status(201).json({ shop: serializeShopeeShop(shop) });
+});
+
+apiRouter.post('/shopee/shops/:shopId/disconnect', requirePermission('settings', 'update'), async (req, res) => {
+  const parsed = shopeeShopIdSchema.safeParse(req.params.shopId);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const shopId = BigInt(parsed.data);
+  const existingShop = await prisma.shopeeShop.findUnique({
+    where: { id: shopId },
+    select: { id: true },
+  });
+  if (!existingShop) return res.status(404).json({ error: 'Không tìm thấy shop Shopee.' });
+
+  const shop = await prisma.shopeeShop.update({
+    where: { id: shopId },
+    data: { isActive: false },
+    select: shopeeShopSelect,
+  });
+  return res.json({ shop: serializeShopeeShop(shop) });
+});
 // --- Settings ---
 apiRouter.get('/settings', async (req, res) => {
   let settings = await prisma.appSettings.findUnique({ where: { id: 'default' } });

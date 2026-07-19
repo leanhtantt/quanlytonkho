@@ -26,7 +26,8 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
 - [ ] Dot 12 - SP6 Go-Live (thao tac tay tren Console + env Cloud Run)
 
 No ky thuat ghi nhan (chua lam, khong quen):
-- Them AbortSignal.timeout cho fetch trong ShopeeClient (ngan hon 20s cua HEAVY_TX_OPTIONS).
+- ~~Them AbortSignal.timeout cho fetch trong ShopeeClient~~ — DA LAM (hotfix sau su co treo
+  "Dang xac nhan ket noi" khi kiem chung SP2: fetch khong timeout nen loi mang treo vo han).
 - Sentry canh bao khi refresh token Shopee that bai.
 - Nang cap 3 script sandbox cu thanh wrapper mong tren ShopeeClient.
 - Regenerate Test Partner Key da lo trong chat (sandbox, rui ro thap).

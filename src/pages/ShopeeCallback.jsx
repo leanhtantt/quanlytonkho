@@ -32,11 +32,12 @@ export default function ShopeeCallback() {
 
     // Authorization code chỉ dùng một lần; bỏ nó khỏi URL ngay sau khi đã đọc.
     window.history.replaceState(null, '', location.pathname);
-    let active = true;
 
+    // Không dùng cờ active/cleanup: StrictMode (dev) mount 2 lần — submittedRef đã
+    // chặn request thứ hai, nên cleanup của lần mount đầu sẽ vô hiệu hóa callback
+    // của request DUY NHẤT và làm UI kẹt ở "Đang xác nhận" vĩnh viễn.
     api.connectShopee({ code, shop_id: shopId })
       .then(({ shop }) => {
-        if (!active) return;
         setStatus({
           phase: 'success',
           message: `Đã kết nối ${shopLabel(shop)}. Bạn có thể quay lại Cài Đặt để kiểm tra trạng thái.`,
@@ -44,17 +45,12 @@ export default function ShopeeCallback() {
         });
       })
       .catch((error) => {
-        if (!active) return;
         setStatus({
           phase: 'error',
           message: error.message || 'Không thể kết nối shop Shopee. Vui lòng thử lại từ Cài Đặt.',
           shop: null,
         });
       });
-
-    return () => {
-      active = false;
-    };
   }, [location.pathname, location.search]);
 
   const isLoading = status.phase === 'loading';

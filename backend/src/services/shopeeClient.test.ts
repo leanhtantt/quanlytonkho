@@ -237,6 +237,31 @@ describe('ShopeeClient', () => {
     expect(mocks.fetch).toHaveBeenCalledTimes(2);
   });
 
+  it('passes an abort signal so a hung request cannot block forever', async () => {
+    mocks.fetch.mockResolvedValue(response({ error: '', request_id: 'request-id' }));
+
+    await new ShopeeClient(config as never, () => now).requestPublic('/api/v2/public/get_shop_info_by_shop_id');
+
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it('turns repeated fetch timeouts into a plain Error naming the host', async () => {
+    const timeoutError = Object.assign(new Error('The operation was aborted due to timeout'), {
+      name: 'TimeoutError',
+    });
+    mocks.fetch.mockRejectedValue(timeoutError);
+
+    const request = new ShopeeClient(config as never, () => now)
+      .requestPublic('/api/v2/public/get_shop_info_by_shop_id');
+
+    await expect(request).rejects.toThrow('Shopee không phản hồi sau 8 giây');
+    await expect(request).rejects.not.toBeInstanceOf(BusinessError);
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+  });
+
   it('maps Shopee error responses to BusinessError', async () => {
     mocks.fetch.mockResolvedValue(response({
       error: 'error_auth',

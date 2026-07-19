@@ -5,6 +5,10 @@ import { BusinessError } from '../errors/BusinessError';
 
 const ACCESS_TOKEN_REFRESH_WINDOW_MS = 30 * 60 * 1000;
 
+// 2 lần thử x 8s = tối đa 16s, phải luôn nhỏ hơn timeout 20s của HEAVY_TX_OPTIONS
+// vì refreshAccessToken gọi Shopee bên trong transaction đang giữ khóa ShopeeShop.
+const FETCH_TIMEOUT_MS = 8_000;
+
 const SHOPEE_HOSTS = {
   sandbox: 'https://openplatform.sandbox.test-stable.shopee.sg',
   live: 'https://partner.shopeemobile.com',
@@ -331,10 +335,17 @@ export class ShopeeClient {
           method: options.method || 'GET',
           headers: options.body === undefined ? undefined : { 'Content-Type': 'application/json' },
           body: options.body === undefined ? undefined : JSON.stringify(options.body),
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         });
       } catch (error) {
         lastError = error;
       }
+    }
+
+    if (lastError instanceof Error && lastError.name === 'TimeoutError') {
+      throw new Error(
+        'Shopee không phản hồi sau ' + (FETCH_TIMEOUT_MS / 1000) + ' giây (đã thử 2 lần). Kiểm tra mạng/VPN tới ' + this.config.host + '.',
+      );
     }
 
     throw lastError;

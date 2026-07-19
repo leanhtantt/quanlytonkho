@@ -4,6 +4,40 @@ File nay ghi lai quyet dinh, bai hoc va moc phat trien quan trong cua du an.
 
 ---
 
+## 2026-07-17 -> 2026-07-18 - Lo trinh 12 dot (scale + tich hop Shopee)
+
+Tai lieu chuan: `docs/reports/2026-07-17-scaling-plan.md` (S1-S4, K1-K6) va
+`docs/reports/2026-07-17-shopee-integration-plan.md` (SP1-SP6).
+Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, CI xanh.
+
+**Tien do (cap nhat 2026-07-19): xong 6/12 dot.**
+
+- [x] Dot 1 - S1 index database (#33)
+- [x] Dot 2 - S2 resolver SKU dich danh (#34)
+- [x] Dot 3 - K1+K6 env Firebase + don rac + orderBy (#35)
+- [x] Dot 4 - K2+K3 BusinessError + frontend khong nuot loi (#36)
+- [x] Dot 5 - SP1 nen mong Shopee: schema + ShopeeClient + refresh co khoa (#37)
+- [x] Dot 6 - SP2 uy quyen Shopee qua UI (#38)
+- [ ] Dot 7 - SP3 mapping san pham (dang cho: kiem chung SP2 tu UI voi shop sandbox truoc)
+- [ ] Dot 8 - SP4 sync don hang (loi nghiep vu, review ky nhat)
+- [ ] Dot 9 - SP5 day ton kho len Shopee
+- [ ] Dot 10 - S3 phan trang backend (truoc khi bat sync tu dong)
+- [ ] Dot 11 - S4 frontend tai theo ky (ban thiet ke truoc khi giao)
+- [ ] Dot 12 - SP6 Go-Live (thao tac tay tren Console + env Cloud Run)
+
+No ky thuat ghi nhan (chua lam, khong quen):
+- Them AbortSignal.timeout cho fetch trong ShopeeClient (ngan hon 20s cua HEAVY_TX_OPTIONS).
+- Sentry canh bao khi refresh token Shopee that bai.
+- Nang cap 3 script sandbox cu thanh wrapper mong tren ShopeeClient.
+- Regenerate Test Partner Key da lo trong chat (sandbox, rui ro thap).
+
+Bai hoc 2026-07-18: PR merge kieu squash xong thi nhanh cu PHAI bo, Codex dung tiep
+nhanh do se khong commit/push duoc va lich su lan lon (su co SP2 -> phai cherry-pick
+sang nhanh sach de mo #38). Truoc moi dot: `git checkout main && git pull &&
+git checkout -b codex/<ten-dot-moi>`.
+
+---
+
 ## 2026-07-13 -> 2026-07-15 - Lo trinh 10 dot (backend that + phan quyen + UI + audit)
 
 Chuyen tu MVP (mock/localStorage) sang san pham that, chay theo lo trinh 10 dot.

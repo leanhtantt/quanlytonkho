@@ -47,14 +47,29 @@ interface ShopeeShopRecord {
 
 interface TokenDates {
   expiresAt: Date;
-  authExpiresAt: Date | null;
 }
 
 export interface ShopeeTokenResponse extends ShopeeResponse {
   access_token: string;
   refresh_token: string;
   expire_in: number;
-  refresh_token_expire_in?: number;
+}
+
+interface ShopeeAuthorizedShop {
+  shop_id?: number;
+  expire_time?: number;
+  auth_time?: number;
+  region?: string;
+}
+
+interface ShopeeAuthorizedShopsResponse extends ShopeeResponse {
+  authed_shop_list?: ShopeeAuthorizedShop[];
+}
+
+export interface ShopeeAuthorizationMetadata {
+  authExpiresAt: Date;
+  authorizedAt: Date | null;
+  region: string | null;
 }
 
 function readRequiredEnv(name: string): string {
@@ -135,13 +150,8 @@ function validateTokenResponse(token: ShopeeTokenResponse, now: number, action: 
     throw new Error('Shopee trả về token ' + action + ' không đầy đủ.');
   }
 
-  const authExpiresAt = Number.isFinite(token.refresh_token_expire_in) && (token.refresh_token_expire_in || 0) > 0
-    ? new Date(now + Number(token.refresh_token_expire_in) * 1000)
-    : null;
-
   return {
     expiresAt: new Date(now + token.expire_in * 1000),
-    authExpiresAt,
   };
 }
 
@@ -185,7 +195,6 @@ export class ShopeeClient {
         accessToken: token.access_token,
         refreshToken: token.refresh_token,
         expiresAt: dates.expiresAt,
-        authExpiresAt: dates.authExpiresAt,
         isActive: true,
       },
       create: {
@@ -194,7 +203,6 @@ export class ShopeeClient {
         accessToken: token.access_token,
         refreshToken: token.refresh_token,
         expiresAt: dates.expiresAt,
-        authExpiresAt: dates.authExpiresAt,
       },
     });
 
@@ -203,6 +211,24 @@ export class ShopeeClient {
 
   async getShopInfo<T = ShopeeResponse>(shopId: bigint): Promise<T> {
     return this.requestForShop<T>(shopId, '/api/v2/shop/get_shop_info');
+  }
+
+  async getShopAuthorization(shopId: bigint): Promise<ShopeeAuthorizationMetadata> {
+    const payload = await this.requestPublic<ShopeeAuthorizedShopsResponse>(
+      '/api/v2/public/get_shops_by_partner',
+    );
+    const shop = payload.authed_shop_list?.find(item => String(item.shop_id) === String(shopId));
+    if (!shop || !Number.isFinite(shop.expire_time) || Number(shop.expire_time) <= 0) {
+      throw new BusinessError('Shopee không trả về hạn ủy quyền của shop đã kết nối.');
+    }
+
+    return {
+      authExpiresAt: new Date(Number(shop.expire_time) * 1000),
+      authorizedAt: Number.isFinite(shop.auth_time) && Number(shop.auth_time) > 0
+        ? new Date(Number(shop.auth_time) * 1000)
+        : null,
+      region: typeof shop.region === 'string' && shop.region.trim() ? shop.region.trim() : null,
+    };
   }
 
   async requestPublic<T>(path: string, options: ShopeeRequestOptions = {}): Promise<T> {
@@ -283,7 +309,6 @@ export class ShopeeClient {
           accessToken: token.access_token,
           refreshToken: token.refresh_token,
           expiresAt: dates.expiresAt,
-          authExpiresAt: dates.authExpiresAt,
         },
       });
     }, HEAVY_TX_OPTIONS);

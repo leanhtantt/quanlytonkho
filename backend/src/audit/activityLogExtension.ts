@@ -53,9 +53,16 @@ const auditModels: Record<string, AuditModel> = {
     delegate: 'appSettings',
     label: () => 'Cài đặt hệ thống',
   },
+  ShopeeItemMap: {
+    resource: 'settings',
+    delegate: 'shopeeItemMap',
+    label: record => joinLabel('Shopee mapping', record.itemId, record.modelId, record.productId),
+  },
 };
 
 function stringValue(value: unknown) {
+  if (typeof value === 'bigint') return value.toString();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 

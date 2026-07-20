@@ -2833,6 +2833,74 @@ tbody tr:hover td {
   }
 }
 
+.shopee-mapping {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.shopee-mapping__toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.shopee-mapping__shop-select {
+  min-width: min(100%, 20rem);
+}
+
+.shopee-mapping__actions,
+.shopee-mapping__summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.shopee-mapping__table-wrap {
+  max-height: 34rem;
+}
+
+.shopee-mapping__table {
+  min-width: 54rem;
+}
+
+.shopee-mapping__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.shopee-mapping__table th:first-child { width: 32%; }
+.shopee-mapping__table th:nth-child(2) { width: 16%; }
+.shopee-mapping__table th:nth-child(3) { width: 17%; }
+.shopee-mapping__table th:nth-child(4) { width: 35%; }
+
+.shopee-mapping__table select {
+  width: 100%;
+  min-width: 16rem;
+}
+
+.shopee-mapping__model,
+.shopee-mapping__id {
+  display: block;
+  margin-top: var(--space-1);
+}
+
+.shopee-mapping__model {
+  color: var(--color-text-base);
+}
+
+.shopee-mapping__id {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.shopee-mapping code {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
 @media (max-width: 900px) {
   .treasury-reimbursement-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2845,6 +2913,17 @@ tbody tr:hover td {
 }
 
 @media (max-width: 640px) {
+  .shopee-mapping__toolbar,
+  .shopee-mapping__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .shopee-mapping__shop-select,
+  .shopee-mapping__actions .ui-button {
+    width: 100%;
+  }
+
   .treasury-balances,
   .treasury-form-grid,
   .treasury-entry-grid,

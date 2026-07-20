@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => {
     getAuthorizationUrl: vi.fn(),
     exchangeAuthorizationCode: vi.fn(),
     getShopInfo: vi.fn(),
+    getShopAuthorization: vi.fn(),
+    getShopeeCatalog: vi.fn(),
+    saveShopeeMappings: vi.fn(),
     ShopeeClient: vi.fn(),
     shopFindMany: vi.fn(),
     shopFindUnique: vi.fn(),
@@ -28,6 +31,10 @@ vi.mock('./prismaClient', () => ({
 
 vi.mock('./services/shopeeClient', () => ({
   ShopeeClient: mocks.ShopeeClient,
+}));
+vi.mock('./services/shopeeCatalogService', () => ({
+  getShopeeCatalog: mocks.getShopeeCatalog,
+  saveShopeeMappings: mocks.saveShopeeMappings,
 }));
 
 vi.mock('./services/orderService', () => ({
@@ -66,6 +73,7 @@ mocks.ShopeeClient.mockImplementation(function ShopeeClientMock() {
     getAuthorizationUrl: mocks.getAuthorizationUrl,
     exchangeAuthorizationCode: mocks.exchangeAuthorizationCode,
     getShopInfo: mocks.getShopInfo,
+    getShopAuthorization: mocks.getShopAuthorization,
   };
 });
 
@@ -85,7 +93,7 @@ const connectedShop = {
   updatedAt: new Date('2026-07-18T00:00:00.000Z'),
 };
 
-function getRouteHandler(path: string, method: 'get' | 'post') {
+function getRouteHandler(path: string, method: 'get' | 'post' | 'put') {
   const layer = (apiRouter as any).stack.find((entry: any) => (
     entry.route?.path === path && entry.route.methods[method]
   ));
@@ -107,6 +115,7 @@ describe('Shopee SP2 routes', () => {
         getAuthorizationUrl: mocks.getAuthorizationUrl,
         exchangeAuthorizationCode: mocks.exchangeAuthorizationCode,
         getShopInfo: mocks.getShopInfo,
+        getShopAuthorization: mocks.getShopAuthorization,
       };
     });
   });
@@ -135,6 +144,11 @@ describe('Shopee SP2 routes', () => {
   it('exchanges a one-time code through the client, stores the shop name, and returns safe metadata', async () => {
     mocks.exchangeAuthorizationCode.mockResolvedValue({ access_token: 'secret', refresh_token: 'secret' });
     mocks.getShopInfo.mockResolvedValue({ shop_name: 'Sandbox shop' });
+    mocks.getShopAuthorization.mockResolvedValue({
+      authExpiresAt: connectedShop.authExpiresAt,
+      authorizedAt: connectedShop.createdAt,
+      region: 'SG',
+    });
     mocks.shopUpdate.mockResolvedValue(connectedShop);
     mocks.shopFindUnique.mockResolvedValue(connectedShop);
     const response = createResponse();
@@ -145,9 +159,14 @@ describe('Shopee SP2 routes', () => {
 
     expect(mocks.exchangeAuthorizationCode).toHaveBeenCalledWith('one-time-code', SHOP_ID);
     expect(mocks.getShopInfo).toHaveBeenCalledWith(SHOP_ID);
+    expect(mocks.getShopAuthorization).toHaveBeenCalledWith(SHOP_ID);
     expect(mocks.shopUpdate).toHaveBeenCalledWith({
       where: { id: SHOP_ID },
-      data: { shopName: 'Sandbox shop' },
+      data: {
+        shopName: 'Sandbox shop',
+        authExpiresAt: connectedShop.authExpiresAt,
+        region: 'SG',
+      },
     });
     expect(response.status).toHaveBeenCalledWith(201);
 
@@ -187,5 +206,41 @@ describe('Shopee SP2 routes', () => {
       data: { isActive: false },
     }));
     expect(disconnectResponse.json.mock.calls[0][0].shop).toMatchObject({ id: SHOP_ID.toString(), isActive: false });
+  });
+  it('loads catalog rows and saves validated mappings for one shop', async () => {
+    const productId = '11111111-1111-4111-8111-111111111111';
+    mocks.getShopeeCatalog.mockResolvedValue({ shopId: SHOP_ID.toString(), products: [], rows: [] });
+    const listResponse = createResponse();
+
+    await getRouteHandler('/shopee/items', 'get')({ query: { shop_id: SHOP_ID.toString() } }, listResponse, vi.fn());
+
+    expect(mocks.getShopeeCatalog).toHaveBeenCalledWith(SHOP_ID);
+    expect(listResponse.json).toHaveBeenCalledWith({ shopId: SHOP_ID.toString(), products: [], rows: [] });
+
+    mocks.saveShopeeMappings.mockResolvedValue({ saved: 1, total: 1 });
+    const saveResponse = createResponse();
+    const mappings = [{ itemId: '101', modelId: '0', productId }];
+    await getRouteHandler('/shopee/item-mappings', 'put')({
+      body: { shopId: SHOP_ID.toString(), mappings },
+    }, saveResponse, vi.fn());
+
+    expect(mocks.saveShopeeMappings).toHaveBeenCalledWith(SHOP_ID, mappings);
+    expect(saveResponse.json).toHaveBeenCalledWith({ saved: 1, total: 1 });
+  });
+
+  it('rejects duplicate mapping targets before writing', async () => {
+    const response = createResponse();
+    const mapping = {
+      itemId: '101',
+      modelId: '0',
+      productId: '11111111-1111-4111-8111-111111111111',
+    };
+
+    await getRouteHandler('/shopee/item-mappings', 'put')({
+      body: { shopId: SHOP_ID.toString(), mappings: [mapping, mapping] },
+    }, response, vi.fn());
+
+    expect(response.status).toHaveBeenCalledWith(400);
+    expect(mocks.saveShopeeMappings).not.toHaveBeenCalled();
   });
 });

@@ -86,6 +86,11 @@ export const api = {
   getShopeeAuthorizationUrl: () => authFetch('/api/shopee/auth-url'),
   connectShopee: (data) => authFetch('/api/shopee/connect', { method: 'POST', body: JSON.stringify(data) }),
   disconnectShopeeShop: (shopId) => authFetch(`/api/shopee/shops/${encodeURIComponent(shopId)}/disconnect`, { method: 'POST' }),
+  getShopeeItems: (shopId) => authFetch(`/api/shopee/items?shop_id=${encodeURIComponent(shopId)}`),
+  saveShopeeItemMappings: (shopId, mappings) => authFetch('/api/shopee/item-mappings', {
+    method: 'PUT',
+    body: JSON.stringify({ shopId, mappings }),
+  }),
 
   getAds: () => authFetch('/api/ads'),
   createAd: (data) => authFetch('/api/ads', { method: 'POST', body: JSON.stringify(data) }),

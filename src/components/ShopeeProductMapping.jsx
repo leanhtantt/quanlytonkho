@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconArrowsShuffle,
   IconDeviceFloppy,
@@ -26,6 +26,8 @@ export default function ShopeeProductMapping({ shops, canUpdate }) {
   const [selections, setSelections] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const autoLoadedShopRef = useRef('');
+  const loadRequestRef = useRef(0);
 
   useEffect(() => {
     if (activeShops.some(shop => shop.id === selectedShopId)) return;
@@ -34,11 +36,15 @@ export default function ShopeeProductMapping({ shops, canUpdate }) {
     setSelections({});
   }, [activeShops, selectedShopId]);
 
-  const loadCatalog = async () => {
+  const loadCatalog = useCallback(async () => {
     if (!selectedShopId) return;
+    const shopId = selectedShopId;
+    const requestId = loadRequestRef.current + 1;
+    loadRequestRef.current = requestId;
     setIsLoading(true);
     try {
-      const nextCatalog = await api.getShopeeItems(selectedShopId);
+      const nextCatalog = await api.getShopeeItems(shopId);
+      if (loadRequestRef.current !== requestId) return;
       setCatalog(nextCatalog);
       setSelections(Object.fromEntries(nextCatalog.rows.map(row => [
         targetKey(row),
@@ -48,13 +54,20 @@ export default function ShopeeProductMapping({ shops, canUpdate }) {
         toast.info('Shop Shopee chưa có sản phẩm đang hoạt động để mapping.');
       }
     } catch (error) {
+      if (loadRequestRef.current !== requestId) return;
       setCatalog(null);
       setSelections({});
       toast.error(`Không thể tải sản phẩm Shopee: ${error.message}`);
     } finally {
-      setIsLoading(false);
+      if (loadRequestRef.current === requestId) setIsLoading(false);
     }
-  };
+  }, [selectedShopId]);
+
+  useEffect(() => {
+    if (!selectedShopId || autoLoadedShopRef.current === selectedShopId) return;
+    autoLoadedShopRef.current = selectedShopId;
+    void loadCatalog();
+  }, [loadCatalog, selectedShopId]);
 
   const saveMappings = async () => {
     if (!catalog || !selectedShopId) return;

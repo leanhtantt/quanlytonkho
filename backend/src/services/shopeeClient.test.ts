@@ -88,7 +88,6 @@ describe('ShopeeClient', () => {
       access_token: 'access-token',
       refresh_token: 'refresh-token',
       expire_in: 14_400,
-      refresh_token_expire_in: 2_592_000,
     }));
     mocks.shopUpsert.mockResolvedValue({ id: SHOP_ID });
 
@@ -103,7 +102,6 @@ describe('ShopeeClient', () => {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
         expiresAt: new Date(now + 14_400_000),
-        authExpiresAt: new Date(now + 2_592_000_000),
       }),
       create: expect.objectContaining({
         id: SHOP_ID,
@@ -112,6 +110,29 @@ describe('ShopeeClient', () => {
         refreshToken: 'refresh-token',
       }),
     }));
+  });
+
+  it('reads the authoritative authorization expiry from get_shops_by_partner', async () => {
+    mocks.fetch.mockResolvedValue(response({
+      error: '',
+      authed_shop_list: [{
+        shop_id: Number(SHOP_ID),
+        auth_time: 1_784_480_136,
+        expire_time: 1_816_016_136,
+        region: 'SG',
+      }],
+    }));
+
+    const result = await new ShopeeClient(config as never, () => now).getShopAuthorization(SHOP_ID);
+
+    expect(result).toEqual({
+      authorizedAt: new Date(1_784_480_136_000),
+      authExpiresAt: new Date(1_816_016_136_000),
+      region: 'SG',
+    });
+    const url = new URL(mocks.fetch.mock.calls[0][0]);
+    expect(url.pathname).toBe('/api/v2/public/get_shops_by_partner');
+    expect(url.searchParams.get('access_token')).toBeNull();
   });
 
   it('refreshes a token about to expire inside a locked transaction, then calls get_shop_info', async () => {
@@ -163,6 +184,7 @@ describe('ShopeeClient', () => {
         expiresAt: new Date(now + 14_400_000),
       }),
     }));
+    expect(mocks.shopUpdate.mock.calls[0][0].data).not.toHaveProperty('authExpiresAt');
     expect(result.shop_name).toBe('Sandbox shop');
 
     const refreshUrl = new URL(mocks.fetch.mock.calls[0][0]);

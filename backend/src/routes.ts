@@ -16,6 +16,7 @@ import { writeLoginActivityOnce } from './audit/loginActivity';
 import { findProductByCode, normalizeSkuCode, resolveProductsByCodes } from './services/productResolver';
 import { BusinessError } from './errors/BusinessError';
 import { ShopeeClient } from './services/shopeeClient';
+import { getShopeeCatalog, saveShopeeMappings } from './services/shopeeCatalogService';
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'tanle-dev';
 const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'tanle-dev.firebasestorage.app';
@@ -159,6 +160,22 @@ const shopeeShopIdSchema = z.string().trim().regex(/^[1-9]\d*$/, 'shop_id phải
 const shopeeConnectSchema = z.object({
   code: z.string().trim().min(1),
   shop_id: shopeeShopIdSchema,
+});
+
+const shopeeMappingSchema = z.object({
+  itemId: z.string().trim().regex(/^[1-9]\d*$/, 'itemId phải là số nguyên dương.'),
+  modelId: z.string().trim().regex(/^\d+$/, 'modelId phải là số nguyên không âm.'),
+  productId: z.string().uuid().nullable(),
+});
+
+const shopeeMappingsSchema = z.object({
+  shopId: shopeeShopIdSchema,
+  mappings: z.array(shopeeMappingSchema).max(1000),
+}).superRefine((data, ctx) => {
+  const targets = data.mappings.map(mapping => `${mapping.itemId}:${mapping.modelId}`);
+  if (new Set(targets).size !== targets.length) {
+    ctx.addIssue({ code: 'custom', path: ['mappings'], message: 'Danh sách mapping có dòng Shopee bị trùng.' });
+  }
 });
 
 const shopeeShopSelect = {
@@ -786,17 +803,30 @@ apiRouter.post('/shopee/connect', requirePermission('settings', 'update'), async
   const client = new ShopeeClient();
   await client.exchangeAuthorizationCode(parsed.data.code, shopId);
 
-  // Token đã được lưu bởi client. Tên shop chỉ giúp UI dễ nhận diện; không làm hỏng kết nối nếu request này lỗi.
-  try {
-    const info = await client.getShopInfo<{ shop_name?: unknown }>(shopId);
-    if (typeof info.shop_name === 'string' && info.shop_name.trim()) {
-      await prisma.shopeeShop.update({
-        where: { id: shopId },
-        data: { shopName: info.shop_name.trim() },
-      });
-    }
-  } catch (error) {
-    console.warn(`Shopee shop ${shopId.toString()} đã kết nối nhưng chưa lấy được tên shop:`, error);
+  // The token is already persisted. Fetch optional metadata in parallel so a metadata failure
+  // never invalidates an otherwise successful connection.
+  const [shopInfoResult, authorizationResult] = await Promise.allSettled([
+    client.getShopInfo<{ shop_name?: unknown }>(shopId),
+    client.getShopAuthorization(shopId),
+  ]);
+  const metadata: { shopName?: string; authExpiresAt?: Date; region?: string } = {};
+
+  if (shopInfoResult.status === 'fulfilled') {
+    const shopName = shopInfoResult.value.shop_name;
+    if (typeof shopName === 'string' && shopName.trim()) metadata.shopName = shopName.trim();
+  } else {
+    console.warn(`Shopee shop ${shopId.toString()} connected but its name could not be loaded:`, shopInfoResult.reason);
+  }
+
+  if (authorizationResult.status === 'fulfilled') {
+    metadata.authExpiresAt = authorizationResult.value.authExpiresAt;
+    if (authorizationResult.value.region) metadata.region = authorizationResult.value.region;
+  } else {
+    console.warn(`Shopee shop ${shopId.toString()} connected but its authorization expiry could not be loaded:`, authorizationResult.reason);
+  }
+
+  if (Object.keys(metadata).length > 0) {
+    await prisma.shopeeShop.update({ where: { id: shopId }, data: metadata });
   }
 
   const shop = await prisma.shopeeShop.findUnique({
@@ -825,6 +855,21 @@ apiRouter.post('/shopee/shops/:shopId/disconnect', requirePermission('settings',
     select: shopeeShopSelect,
   });
   return res.json({ shop: serializeShopeeShop(shop) });
+});
+apiRouter.get('/shopee/items', requirePermission('settings', 'view'), async (req, res) => {
+  const parsed = shopeeShopIdSchema.safeParse(req.query.shop_id);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const catalog = await getShopeeCatalog(BigInt(parsed.data));
+  return res.json(catalog);
+});
+
+apiRouter.put('/shopee/item-mappings', requirePermission('settings', 'update'), async (req, res) => {
+  const parsed = shopeeMappingsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const result = await saveShopeeMappings(BigInt(parsed.data.shopId), parsed.data.mappings);
+  return res.json(result);
 });
 // --- Settings ---
 apiRouter.get('/settings', async (req, res) => {

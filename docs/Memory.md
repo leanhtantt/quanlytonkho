@@ -10,7 +10,7 @@ Tai lieu chuan: `docs/reports/2026-07-17-scaling-plan.md` (S1-S4, K1-K6) va
 `docs/reports/2026-07-17-shopee-integration-plan.md` (SP1-SP6).
 Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, CI xanh.
 
-**Tien do (cap nhat 2026-07-19): xong 6/12 dot.**
+**Tien do (cap nhat 2026-07-20): xong 7/12 dot.**
 
 - [x] Dot 1 - S1 index database (#33)
 - [x] Dot 2 - S2 resolver SKU dich danh (#34)
@@ -18,7 +18,12 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
 - [x] Dot 4 - K2+K3 BusinessError + frontend khong nuot loi (#36)
 - [x] Dot 5 - SP1 nen mong Shopee: schema + ShopeeClient + refresh co khoa (#37)
 - [x] Dot 6 - SP2 uy quyen Shopee qua UI (#38)
-- [ ] Dot 7 - SP3 mapping san pham (dang cho: kiem chung SP2 tu UI voi shop sandbox truoc)
+  Kiem chung that 2026-07-19: shop sandbox 227758409 dang active; Shopee tra auth_time
+  2026-07-19 va expire_time 2027-07-19 qua get_shops_by_partner. Da sua backend lay
+  expire_time tu endpoint nay; response doi token chi co expire_in ~4 gio, khong phai han uy quyen.
+- [x] Dot 7 - SP3 mapping san pham: lay item/model Shopee, doi chieu SKU + alias, review/chon tay va luu ShopeeItemMap.
+  Kiem chung 2026-07-20: API sandbox that tra 0 item; UI empty-state dung, backend xu ly dung payload rong.
+  Can tao it nhat 1 san pham sandbox co SKU de kiem chung luu mapping voi du lieu Shopee that.
 - [ ] Dot 8 - SP4 sync don hang (loi nghiep vu, review ky nhat)
 - [ ] Dot 9 - SP5 day ton kho len Shopee
 - [ ] Dot 10 - S3 phan trang backend (truoc khi bat sync tu dong)
@@ -30,6 +35,7 @@ No ky thuat ghi nhan (chua lam, khong quen):
   "Dang xac nhan ket noi" khi kiem chung SP2: fetch khong timeout nen loi mang treo vo han).
 - Sentry canh bao khi refresh token Shopee that bai.
 - Nang cap 3 script sandbox cu thanh wrapper mong tren ShopeeClient.
+- Payload rong cua get_item_list sandbox co the bo truong item, dung next thay next_offset; parser SP3 chap nhan dung truong hop total_count = 0.
 - Regenerate Test Partner Key da lo trong chat (sandbox, rui ro thap).
 
 Bai hoc 2026-07-18: PR merge kieu squash xong thi nhanh cu PHAI bo, Codex dung tiep

@@ -22,6 +22,7 @@ import Badge from '../components/ui/Badge';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import EmptyState from '../components/ui/EmptyState';
 import FormField from '../components/ui/FormField';
+import ShopeeProductMapping from '../components/ShopeeProductMapping';
 
 function formatShopeeDate(value) {
   if (!value) return 'Chưa có dữ liệu';
@@ -334,6 +335,16 @@ export default function Settings() {
               <span className="settings-card__help">Bạn sẽ được chuyển sang Shopee để ủy quyền, sau đó quay lại ứng dụng để hoàn tất.</span>
             </div>
           ) : null}
+        </div>
+        <div className="card settings-card settings-card--wide">
+          <h2 className="h3 settings-card__title settings-card__title--with-icon">
+            <IconShoppingBag size={22} aria-hidden="true" />
+            Ánh Xạ Sản Phẩm Shopee
+          </h2>
+          <p className="settings-card__description">
+            Kiểm tra SKU trên sàn, duyệt gợi ý tự động và chọn sản phẩm nội bộ cho từng phân loại.
+          </p>
+          <ShopeeProductMapping shops={shopeeShops} canUpdate={can('settings', 'update')} />
         </div>
         {/* Shops Management */}
         <div className="card settings-card">

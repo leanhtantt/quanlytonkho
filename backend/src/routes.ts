@@ -17,6 +17,7 @@ import { findProductByCode, normalizeSkuCode, resolveProductsByCodes } from './s
 import { BusinessError } from './errors/BusinessError';
 import { ShopeeClient } from './services/shopeeClient';
 import { getShopeeCatalog, saveShopeeMappings } from './services/shopeeCatalogService';
+import { getShopeeOrderSyncStatus, syncShopeeOrders } from './services/shopeeOrderSyncService';
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'tanle-dev';
 const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'tanle-dev.firebasestorage.app';
@@ -871,6 +872,22 @@ apiRouter.put('/shopee/item-mappings', requirePermission('settings', 'update'), 
   const result = await saveShopeeMappings(BigInt(parsed.data.shopId), parsed.data.mappings);
   return res.json(result);
 });
+apiRouter.get('/shopee/order-sync-status', requirePermission('orders', 'view'), async (req, res) => {
+  const parsed = shopeeShopIdSchema.safeParse(req.query.shop_id);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const result = await getShopeeOrderSyncStatus(BigInt(parsed.data));
+  return res.json(result);
+});
+
+apiRouter.post('/shopee/sync-orders', requirePermission('orders', 'create'), async (req, res) => {
+  const parsed = z.object({ shopId: shopeeShopIdSchema }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const result = await syncShopeeOrders(BigInt(parsed.data.shopId));
+  return res.json(result);
+});
+
 // --- Settings ---
 apiRouter.get('/settings', async (req, res) => {
   let settings = await prisma.appSettings.findUnique({ where: { id: 'default' } });

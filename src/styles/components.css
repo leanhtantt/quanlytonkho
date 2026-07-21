@@ -2980,3 +2980,37 @@ tbody tr:hover td {
 .expenses-packaging-table th:nth-child(3) { width: 26%; }
 .expenses-packaging-table th:nth-child(4) { width: 12%; }
 .expenses-packaging-table th:nth-child(5) { width: 22%; }
+
+
+/* --- Shopee order sync --- */
+.shopee-sync {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.shopee-sync__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.shopee-sync__pending {
+  max-height: 26rem;
+}
+
+.shopee-sync__pending table {
+  min-width: 48rem;
+}
+
+.shopee-sync__unmapped {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-base);
+}
+
+.shopee-sync__unmapped + .shopee-sync__unmapped {
+  margin-top: var(--space-2);
+}

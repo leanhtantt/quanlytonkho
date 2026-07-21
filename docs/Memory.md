@@ -10,7 +10,7 @@ Tai lieu chuan: `docs/reports/2026-07-17-scaling-plan.md` (S1-S4, K1-K6) va
 `docs/reports/2026-07-17-shopee-integration-plan.md` (SP1-SP6).
 Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, CI xanh.
 
-**Tien do (cap nhat 2026-07-20): xong 7/12 dot.**
+**Tien do (cap nhat 2026-07-21): xong 7/12 dot; Dot 8 da trien khai tren nhanh review.**
 
 - [x] Dot 1 - S1 index database (#33)
 - [x] Dot 2 - S2 resolver SKU dich danh (#34)
@@ -22,9 +22,12 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
   2026-07-19 va expire_time 2027-07-19 qua get_shops_by_partner. Da sua backend lay
   expire_time tu endpoint nay; response doi token chi co expire_in ~4 gio, khong phai han uy quyen.
 - [x] Dot 7 - SP3 mapping san pham: lay item/model Shopee, doi chieu SKU + alias, review/chon tay va luu ShopeeItemMap.
-  Kiem chung 2026-07-20: API sandbox that tra 0 item; UI empty-state dung, backend xu ly dung payload rong.
-  Can tao it nhat 1 san pham sandbox co SKU de kiem chung luu mapping voi du lieu Shopee that.
-- [ ] Dot 8 - SP4 sync don hang (loi nghiep vu, review ky nhat)
+  Kiem chung that 2026-07-20: tai item sandbox 844672579, map voi SKU TNRB, luu va F5 van khoi phuc dung (#43).
+- [ ] Dot 8 - SP4 sync don hang (loi nghiep vu, review ky nhat).
+  Da trien khai 2026-07-21 tren `codex/sp4-order-sync`: dong bo theo `update_time`, externalCode = order_sn,
+  goi createOrder/replaceOrder de dung chung FIFO + ledger, don thieu mapping vao hang cho xu ly khong tru kho,
+  va huy don da ghi bang giao dich dao append-only. Backend 77/77 test; sandbox that hien co 0 don nen moi
+  kiem chung duoc luong rong/UI, chua chot dot cho den khi review, merge va thu voi don sandbox that.
 - [ ] Dot 9 - SP5 day ton kho len Shopee
 - [ ] Dot 10 - S3 phan trang backend (truoc khi bat sync tu dong)
 - [ ] Dot 11 - S4 frontend tai theo ky (ban thiet ke truoc khi giao)

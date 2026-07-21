@@ -92,6 +92,12 @@ export const api = {
     body: JSON.stringify({ shopId, mappings }),
   }),
 
+  getShopeeOrderSyncStatus: (shopId) => authFetch(`/api/shopee/order-sync-status?shop_id=${encodeURIComponent(shopId)}`),
+  syncShopeeOrders: (shopId) => authFetch('/api/shopee/sync-orders', {
+    method: 'POST',
+    body: JSON.stringify({ shopId }),
+  }),
+
   getAds: () => authFetch('/api/ads'),
   createAd: (data) => authFetch('/api/ads', { method: 'POST', body: JSON.stringify(data) }),
   reimburseAdAdvance: (id, data) => authFetch(`/api/ads/${id}/reimbursements`, { method: 'POST', body: JSON.stringify(data) }),

@@ -26,13 +26,14 @@ vi.mock('../prismaClient', () => {
   return {
     prisma: {
       $transaction: mocks.transaction.mockImplementation(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+      order: { update: mocks.orderUpdate },
     },
   };
 });
 
 vi.mock('./inventoryService', () => ({ deductStockFIFO: mocks.deductStockFIFO }));
 
-import { createOrder, reverseCancelledOrder } from './orderService';
+import { createOrder, reverseCancelledOrder, updateOrderStatus } from './orderService';
 
 describe('createOrder', () => {
   it('uses the shared FIFO path and writes the COGS ledger in one transaction', async () => {
@@ -42,7 +43,7 @@ describe('createOrder', () => {
 
     await createOrder({
       externalCode: 'SHOPEE-1', channel: 'Shopee', orderedAt: new Date('2026-07-21T00:00:00Z'),
-      status: '?ang giao', packagingFee: 1_000, returnFee: 0, platformFee: 0, marketingFee: 0,
+      status: '\u0110ang giao', packagingFee: 1_000, returnFee: 0, platformFee: 0, marketingFee: 0,
       actualRevenue: null, settlementDate: null, note: null,
       items: [{ productId: 'product-1', skuAtOrder: 'SKU-1', qty: 2, sellingPrice: 20_000, isReturned: false }],
     });
@@ -57,6 +58,22 @@ describe('createOrder', () => {
     expect(mocks.orderUpdate).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'order-1' }, data: { expectedRevenue: 40_000 },
     }));
+  });
+});
+
+describe('updateOrderStatus', () => {
+  it('updates only the status column without opening the FIFO/ledger transaction', async () => {
+    vi.clearAllMocks();
+    mocks.orderUpdate.mockResolvedValue({ id: 'order-1', status: '\u0110\u00e3 giao' });
+    await updateOrderStatus('order-1', '\u0110\u00e3 giao');
+
+    expect(mocks.orderUpdate).toHaveBeenCalledWith({
+      where: { id: 'order-1' },
+      data: { status: '\u0110\u00e3 giao' },
+    });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.stockFindMany).not.toHaveBeenCalled();
+    expect(mocks.ledgerCreate).not.toHaveBeenCalled();
   });
 });
 

@@ -26,7 +26,7 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
 - [ ] Dot 8 - SP4 sync don hang (loi nghiep vu, review ky nhat).
   Da trien khai 2026-07-21 tren `codex/sp4-order-sync`: dong bo theo `update_time`, externalCode = order_sn,
   goi createOrder/replaceOrder de dung chung FIFO + ledger, don thieu mapping vao hang cho xu ly khong tru kho,
-  va huy don da ghi bang giao dich dao append-only. Backend 77/77 test; sandbox that hien co 0 don nen moi
+  va huy don da ghi bang giao dich dao append-only. Backend 79/79 test. Review fix: COMPLETED chi update status, khong rebuild FIFO/ledger; khi item doi thi bao toan cac cot doi soat tay. Sandbox that hien co 0 don nen moi
   kiem chung duoc luong rong/UI, chua chot dot cho den khi review, merge va thu voi don sandbox that.
 - [ ] Dot 9 - SP5 day ton kho len Shopee
 - [ ] Dot 10 - S3 phan trang backend (truoc khi bat sync tu dong)

@@ -1,6 +1,12 @@
 import { prisma } from '../prismaClient';
 import { BusinessError } from '../errors/BusinessError';
-import { createOrder, OrderInput, replaceOrder, reverseCancelledOrder } from './orderService';
+import {
+  createOrder,
+  OrderInput,
+  replaceOrder,
+  reverseCancelledOrder,
+  updateOrderStatus,
+} from './orderService';
 import { ShopeeClient } from './shopeeClient';
 
 const LIST_PAGE_SIZE = 100;
@@ -184,10 +190,27 @@ function comparableItems(items: Array<Record<string, unknown>>) {
 }
 
 function orderNeedsReplace(existing: any, input: OrderInput) {
-  if (existing.channel !== input.channel || existing.status !== input.status) return true;
-  if (new Date(existing.orderedAt).getTime() !== input.orderedAt.getTime()) return true;
-  if (Number(existing.packagingFee) !== input.packagingFee) return true;
   return JSON.stringify(comparableItems(existing.orderItems)) !== JSON.stringify(comparableItems(input.items));
+}
+
+function preserveReconciliation(existing: any, input: OrderInput): OrderInput {
+  const existingMoney = (value: unknown, fallback: number) => value === undefined || value === null
+    ? fallback
+    : Number(value);
+  return {
+    ...input,
+    packagingFee: existingMoney(existing.packagingFee, input.packagingFee),
+    returnFee: existingMoney(existing.returnFee, input.returnFee),
+    platformFee: existingMoney(existing.platformFee, input.platformFee),
+    marketingFee: existingMoney(existing.marketingFee, input.marketingFee),
+    actualRevenue: existing.actualRevenue === undefined || existing.actualRevenue === null
+      ? input.actualRevenue
+      : Number(existing.actualRevenue),
+    settlementDate: existing.settlementDate === undefined
+      ? input.settlementDate
+      : existing.settlementDate,
+    note: existing.note === undefined ? input.note : existing.note,
+  };
 }
 
 function serializeIssue(issue: any) {
@@ -347,7 +370,10 @@ export async function syncShopeeOrders(shopId: bigint, client = new ShopeeClient
       await createOrder(input);
       result.created += 1;
     } else if (orderNeedsReplace(existing, input)) {
-      await replaceOrder(existing.id, input);
+      await replaceOrder(existing.id, preserveReconciliation(existing, input));
+      result.updated += 1;
+    } else if (existing.status !== input.status) {
+      await updateOrderStatus(existing.id, input.status);
       result.updated += 1;
     } else {
       result.unchanged += 1;

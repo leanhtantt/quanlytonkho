@@ -124,6 +124,15 @@ export async function replaceOrder(orderId: string, input: OrderInput) {
   }, HEAVY_TX_OPTIONS);
 }
 
+// Status transitions do not change inventory or accounting, so keep them out of
+// replaceOrder (which intentionally rebuilds order items, FIFO and COGS).
+export async function updateOrderStatus(orderId: string, status: string) {
+  return await prisma.order.update({
+    where: { id: orderId },
+    data: { status },
+  });
+}
+
 // Cancel an imported order without deleting its accounting history. The compensating
 // stock and COGS entries make the reversal append-only and idempotent.
 export async function reverseCancelledOrder(orderId: string) {

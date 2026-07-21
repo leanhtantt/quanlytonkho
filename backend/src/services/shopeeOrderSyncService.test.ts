@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   createOrder: vi.fn(),
   replaceOrder: vi.fn(),
   reverseCancelledOrder: vi.fn(),
+  updateOrderStatus: vi.fn(),
 }));
 
 vi.mock('../prismaClient', () => ({
@@ -34,6 +35,7 @@ vi.mock('./orderService', () => ({
   createOrder: mocks.createOrder,
   replaceOrder: mocks.replaceOrder,
   reverseCancelledOrder: mocks.reverseCancelledOrder,
+  updateOrderStatus: mocks.updateOrderStatus,
 }));
 
 import { syncShopeeOrders } from './shopeeOrderSyncService';
@@ -143,16 +145,48 @@ describe('syncShopeeOrders', () => {
     expect(result.unchanged).toBe(1);
   });
 
-  it('uses replaceOrder once when an imported order changes materially', async () => {
+  it('updates COMPLETED status without rebuilding FIFO/ledger or touching reconciliation', async () => {
     mocks.orderFindMany.mockResolvedValue([{
-      id: 'db-order-1', externalCode: 'ORDER-1', channel: 'Shopee', status: 'Đang giao',
+      id: 'db-order-1', externalCode: 'ORDER-1', channel: 'Shopee', status: '\u0110ang giao',
       orderedAt: new Date(CREATE_TIME * 1000), packagingFee: 1_000,
+      returnFee: 20_000, platformFee: 2_500, marketingFee: 500,
+      actualRevenue: 6_900, settlementDate: new Date('2026-07-21T00:00:00Z'),
+      orderItems: [{ productId: PRODUCT_ID, skuAtOrder: 'SKU-A', qty: 1, sellingPrice: 9_900, isReturned: false }],
+    }]);
+
+    const result = await syncShopeeOrders(
+      SHOP_ID,
+      clientFor([detail('ORDER-1', { order_status: 'COMPLETED' })]) as never,
+    );
+    expect(mocks.updateOrderStatus).toHaveBeenCalledWith('db-order-1', '\u0110\u00e3 giao');
+    expect(mocks.replaceOrder).not.toHaveBeenCalled();
+    expect(mocks.createOrder).not.toHaveBeenCalled();
+    expect(result.updated).toBe(1);
+  });
+
+  it('preserves manual reconciliation when an imported item changes materially', async () => {
+    const settlementDate = new Date('2026-07-21T00:00:00Z');
+    mocks.orderFindMany.mockResolvedValue([{
+      id: 'db-order-1', externalCode: 'ORDER-1', channel: 'Shopee', status: '\u0110ang giao',
+      orderedAt: new Date(CREATE_TIME * 1000), packagingFee: 1_500,
+      returnFee: 20_000, platformFee: 2_500, marketingFee: 500,
+      actualRevenue: 6_900, settlementDate, note: '\u0110\u00e3 \u0111\u1ed1i so\u00e1t tay',
       orderItems: [{ productId: PRODUCT_ID, skuAtOrder: 'SKU-A', qty: 1, sellingPrice: 8_000, isReturned: false }],
     }]);
 
     await syncShopeeOrders(SHOP_ID, clientFor([detail('ORDER-1')]) as never);
 
-    expect(mocks.replaceOrder).toHaveBeenCalledWith('db-order-1', expect.objectContaining({ externalCode: 'ORDER-1' }));
+    expect(mocks.replaceOrder).toHaveBeenCalledWith('db-order-1', expect.objectContaining({
+      externalCode: 'ORDER-1',
+      packagingFee: 1_500,
+      returnFee: 20_000,
+      platformFee: 2_500,
+      marketingFee: 500,
+      actualRevenue: 6_900,
+      settlementDate,
+      note: '\u0110\u00e3 \u0111\u1ed1i so\u00e1t tay',
+    }));
+    expect(mocks.updateOrderStatus).not.toHaveBeenCalled();
     expect(mocks.createOrder).not.toHaveBeenCalled();
   });
 

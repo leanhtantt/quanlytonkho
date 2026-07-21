@@ -97,6 +97,11 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ shopId }),
   }),
+  getShopeeStockPreview: (shopId) => authFetch(`/api/shopee/stock-preview?shop_id=${encodeURIComponent(shopId)}`),
+  pushShopeeStock: (shopId) => authFetch('/api/shopee/push-stock', {
+    method: 'POST',
+    body: JSON.stringify({ shopId }),
+  }),
 
   getAds: () => authFetch('/api/ads'),
   createAd: (data) => authFetch('/api/ads', { method: 'POST', body: JSON.stringify(data) }),

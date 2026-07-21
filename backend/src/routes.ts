@@ -18,6 +18,7 @@ import { BusinessError } from './errors/BusinessError';
 import { ShopeeClient } from './services/shopeeClient';
 import { getShopeeCatalog, saveShopeeMappings } from './services/shopeeCatalogService';
 import { getShopeeOrderSyncStatus, syncShopeeOrders } from './services/shopeeOrderSyncService';
+import { previewShopeeStock, pushShopeeStock } from './services/shopeeStockPushService';
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'tanle-dev';
 const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'tanle-dev.firebasestorage.app';
@@ -885,6 +886,22 @@ apiRouter.post('/shopee/sync-orders', requirePermission('orders', 'create'), asy
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
   const result = await syncShopeeOrders(BigInt(parsed.data.shopId));
+  return res.json(result);
+});
+
+apiRouter.get('/shopee/stock-preview', requirePermission('products', 'view'), async (req, res) => {
+  const parsed = shopeeShopIdSchema.safeParse(req.query.shop_id);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const result = await previewShopeeStock(BigInt(parsed.data));
+  return res.json(result);
+});
+
+apiRouter.post('/shopee/push-stock', requirePermission('products', 'update'), async (req, res) => {
+  const parsed = z.object({ shopId: shopeeShopIdSchema }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const result = await pushShopeeStock(BigInt(parsed.data.shopId));
   return res.json(result);
 });
 

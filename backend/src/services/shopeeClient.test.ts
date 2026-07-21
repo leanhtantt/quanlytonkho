@@ -284,6 +284,22 @@ describe('ShopeeClient', () => {
     expect(mocks.fetch).toHaveBeenCalledTimes(2);
   });
 
+  it('returns an error envelope when a caller needs to inspect per-row failures', async () => {
+    const payload = {
+      error: 'product.error_busi_update_stock_failed',
+      message: 'check failure_list',
+      response: { success_list: [], failure_list: [{ model_id: 1, failed_reason: 'stock is locked' }] },
+    };
+    mocks.fetch.mockResolvedValue(response(payload));
+
+    const result = await new ShopeeClient(config as never, () => now).requestPublic(
+      '/api/v2/product/update_stock',
+      { method: 'POST', body: {}, allowErrorPayload: true },
+    );
+
+    expect(result).toEqual(payload);
+  });
+
   it('maps Shopee error responses to BusinessError', async () => {
     mocks.fetch.mockResolvedValue(response({
       error: 'error_auth',

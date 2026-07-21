@@ -33,7 +33,7 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
   gia ban 10.000, FIFO tru 1 tu 1 batch, gia von 6.474, dung 1 LedgerEntry COGS/DEBIT 6.474, phi dong goi 1.000,
   loi nhuan gop 2.526 -> SO KHOP. Duong create/FIFO/ledger (rui ro cao nhat) da chung thuc bang du lieu that.
 
-  !! NO KIEM CHUNG (verification-debt) - PHAI LAM TRUOC KHI BAT CRON/SYNC TU DONG (SP5+):
+  !! NO KIEM CHUNG (verification-debt) - PHAI LAM TRUOC KHI BAT BAT KY CRON/SYNC TU DONG:
   Sandbox Test Order tool KHONG day duoc don toi COMPLETED/CANCELLED (nut Pickup/Deliver mo; tooltip Deliver:
   "Only shipped orders can be simulated to complete" -> phai ship_order qua API de len SHIPPED thi Deliver moi bat).
   Nen 2 duong sau moi verify bang UNIT TEST, chua chay du lieu that:
@@ -44,6 +44,13 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
   Quyet dinh 2026-07-21: merge #44 vi duong nguy hiem nhat da chung thuc that + (a)(b) don gian hon va da co
   regression test review sach; khong chan merge vo thoi han vi gioi han cong cu sandbox.
 - [ ] Dot 9 - SP5 day ton kho len Shopee
+  Dang review tren nhanh `codex/sp5-stock-push` (chua tinh vao tien do): chi chay tay, khong cron/hook tu dong;
+  preview ton app va ton seller theo item/model da mapping, xac nhan truoc khi day, bo qua dong khong doi,
+  chan mapping mot Product toi nhieu listing va listing nhieu kho, tiep tuc khi tung item loi, ghi Activity Log.
+  Kiem chung sandbox 2026-07-21: BBB 9 -> 4 va TNRB 20 -> 112 thanh cong; chay lai thanh unchanged,
+  khong gui thua. DBD app co ton 1 bi sandbox tu choi dung rang buoc `Stock should be within 2-1000000
+  for model red`; UI va Activity Log hien dung loi chi tiet, khong tu nang 1 -> 2 de tranh ban vuot ton.
+  Tu dong: backend 86/86 test, frontend 5/5 test, typecheck/lint/build dat.
 - [ ] Dot 10 - S3 phan trang backend (truoc khi bat sync tu dong)
 - [ ] Dot 11 - S4 frontend tai theo ky (ban thiet ke truoc khi giao)
 - [ ] Dot 12 - SP6 Go-Live (thao tac tay tren Console + env Cloud Run)

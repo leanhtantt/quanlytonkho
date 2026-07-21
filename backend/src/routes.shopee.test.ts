@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => {
     saveShopeeMappings: vi.fn(),
     getShopeeOrderSyncStatus: vi.fn(),
     syncShopeeOrders: vi.fn(),
+    previewShopeeStock: vi.fn(),
+    pushShopeeStock: vi.fn(),
     ShopeeClient: vi.fn(),
     shopFindMany: vi.fn(),
     shopFindUnique: vi.fn(),
@@ -42,6 +44,11 @@ vi.mock('./services/shopeeCatalogService', () => ({
 vi.mock('./services/shopeeOrderSyncService', () => ({
   getShopeeOrderSyncStatus: mocks.getShopeeOrderSyncStatus,
   syncShopeeOrders: mocks.syncShopeeOrders,
+}));
+
+vi.mock('./services/shopeeStockPushService', () => ({
+  previewShopeeStock: mocks.previewShopeeStock,
+  pushShopeeStock: mocks.pushShopeeStock,
 }));
 
 vi.mock('./services/orderService', () => ({
@@ -135,6 +142,8 @@ describe('Shopee SP2 routes', () => {
       ['settings', 'update'],
       ['orders', 'view'],
       ['orders', 'create'],
+      ['products', 'view'],
+      ['products', 'update'],
     ]));
   });
 
@@ -252,6 +261,24 @@ describe('Shopee SP2 routes', () => {
     }, syncResponse, vi.fn());
     expect(mocks.syncShopeeOrders).toHaveBeenCalledWith(SHOP_ID);
     expect(syncResponse.json).toHaveBeenCalledWith({ created: 1, pendingIssues: [] });
+  });
+
+  it('previews and pushes stock with product permissions', async () => {
+    mocks.previewShopeeStock.mockResolvedValue({ shopId: SHOP_ID.toString(), rows: [] });
+    const previewResponse = createResponse();
+    await getRouteHandler('/shopee/stock-preview', 'get')({
+      query: { shop_id: SHOP_ID.toString() },
+    }, previewResponse, vi.fn());
+    expect(mocks.previewShopeeStock).toHaveBeenCalledWith(SHOP_ID);
+    expect(previewResponse.json).toHaveBeenCalledWith({ shopId: SHOP_ID.toString(), rows: [] });
+
+    mocks.pushShopeeStock.mockResolvedValue({ status: 'SUCCESS', summary: { pushed: 1 } });
+    const pushResponse = createResponse();
+    await getRouteHandler('/shopee/push-stock', 'post')({
+      body: { shopId: SHOP_ID.toString() },
+    }, pushResponse, vi.fn());
+    expect(mocks.pushShopeeStock).toHaveBeenCalledWith(SHOP_ID);
+    expect(pushResponse.json).toHaveBeenCalledWith({ status: 'SUCCESS', summary: { pushed: 1 } });
   });
 
   it('rejects duplicate mapping targets before writing', async () => {

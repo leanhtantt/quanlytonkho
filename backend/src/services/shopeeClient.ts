@@ -29,6 +29,7 @@ interface ShopeeRequestOptions {
   method?: 'GET' | 'POST';
   query?: Record<string, ShopeePrimitive | undefined>;
   body?: unknown;
+  allowErrorPayload?: boolean;
 }
 
 interface ShopeeResponse {
@@ -343,7 +344,7 @@ export class ShopeeClient {
       throw new Error('Shopee trả response không phải JSON.');
     }
 
-    mapShopeeError(payload);
+    if (!options.allowErrorPayload) mapShopeeError(payload);
     if (!response.ok) {
       throw new Error('Shopee trả HTTP ' + response.status + '.');
     }

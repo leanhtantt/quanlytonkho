@@ -1,6 +1,7 @@
 import { prisma } from '../prismaClient';
 import { HEAVY_TX_OPTIONS } from '../transactionOptions';
 import { deductStockFIFO } from './inventoryService';
+import { BusinessError } from '../errors/BusinessError';
 
 export interface OrderInput {
   externalCode: string;
@@ -120,6 +121,75 @@ export async function replaceOrder(orderId: string, input: OrderInput) {
       where: { id: orderId },
       data: orderColumns(input, expectedRevenue)
     });
+  }, HEAVY_TX_OPTIONS);
+}
+
+// Status transitions do not change inventory or accounting, so keep them out of
+// replaceOrder (which intentionally rebuilds order items, FIFO and COGS).
+export async function updateOrderStatus(orderId: string, status: string) {
+  return await prisma.order.update({
+    where: { id: orderId },
+    data: { status },
+  });
+}
+
+// Cancel an imported order without deleting its accounting history. The compensating
+// stock and COGS entries make the reversal append-only and idempotent.
+export async function reverseCancelledOrder(orderId: string) {
+  return await prisma.$transaction(async (tx) => {
+    const [lockedOrder] = await tx.$queryRaw<Array<{ id: string; status: string }>>`
+      SELECT id, status FROM "Order" WHERE id = ${orderId} FOR UPDATE
+    `;
+    if (!lockedOrder) throw new BusinessError('Không tìm thấy đơn hàng cần đảo.');
+
+    const existingReversal = await tx.ledgerEntry.findFirst({
+      where: { referenceType: 'ORDER_REVERSAL', referenceId: orderId },
+    });
+    if (existingReversal) {
+      const order = lockedOrder.status === 'Đã hủy'
+        ? lockedOrder
+        : await tx.order.update({ where: { id: orderId }, data: { status: 'Đã hủy' } });
+      return { order, reversed: false };
+    }
+
+    const outTransactions = await tx.stockTransaction.findMany({
+      where: { referenceType: 'ORDER', referenceId: orderId, type: 'OUT' },
+    });
+    let reversedCogs = 0;
+    for (const transaction of outTransactions) {
+      const returnedQty = -transaction.qty;
+      await tx.inventoryBatch.update({
+        where: { id: transaction.batchId },
+        data: { qtyRemaining: { increment: returnedQty } },
+      });
+      await tx.stockTransaction.create({
+        data: {
+          productId: transaction.productId,
+          batchId: transaction.batchId,
+          type: 'RETURN',
+          qty: returnedQty,
+          unitCost: transaction.unitCost,
+          referenceType: 'ORDER_REVERSAL',
+          referenceId: orderId,
+        },
+      });
+      reversedCogs += returnedQty * Number(transaction.unitCost);
+    }
+
+    await tx.ledgerEntry.create({
+      data: {
+        account: 'COGS',
+        direction: 'CREDIT',
+        amount: reversedCogs,
+        referenceType: 'ORDER_REVERSAL',
+        referenceId: orderId,
+      },
+    });
+    const order = await tx.order.update({
+      where: { id: orderId },
+      data: { status: 'Đã hủy' },
+    });
+    return { order, reversed: true };
   }, HEAVY_TX_OPTIONS);
 }
 

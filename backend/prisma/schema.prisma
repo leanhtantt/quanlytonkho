@@ -34,16 +34,17 @@ model ProductSkuAlias {
 }
 
 model ShopeeShop {
-  id            BigInt    @id
-  shopName      String?
-  region        String
-  accessToken   String
-  refreshToken  String
-  expiresAt     DateTime
-  authExpiresAt DateTime?
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              BigInt    @id
+  shopName        String?
+  region          String
+  accessToken     String
+  refreshToken    String
+  expiresAt       DateTime
+  authExpiresAt   DateTime?
+  lastOrderSyncAt DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model ShopeeItemMap {
@@ -56,6 +57,21 @@ model ShopeeItemMap {
 
   @@unique([shopId, itemId, modelId])
   @@index([productId])
+}
+
+model ShopeeOrderSyncIssue {
+  id            String    @id @default(uuid())
+  shopId        BigInt
+  orderSn       String
+  orderStatus   String
+  reason        String
+  unmappedItems Json
+  firstSeenAt   DateTime  @default(now())
+  lastSeenAt    DateTime  @updatedAt
+  resolvedAt    DateTime?
+
+  @@unique([shopId, orderSn])
+  @@index([shopId, resolvedAt])
 }
 
 model PurchaseOrder {

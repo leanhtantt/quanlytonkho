@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => {
     getShopAuthorization: vi.fn(),
     getShopeeCatalog: vi.fn(),
     saveShopeeMappings: vi.fn(),
+    getShopeeOrderSyncStatus: vi.fn(),
+    syncShopeeOrders: vi.fn(),
     ShopeeClient: vi.fn(),
     shopFindMany: vi.fn(),
     shopFindUnique: vi.fn(),
@@ -35,6 +37,11 @@ vi.mock('./services/shopeeClient', () => ({
 vi.mock('./services/shopeeCatalogService', () => ({
   getShopeeCatalog: mocks.getShopeeCatalog,
   saveShopeeMappings: mocks.saveShopeeMappings,
+}));
+
+vi.mock('./services/shopeeOrderSyncService', () => ({
+  getShopeeOrderSyncStatus: mocks.getShopeeOrderSyncStatus,
+  syncShopeeOrders: mocks.syncShopeeOrders,
 }));
 
 vi.mock('./services/orderService', () => ({
@@ -126,6 +133,8 @@ describe('Shopee SP2 routes', () => {
       ['settings', 'update'],
       ['settings', 'update'],
       ['settings', 'update'],
+      ['orders', 'view'],
+      ['orders', 'create'],
     ]));
   });
 
@@ -226,6 +235,23 @@ describe('Shopee SP2 routes', () => {
 
     expect(mocks.saveShopeeMappings).toHaveBeenCalledWith(SHOP_ID, mappings);
     expect(saveResponse.json).toHaveBeenCalledWith({ saved: 1, total: 1 });
+  });
+
+  it('loads sync status and starts order sync with orders permissions', async () => {
+    mocks.getShopeeOrderSyncStatus.mockResolvedValue({ shopId: SHOP_ID.toString(), pendingIssues: [] });
+    const statusResponse = createResponse();
+    await getRouteHandler('/shopee/order-sync-status', 'get')({
+      query: { shop_id: SHOP_ID.toString() },
+    }, statusResponse, vi.fn());
+    expect(mocks.getShopeeOrderSyncStatus).toHaveBeenCalledWith(SHOP_ID);
+
+    mocks.syncShopeeOrders.mockResolvedValue({ created: 1, pendingIssues: [] });
+    const syncResponse = createResponse();
+    await getRouteHandler('/shopee/sync-orders', 'post')({
+      body: { shopId: SHOP_ID.toString() },
+    }, syncResponse, vi.fn());
+    expect(mocks.syncShopeeOrders).toHaveBeenCalledWith(SHOP_ID);
+    expect(syncResponse.json).toHaveBeenCalledWith({ created: 1, pendingIssues: [] });
   });
 
   it('rejects duplicate mapping targets before writing', async () => {

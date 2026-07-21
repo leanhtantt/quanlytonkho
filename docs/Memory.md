@@ -10,7 +10,7 @@ Tai lieu chuan: `docs/reports/2026-07-17-scaling-plan.md` (S1-S4, K1-K6) va
 `docs/reports/2026-07-17-shopee-integration-plan.md` (SP1-SP6).
 Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, CI xanh.
 
-**Tien do (cap nhat 2026-07-21): xong 7/12 dot; Dot 8 da trien khai tren nhanh review.**
+**Tien do (cap nhat 2026-07-21): xong 8/12 dot.**
 
 - [x] Dot 1 - S1 index database (#33)
 - [x] Dot 2 - S2 resolver SKU dich danh (#34)
@@ -23,11 +23,26 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
   expire_time tu endpoint nay; response doi token chi co expire_in ~4 gio, khong phai han uy quyen.
 - [x] Dot 7 - SP3 mapping san pham: lay item/model Shopee, doi chieu SKU + alias, review/chon tay va luu ShopeeItemMap.
   Kiem chung that 2026-07-20: tai item sandbox 844672579, map voi SKU TNRB, luu va F5 van khoi phuc dung (#43).
-- [ ] Dot 8 - SP4 sync don hang (loi nghiep vu, review ky nhat).
-  Da trien khai 2026-07-21 tren `codex/sp4-order-sync`: dong bo theo `update_time`, externalCode = order_sn,
-  goi createOrder/replaceOrder de dung chung FIFO + ledger, don thieu mapping vao hang cho xu ly khong tru kho,
-  va huy don da ghi bang giao dich dao append-only. Backend 79/79 test. Review fix: COMPLETED chi update status, khong rebuild FIFO/ledger; khi item doi thi bao toan cac cot doi soat tay. Sandbox that hien co 0 don nen moi
-  kiem chung duoc luong rong/UI, chua chot dot cho den khi review, merge va thu voi don sandbox that.
+- [x] Dot 8 - SP4 sync don hang (loi nghiep vu, review ky nhat) - MERGED (#44).
+  Dong bo theo `update_time`, externalCode = order_sn, goi createOrder/replaceOrder dung chung FIFO + ledger,
+  don thieu mapping vao ShopeeOrderSyncIssue (khong tru kho), huy don bang giao dich dao append-only. Backend 79/79 test.
+  Review bat finding HIGH -> fix (commit 3dbefb8): COMPLETED thuan chi updateOrderStatus (khong rebuild FIFO/ledger,
+  khong dung cot doi soat tay); chi khi item doi that su moi replaceOrder + bao toan phi/doanh thu thuc/ngay doi soat/note.
+  Kiem chung that 2026-07-21: tao don sandbox 2607219XUASVN9 (READY_TO_SHIP). Chua mapping -> vao issue, khong tao Order.
+  Sau khi map item 802550879/model 0/SKU CC -> Product "BBB", sync lai: issue resolved, tao 1 Order kenh Shopee,
+  gia ban 10.000, FIFO tru 1 tu 1 batch, gia von 6.474, dung 1 LedgerEntry COGS/DEBIT 6.474, phi dong goi 1.000,
+  loi nhuan gop 2.526 -> SO KHOP. Duong create/FIFO/ledger (rui ro cao nhat) da chung thuc bang du lieu that.
+
+  !! NO KIEM CHUNG (verification-debt) - PHAI LAM TRUOC KHI BAT CRON/SYNC TU DONG (SP5+):
+  Sandbox Test Order tool KHONG day duoc don toi COMPLETED/CANCELLED (nut Pickup/Deliver mo; tooltip Deliver:
+  "Only shipped orders can be simulated to complete" -> phai ship_order qua API de len SHIPPED thi Deliver moi bat).
+  Nen 2 duong sau moi verify bang UNIT TEST, chua chay du lieu that:
+  (a) COMPLETED thuan -> ky vong updated:1, chi doi cot status, KHONG sinh/xoa StockTransaction/LedgerEntry.
+  (b) Huy don -> ky vong reversed:1, co ORDER_REVERSAL + stock RETURN + COGS CREDIT, lich su goc con nguyen.
+  Cach dat trang thai de verify sau: goi logistics ship_order (can shipping_parameter) -> don len SHIPPED ->
+  bam Deliver mo phong giao -> COMPLETED. Huy: can buyer test account huy hoac auto-cancel khi khong pickup.
+  Quyet dinh 2026-07-21: merge #44 vi duong nguy hiem nhat da chung thuc that + (a)(b) don gian hon va da co
+  regression test review sach; khong chan merge vo thoi han vi gioi han cong cu sandbox.
 - [ ] Dot 9 - SP5 day ton kho len Shopee
 - [ ] Dot 10 - S3 phan trang backend (truoc khi bat sync tu dong)
 - [ ] Dot 11 - S4 frontend tai theo ky (ban thiet ke truoc khi giao)
@@ -39,6 +54,9 @@ No ky thuat ghi nhan (chua lam, khong quen):
 - Sentry canh bao khi refresh token Shopee that bai.
 - Nang cap 3 script sandbox cu thanh wrapper mong tren ShopeeClient.
 - Payload rong cua get_item_list sandbox co the bo truong item, dung next thay next_offset; parser SP3 chap nhan dung truong hop total_count = 0.
+- UX trang Xuat Ban: khi don Shopee dau tien duoc tao, tab kenh "Shopee" khong tu xuat hien; nut "Lam moi"
+  chi refetch don chu khong refetch danh sach kenh -> phai F5. Sua goi: tab kenh lay union (kenh cau hinh + kenh
+  xuat hien trong don), va/hoac nut Lam moi refetch ca settings. Lam PR nho rieng, khong chan SP5.
 - Regenerate Test Partner Key da lo trong chat (sandbox, rui ro thap).
 
 Bai hoc 2026-07-18: PR merge kieu squash xong thi nhanh cu PHAI bo, Codex dung tiep

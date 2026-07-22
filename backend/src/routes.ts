@@ -19,6 +19,7 @@ import { ShopeeClient } from './services/shopeeClient';
 import { getShopeeCatalog, saveShopeeMappings } from './services/shopeeCatalogService';
 import { getShopeeOrderSyncStatus, syncShopeeOrders } from './services/shopeeOrderSyncService';
 import { previewShopeeStock, pushShopeeStock } from './services/shopeeStockPushService';
+import { dateWhere, pageWindow, paginatedResponse, parseListPagination } from './routes/listPagination';
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'tanle-dev';
 const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'tanle-dev.firebasestorage.app';
@@ -431,9 +432,22 @@ apiRouter.put('/products/:id', async (req, res, next) => {
 
 // --- Purchases ---
 apiRouter.get('/purchases', async (req, res) => {
-  const purchases = await prisma.purchaseOrder.findMany({ 
-    include: { purchaseItems: { include: { inventoryBatches: true, product: true } } }
-  });
+  const parsed = parseListPagination(req.query);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error });
+  const pagination = parsed.data;
+  const where = dateWhere('receivedAt', pagination);
+  const include = { purchaseItems: { include: { inventoryBatches: true, product: true } } };
+  const [purchases, total] = pagination.enabled
+    ? await Promise.all([
+      prisma.purchaseOrder.findMany({
+        include,
+        ...(where ? { where } : {}),
+        orderBy: [{ receivedAt: 'desc' }, { id: 'desc' }],
+        ...pageWindow(pagination),
+      }),
+      prisma.purchaseOrder.count({ where: where || {} }),
+    ])
+    : [await prisma.purchaseOrder.findMany({ include }), null];
   const mapped = purchases.map(p => ({
     ...p,
     id: p.code,
@@ -454,7 +468,8 @@ apiRouter.get('/purchases', async (req, res) => {
       finalCostVnd: pi.inventoryBatches[0] ? Math.round(Number(pi.inventoryBatches[0].unitCost)) : 0
     }))
   }));
-  res.json(mapped);
+  if (!pagination.enabled) return res.json(mapped);
+  return res.json(paginatedResponse(mapped, total!, pagination));
 });
 
 // Turn the frontend purchase payload into the shape the procurement service expects,
@@ -634,10 +649,22 @@ async function loadMappedOrder(orderId: string) {
 }
 
 apiRouter.get('/orders', async (req, res) => {
-  const orders = await prisma.order.findMany({
-    include: { orderItems: { include: { product: true } } },
-    orderBy: { orderedAt: 'desc' },
-  });
+  const parsed = parseListPagination(req.query);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error });
+  const pagination = parsed.data;
+  const where = dateWhere('orderedAt', pagination);
+  const orderInclude = { orderItems: { include: { product: true } } };
+  const [orders, total] = pagination.enabled
+    ? await Promise.all([
+      prisma.order.findMany({
+        include: orderInclude,
+        ...(where ? { where } : {}),
+        orderBy: [{ orderedAt: 'desc' }, { id: 'desc' }],
+        ...pageWindow(pagination),
+      }),
+      prisma.order.count({ where: where || {} }),
+    ])
+    : [await prisma.order.findMany({ include: orderInclude, orderBy: { orderedAt: 'desc' } }), null];
   const mapped = orders.map(o => ({
     ...o,
     id: o.externalCode,
@@ -659,7 +686,8 @@ apiRouter.get('/orders', async (req, res) => {
       isReturned: oi.isReturned,
     }))
   }));
-  res.json(mapped);
+  if (!pagination.enabled) return res.json(mapped);
+  return res.json(paginatedResponse(mapped, total!, pagination));
 });
 
 apiRouter.post('/orders', async (req, res, next) => {
@@ -736,14 +764,30 @@ apiRouter.delete('/orders/:id', async (req, res, next) => {
 
 // --- Losses ---
 apiRouter.get('/losses', async (req, res) => {
-  const losses = await prisma.loss.findMany({ include: { product: true } });
+  const parsed = parseListPagination(req.query);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error });
+  const pagination = parsed.data;
+  const where = dateWhere('occurredAt', pagination);
+  const lossInclude = { product: true };
+  const [losses, total] = pagination.enabled
+    ? await Promise.all([
+      prisma.loss.findMany({
+        include: lossInclude,
+        ...(where ? { where } : {}),
+        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+        ...pageWindow(pagination),
+      }),
+      prisma.loss.count({ where: where || {} }),
+    ])
+    : [await prisma.loss.findMany({ include: lossInclude }), null];
   const mapped = losses.map(l => ({
     ...l,
     name: l.product?.name,
     sku: l.product?.sku,
     date: l.occurredAt
   }));
-  res.json(mapped);
+  if (!pagination.enabled) return res.json(mapped);
+  return res.json(paginatedResponse(mapped, total!, pagination));
 });
 
 apiRouter.post('/losses', async (req, res, next) => {
@@ -929,8 +973,23 @@ apiRouter.put('/settings', async (req, res) => {
 
 // --- Treasury ---
 apiRouter.get('/treasury/transactions', async (req, res) => {
-  const transactions = await prisma.treasuryTransaction.findMany();
-  res.json(transactions.map(mapTreasuryTransaction));
+  const parsed = parseListPagination(req.query);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error });
+  const pagination = parsed.data;
+  const where = dateWhere('date', pagination);
+  const [transactions, total] = pagination.enabled
+    ? await Promise.all([
+      prisma.treasuryTransaction.findMany({
+        ...(where ? { where } : {}),
+        orderBy: [{ date: 'desc' }, { id: 'desc' }],
+        ...pageWindow(pagination),
+      }),
+      prisma.treasuryTransaction.count({ where: where || {} }),
+    ])
+    : [await prisma.treasuryTransaction.findMany(), null];
+  const mapped = transactions.map(mapTreasuryTransaction);
+  if (!pagination.enabled) return res.json(mapped);
+  return res.json(paginatedResponse(mapped, total!, pagination));
 });
 
 apiRouter.put('/losses/:id', async (req, res, next) => {

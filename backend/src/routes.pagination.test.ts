@@ -32,6 +32,12 @@ vi.mock('./routes/activity', () => ({ activityRouter: mocks.allow }));
 vi.mock('./middlewares/activityLogMiddleware', () => ({ flushActivityLogsBeforeResponse: mocks.allow }));
 vi.mock('./audit/loginActivity', () => ({ writeLoginActivityOnce: vi.fn() }));
 
+vi.mock('./services/historyReadService', () => ({
+  getReferenceCostMaps: vi.fn().mockResolvedValue({ totalByReference: new Map(), deductionsByReferenceProduct: new Map() }),
+  deductionsFor: vi.fn().mockReturnValue({ totalCostDeducted: 0, batchesDeducted: [] }),
+  getInventorySnapshot: vi.fn().mockResolvedValue([]),
+  getTreasurySnapshot: vi.fn().mockResolvedValue({ balances: {}, openingBalances: {}, capital: {}, marketplaceWallets: [], totalCashProfit: 0 }),
+}));
 import { apiRouter } from './routes';
 
 function getHandler(path: string) {

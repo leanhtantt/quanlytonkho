@@ -58,7 +58,13 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
   sap xep ngay desc + id desc de trang on dinh; query data va count chay song song. Frontend de nguyen cho S4.
   Tu dong: backend 99/99 test, frontend 5/5 test, typecheck/lint/build dat. Chua QA data local that vi
   frontend va database local dang tat (localhost/Prisma ECONNREFUSED); khong phai loi test/code.
-- [ ] Dot 11 - S4 frontend tai theo ky (ban thiet ke truoc khi giao)
+- [ ] Dot 11 - S4 frontend tai theo ky - DANG REVIEW.
+  Nhanh `codex/s4-frontend-period-loading`: mac dinh 3 thang lich, nut xem them moi lan 3 thang tren 7 man hinh;
+  frontend doc het cac trang trong ky. Khong con dung lich su day du de tai tao FIFO trong browser: `/inventory`
+  tra snapshot ton/lo hien tai, orders/losses kem gia von va lo da ghi tu StockTransaction/LedgerEntry.
+  `/treasury/summary?from=` tra so du hien tai + dau ky, von doi tac, vi san va loi nhuan tien mat toan ky, nen
+  gioi han lich su hien thi khong lam sai so du. Tu dong: backend 100/100 test, frontend 7/7 test,
+  backend typecheck + frontend lint/build dat. Browser QA localhost bi browser policy chan URL; khong phai loi app.
 - [ ] Dot 12 - SP6 Go-Live (thao tac tay tren Console + env Cloud Run)
 
 No ky thuat ghi nhan (chua lam, khong quen):

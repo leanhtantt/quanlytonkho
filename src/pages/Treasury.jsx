@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/appStoreContext';
-import { calculateAdAdvanceSummary, calculateMarketplaceWalletSummary, calculateProfitAnalytics } from '../domain/profitAnalytics';
+import { calculateAdAdvanceSummary } from '../domain/profitAnalytics';
 import { IconEdit as Edit, IconWallet as Wallet, IconArrowUpRight as ArrowUpRight, IconArrowDownRight as ArrowDownRight, IconArrowsExchange as ArrowRightLeft, IconPlus as Plus, IconTrash as Trash2, IconFilter as Filter, IconRefresh } from '@tabler/icons-react';
 import { toast } from '../components/ui/toastHelper';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useAuth } from '../lib/AuthContext';
 import PageHeader from '../components/ui/PageHeader';
+import HistoryRangeControl from '../components/HistoryRangeControl';
 import Badge from '../components/ui/Badge';
 import EmptyState from '../components/ui/EmptyState';
 import FormField from '../components/ui/FormField';
@@ -17,7 +18,7 @@ function formatCurrency(value) {
 }
 
 export default function Treasury() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction, orders, losses, ads, accounts, partners, shops, refresh, refreshing } = useAppStore();
+  const { transactions, addTransaction, updateTransaction, deleteTransaction, ads, accounts, partners, shops, refresh, refreshing, treasurySummary } = useAppStore();
   const { can } = useAuth();
 
   const [showForm, setShowForm] = useState(false);
@@ -48,54 +49,16 @@ export default function Treasury() {
 
 
 
-  // 1. Calculate Balances dynamically based on accounts
-  const balances = {};
-  accounts.forEach(a => balances[a] = 0);
-
-  const capital = {};
-  partners.forEach(p => capital[p.name] = { contributed: 0, withdrawn: 0 });
-
-  if (transactions && transactions.length > 0) {
-    transactions.forEach(t => {
-      const amt = Number(t.amount) || 0;
-      
-      if (t.type === 'THU') {
-        if (balances[t.account] !== undefined) balances[t.account] += amt;
-        if (t.category === 'Nhận vốn góp' && t.person && capital[t.person]) {
-          capital[t.person].contributed += amt;
-        }
-      } else if (t.type === 'CHI') {
-        if (balances[t.account] !== undefined) balances[t.account] -= amt;
-        if (t.category === 'Rút vốn / Chia lợi nhuận' && t.person && capital[t.person]) {
-          capital[t.person].withdrawn += amt;
-        }
-      } else if (t.type === 'CHUYEN') {
-        if (balances[t.fromAccount] !== undefined) balances[t.fromAccount] -= amt;
-        if (balances[t.toAccount] !== undefined) balances[t.toAccount] += amt;
-      }
-    });
-  }
-
-  const totalFund = Object.values(balances).reduce((sum, b) => sum + b, 0);
+  // Snapshot backend giữ số dư toàn kỳ chính xác dù trình duyệt chỉ tải lịch sử theo kỳ.
+  const balances = treasurySummary?.balances || Object.fromEntries(accounts.map(name => [name, 0]));
+  const capital = treasurySummary?.capital || Object.fromEntries(partners.map(partner => [partner.name, { contributed: 0, withdrawn: 0 }]));
+  const totalFund = Object.values(balances).reduce((sum, balance) => sum + balance, 0);
 
   const advanceSummary = useMemo(() => calculateAdAdvanceSummary(ads), [ads]);
   const projectedFundAfterReimbursement = totalFund - advanceSummary.totalOutstanding;
 
-  const marketplaceWallets = useMemo(
-    () => calculateMarketplaceWalletSummary(orders, transactions, ads, shops),
-    [orders, transactions, ads, shops]
-  );
-
-  // Calculate profit share using partners configuration
-  const profitData = useMemo(() => calculateProfitAnalytics(orders, losses, ads, partners), [orders, losses, ads, partners]);
-  
-  // Total profit pool generated across all months
-  let totalCashProfit = 0;
-  profitData.forEach(row => {
-    if (row.isTotal) {
-      totalCashProfit += row.cashMonthProfit;
-    }
-  });
+  const marketplaceWallets = treasurySummary?.marketplaceWallets || [];
+  const totalCashProfit = treasurySummary?.totalCashProfit || 0;
 
   const capitalReport = partners.map(p => {
     const cap = capital[p.name];
@@ -119,7 +82,7 @@ export default function Treasury() {
       if (createdDiff !== 0) return createdDiff;
       return (a.id || '').localeCompare(b.id || '');
     });
-    const runningBalances = Object.fromEntries(accounts.map(accountName => [accountName, 0]));
+    const runningBalances = Object.fromEntries(accounts.map(accountName => [accountName, treasurySummary?.openingBalances?.[accountName] || 0]));
 
     return sortedTransactions.map(transaction => {
       const transactionAmount = Number(transaction.amount) || 0;
@@ -140,7 +103,7 @@ export default function Treasury() {
         balancesAfter: { ...runningBalances },
       };
     });
-  }, [transactions, accounts]);
+  }, [transactions, accounts, treasurySummary]);
 
   const visibleAccountHistories = useMemo(() => {
     const mapped = accounts.map(accountName => ({
@@ -276,6 +239,7 @@ export default function Treasury() {
           </div>
         }
       />
+      <HistoryRangeControl />
 
       <div className="treasury-balances">
         {accounts.map((acc, idx) => {

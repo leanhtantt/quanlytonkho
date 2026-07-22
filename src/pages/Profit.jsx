@@ -4,6 +4,7 @@ import { calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { IconTrendingUp as TrendingUp } from '@tabler/icons-react';
 import PageHeader from '../components/ui/PageHeader';
+import HistoryRangeControl from '../components/HistoryRangeControl';
 import EmptyState from '../components/ui/EmptyState';
 
 function formatCurrency(value) {
@@ -72,6 +73,7 @@ export default function Profit() {
         title="Phân Tích Lợi Nhuận"
         description="Theo dõi lợi nhuận, dòng tiền và chi phí theo kỳ thanh toán"
       />
+      <HistoryRangeControl />
 
       <section className="card profit-chart-card" aria-labelledby="profit-chart-title">
         <h2 id="profit-chart-title" className="h3">Biểu đồ Lợi Nhuận Theo Tháng Sàn Thanh Toán</h2>

@@ -5,6 +5,7 @@ import { calculateAdAdvanceSummary } from '../domain/profitAnalytics';
 import { toast } from '../components/ui/toastHelper';
 import { useAuth } from '../lib/AuthContext';
 import PageHeader from '../components/ui/PageHeader';
+import HistoryRangeControl from '../components/HistoryRangeControl';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -177,6 +178,7 @@ export default function Expenses() {
         title="Chi Phí"
         description="Theo dõi và so sánh các khoản chi phí vận hành"
       />
+      <HistoryRangeControl />
 
       {/* ── Packaging comparison ── */}
       <section className="card expenses-section" aria-labelledby="expenses-packaging-title">

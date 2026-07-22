@@ -166,6 +166,12 @@ hỗ trợ các query param tùy chọn `from`, `to`, `page`, `limit`:
 - `from`/`to` dạng `YYYY-MM-DD`; ngày `to` được tính hết 23:59:59.999 UTC.
 - Kết quả phân trang sắp xếp theo ngày giảm dần rồi `id` giảm dần để ổn định giữa các trang.
 
+Frontend mặc định tải ba tháng theo lịch và có nút **Xem thêm 3 tháng trước** trên các màn hình lịch sử,
+Dashboard và báo cáo. Mỗi lần tải sẽ đọc hết các trang trong kỳ (tối đa 200 dòng/request). Tồn kho hiện tại,
+giá vốn FIFO đã ghi và số dư quỹ toàn kỳ được đọc từ snapshot backend nên không phụ thuộc phần lịch sử đang
+hiển thị. `GET /api/treasury/summary?from=YYYY-MM-DD` trả cả số dư hiện tại lẫn số dư đầu kỳ để bảng chạy số
+dư đúng khi mở một phần lịch sử.
+
 ## Backup / Restore
 
 - `npm run db:backup` -> ban JSON co checksum (`backend/backups/`), restore an toan bang

@@ -3062,3 +3062,27 @@ tbody tr:hover td {
   background: var(--color-surface-subtle);
   color: var(--color-text-muted);
 }
+
+.history-range-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.history-range-control > span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (max-width: 640px) {
+  .history-range-control { align-items: stretch; flex-direction: column; }
+}

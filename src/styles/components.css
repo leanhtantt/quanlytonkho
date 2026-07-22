@@ -3014,3 +3014,51 @@ tbody tr:hover td {
 .shopee-sync__unmapped + .shopee-sync__unmapped {
   margin-top: var(--space-2);
 }
+
+
+/* --- Shopee stock push --- */
+.shopee-stock-push {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.shopee-stock-push__table {
+  max-height: 32rem;
+}
+
+.shopee-stock-push__table table {
+  min-width: 56rem;
+}
+
+.shopee-stock-push__table code {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.shopee-stock-push__message {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+}
+
+.shopee-stock-push__message svg {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+  color: var(--color-warning);
+}
+
+.shopee-stock-push__result {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+}

@@ -9,6 +9,7 @@ import {
   IconWallet,
   IconLink as LinkIcon,
   IconShoppingBag,
+  IconCloudUpload,
   IconUnlink as Unlink,
 } from '@tabler/icons-react';
 import { deleteImage, getImage } from '../domain/imageDb';
@@ -24,6 +25,7 @@ import EmptyState from '../components/ui/EmptyState';
 import FormField from '../components/ui/FormField';
 import ShopeeProductMapping from '../components/ShopeeProductMapping';
 import ShopeeOrderSync from '../components/ShopeeOrderSync';
+import ShopeeStockPush from '../components/ShopeeStockPush';
 
 function formatShopeeDate(value) {
   if (!value) return 'Chưa có dữ liệu';
@@ -346,6 +348,20 @@ export default function Settings() {
             Kiểm tra SKU trên sàn, duyệt gợi ý tự động và chọn sản phẩm nội bộ cho từng phân loại.
           </p>
           <ShopeeProductMapping shops={shopeeShops} canUpdate={can('settings', 'update')} />
+        </div>
+        <div className="card settings-card settings-card--wide">
+          <h2 className="h3 settings-card__title settings-card__title--with-icon">
+            <IconCloudUpload size={22} aria-hidden="true" />
+            Đẩy Tồn Kho Lên Shopee
+          </h2>
+          <p className="settings-card__description">
+            Đối chiếu tồn khả dụng của app với từng item/model đã mapping và chỉ đẩy khi bạn xác nhận. Chưa bật cron hay đồng bộ tự động.
+          </p>
+          <ShopeeStockPush
+            shops={shopeeShops}
+            canView={can('products', 'view')}
+            canPush={can('products', 'update')}
+          />
         </div>
         <div className="card settings-card settings-card--wide">
           <h2 className="h3 settings-card__title settings-card__title--with-icon">

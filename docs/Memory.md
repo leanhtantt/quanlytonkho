@@ -10,7 +10,7 @@ Tai lieu chuan: `docs/reports/2026-07-17-scaling-plan.md` (S1-S4, K1-K6) va
 `docs/reports/2026-07-17-shopee-integration-plan.md` (SP1-SP6).
 Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, CI xanh.
 
-**Tien do (cap nhat 2026-07-21): xong 8/12 dot.**
+**Tien do (cap nhat 2026-07-21): xong 9/12 dot.**
 
 - [x] Dot 1 - S1 index database (#33)
 - [x] Dot 2 - S2 resolver SKU dich danh (#34)
@@ -43,8 +43,8 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
   bam Deliver mo phong giao -> COMPLETED. Huy: can buyer test account huy hoac auto-cancel khi khong pickup.
   Quyet dinh 2026-07-21: merge #44 vi duong nguy hiem nhat da chung thuc that + (a)(b) don gian hon va da co
   regression test review sach; khong chan merge vo thoi han vi gioi han cong cu sandbox.
-- [ ] Dot 9 - SP5 day ton kho len Shopee
-  Dang review tren nhanh `codex/sp5-stock-push` (chua tinh vao tien do): chi chay tay, khong cron/hook tu dong;
+- [x] Dot 9 - SP5 day ton kho len Shopee - MERGED (#46).
+  Chi chay tay, khong cron/hook tu dong;
   preview ton app va ton seller theo item/model da mapping, xac nhan truoc khi day, bo qua dong khong doi,
   chan mapping mot Product toi nhieu listing va listing nhieu kho, tiep tuc khi tung item loi, ghi Activity Log.
   Kiem chung sandbox 2026-07-21: BBB 9 -> 4 va TNRB 20 -> 112 thanh cong; chay lai thanh unchanged,

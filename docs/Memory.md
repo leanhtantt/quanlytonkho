@@ -10,7 +10,7 @@ Tai lieu chuan: `docs/reports/2026-07-17-scaling-plan.md` (S1-S4, K1-K6) va
 `docs/reports/2026-07-17-shopee-integration-plan.md` (SP1-SP6).
 Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, CI xanh.
 
-**Tien do (cap nhat 2026-07-22): xong 10/12 dot.**
+**Tien do (cap nhat 2026-07-22): xong 11/12 dot.**
 
 - [x] Dot 1 - S1 index database (#33)
 - [x] Dot 2 - S2 resolver SKU dich danh (#34)
@@ -58,8 +58,14 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
   sap xep ngay desc + id desc de trang on dinh; query data va count chay song song. Frontend de nguyen cho S4.
   Tu dong: backend 99/99 test, frontend 5/5 test, typecheck/lint/build dat. Chua QA data local that vi
   frontend va database local dang tat (localhost/Prisma ECONNREFUSED); khong phai loi test/code.
-- [ ] Dot 11 - S4 frontend tai theo ky - DANG REVIEW.
-  Nhanh `codex/s4-frontend-period-loading`: mac dinh 3 thang lich, nut xem them moi lan 3 thang tren 7 man hinh;
+- [x] Dot 11 - S4 frontend tai theo ky - MERGED (#50).
+  Review: kien truc dung - moi so lieu phu thuoc TOAN BO lich su (ton kho, so du quy, von, vi san, loi nhuan
+  tien mat) lay tu backend aggregate (getInventorySnapshot mirror dung shape buildDerivedStore cu; getTreasurySnapshot
+  tinh full-history + openingBalances de doi chieu), chi danh sach hien thi moi cat ky. Dashboard doi nhan trung thuc
+  "Tat ca thoi gian" -> "Trong ky dang tai". COGS moi don lay tu ledger/StockTransaction that (chinh xac hon replay FIFO).
+  CAN LAM SAU (khong chan merge, vi S4 read-only khong mutate data): mo Treasury/Dashboard/Profit doi chieu bang mat
+  so du + loi nhuan tien mat khop voi truoc S4 (browser QA localhost bi chan luc lam PR). Neu lech -> bao Claude, revert/fix.
+  Mac dinh 3 thang lich, nut xem them moi lan 3 thang tren 7 man hinh;
   frontend doc het cac trang trong ky. Khong con dung lich su day du de tai tao FIFO trong browser: `/inventory`
   tra snapshot ton/lo hien tai, orders/losses kem gia von va lo da ghi tu StockTransaction/LedgerEntry.
   `/treasury/summary?from=` tra so du hien tai + dau ky, von doi tac, vi san va loi nhuan tien mat toan ky, nen

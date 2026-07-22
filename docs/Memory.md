@@ -52,6 +52,12 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
   for model red`; UI va Activity Log hien dung loi chi tiet, khong tu nang 1 -> 2 de tranh ban vuot ton.
   Tu dong: backend 86/86 test, frontend 5/5 test, typecheck/lint/build dat.
 - [ ] Dot 10 - S3 phan trang backend (truoc khi bat sync tu dong)
+  Dang review tren nhanh `codex/s3-backend-pagination` (chua tinh vao tien do): 4 route orders,
+  treasury/transactions, purchases, losses giu response mang cu khi khong co param; khi co from/to/page/limit
+  tra `{ items, total, page, limit }`, loc ngay UTC bao gom tron ngay `to`, limit mac dinh 50/toi da 200,
+  sap xep ngay desc + id desc de trang on dinh; query data va count chay song song. Frontend de nguyen cho S4.
+  Tu dong: backend 99/99 test, frontend 5/5 test, typecheck/lint/build dat. Chua QA data local that vi
+  frontend va database local dang tat (localhost/Prisma ECONNREFUSED); khong phai loi test/code.
 - [ ] Dot 11 - S4 frontend tai theo ky (ban thiet ke truoc khi giao)
 - [ ] Dot 12 - SP6 Go-Live (thao tac tay tren Console + env Cloud Run)
 

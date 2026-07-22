@@ -156,6 +156,16 @@ Browser -> Firebase Auth (Email/Password) -> JWT ID Token
 - Them su kien dang nhap va thao tac quan ly user.
 - `GET /api/activity` (quyen `activity`, mac dinh admin) + trang `Activity.jsx` co loc/phan trang.
 
+## Phân trang API lịch sử
+
+Bốn API `GET /api/orders`, `/api/purchases`, `/api/losses` và `/api/treasury/transactions`
+hỗ trợ các query param tùy chọn `from`, `to`, `page`, `limit`:
+
+- Không truyền bốn param này: trả mảng đầy đủ như contract cũ để frontend hiện tại không vỡ.
+- Có ít nhất một param: trả `{ items, total, page, limit }`; mặc định `page=1`, `limit=50`, tối đa `limit=200`.
+- `from`/`to` dạng `YYYY-MM-DD`; ngày `to` được tính hết 23:59:59.999 UTC.
+- Kết quả phân trang sắp xếp theo ngày giảm dần rồi `id` giảm dần để ổn định giữa các trang.
+
 ## Backup / Restore
 
 - `npm run db:backup` -> ban JSON co checksum (`backend/backups/`), restore an toan bang

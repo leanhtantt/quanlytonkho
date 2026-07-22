@@ -10,7 +10,7 @@ Tai lieu chuan: `docs/reports/2026-07-17-scaling-plan.md` (S1-S4, K1-K6) va
 `docs/reports/2026-07-17-shopee-integration-plan.md` (SP1-SP6).
 Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, CI xanh.
 
-**Tien do (cap nhat 2026-07-21): xong 9/12 dot.**
+**Tien do (cap nhat 2026-07-22): xong 10/12 dot.**
 
 - [x] Dot 1 - S1 index database (#33)
 - [x] Dot 2 - S2 resolver SKU dich danh (#34)
@@ -51,8 +51,8 @@ Quy trinh giu nguyen: Codex code -> Claude review -> merge main, moi dot 1 PR, C
   khong gui thua. DBD app co ton 1 bi sandbox tu choi dung rang buoc `Stock should be within 2-1000000
   for model red`; UI va Activity Log hien dung loi chi tiet, khong tu nang 1 -> 2 de tranh ban vuot ton.
   Tu dong: backend 86/86 test, frontend 5/5 test, typecheck/lint/build dat.
-- [ ] Dot 10 - S3 phan trang backend (truoc khi bat sync tu dong)
-  Dang review tren nhanh `codex/s3-backend-pagination` (chua tinh vao tien do): 4 route orders,
+- [x] Dot 10 - S3 phan trang backend (truoc khi bat sync tu dong) - MERGED (#48).
+  4 route orders,
   treasury/transactions, purchases, losses giu response mang cu khi khong co param; khi co from/to/page/limit
   tra `{ items, total, page, limit }`, loc ngay UTC bao gom tron ngay `to`, limit mac dinh 50/toi da 200,
   sap xep ngay desc + id desc de trang on dinh; query data va count chay song song. Frontend de nguyen cho S4.

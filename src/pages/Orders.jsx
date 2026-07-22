@@ -15,6 +15,7 @@ import SearchInput from '../components/ui/SearchInput';
 import TablePagination from '../components/ui/TablePagination';
 import { useAuth } from '../lib/AuthContext';
 import PageHeader from '../components/ui/PageHeader';
+import HistoryRangeControl from '../components/HistoryRangeControl';
 
 const normalizeExcelText = (value) => String(value ?? '')
   .normalize('NFD')
@@ -718,6 +719,7 @@ export default function Orders() {
           </div>
         ) : null}
       />
+      <HistoryRangeControl />
 
       {reconNotFoundIds.length > 0 && (
         <section className="card orders-import-issues" style={{ borderColor: 'var(--color-warning)' }}>

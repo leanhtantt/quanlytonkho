@@ -26,6 +26,29 @@ async function authFetch(path, options = {}) {
   return res.json();
 }
 
+function withQuery(path, params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
+  });
+  return query.size ? `${path}?${query.toString()}` : path;
+}
+
+async function fetchAllPages(path, params) {
+  if (!params || Object.keys(params).length === 0) return authFetch(path);
+  const items = [];
+  let page = 1;
+  let total = 0;
+  do {
+    const response = await authFetch(withQuery(path, { ...params, page, limit: 200 }));
+    if (Array.isArray(response)) return response;
+    items.push(...response.items);
+    total = response.total;
+    page += 1;
+  } while (items.length < total);
+  return { items, total };
+}
+
 export const api = {
   getMe: () => authFetch('/api/me'),
   getUsers: () => authFetch('/api/users'),
@@ -49,12 +72,12 @@ export const api = {
   uploadProductImage: (productId, dataUrl) => authFetch('/api/product-images', { method: 'POST', body: JSON.stringify({ productId, dataUrl }) }),
   deleteProductImage: (imageUrl) => authFetch('/api/product-images', { method: 'DELETE', body: JSON.stringify({ imageUrl }) }),
   
-  getPurchases: () => authFetch('/api/purchases'),
+  getPurchases: (params) => fetchAllPages('/api/purchases', params),
   createPurchase: (data) => authFetch('/api/purchases', { method: 'POST', body: JSON.stringify(data) }),
   updatePurchase: (id, data) => authFetch(`/api/purchases/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deletePurchase: (id) => authFetch(`/api/purchases/${id}`, { method: 'DELETE' }),
   
-  getOrders: () => authFetch('/api/orders'),
+  getOrders: (params) => fetchAllPages('/api/orders', params),
   createOrder: (data) => authFetch('/api/orders', { method: 'POST', body: JSON.stringify(data) }),
   updateOrder: (id, data) => authFetch(`/api/orders/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteOrder: (id) => authFetch(`/api/orders/${id}`, { method: 'DELETE' }),
@@ -68,7 +91,7 @@ export const api = {
     }
   },
   
-  getLosses: () => authFetch('/api/losses'),
+  getLosses: (params) => fetchAllPages('/api/losses', params),
   createLoss: (data) => authFetch('/api/losses', { method: 'POST', body: JSON.stringify(data) }),
   updateLoss: (id, data) => authFetch(`/api/losses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteLoss: (id) => authFetch(`/api/losses/${id}`, { method: 'DELETE' }),
@@ -108,7 +131,8 @@ export const api = {
   reimburseAdAdvance: (id, data) => authFetch(`/api/ads/${id}/reimbursements`, { method: 'POST', body: JSON.stringify(data) }),
   deleteAd: (id) => authFetch(`/api/ads/${id}`, { method: 'DELETE' }),
   
-  getTransactions: () => authFetch('/api/treasury/transactions'),
+  getTransactions: (params) => fetchAllPages('/api/treasury/transactions', params),
+  getTreasurySummary: (from) => authFetch(withQuery('/api/treasury/summary', { from })),
   createTransaction: (data) => authFetch('/api/treasury/transactions', { method: 'POST', body: JSON.stringify(data) }),
   updateTransaction: (id, data) => authFetch(`/api/treasury/transactions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteTransaction: (id) => authFetch(`/api/treasury/transactions/${id}`, { method: 'DELETE' }),

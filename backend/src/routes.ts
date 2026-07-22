@@ -20,6 +20,7 @@ import { getShopeeCatalog, saveShopeeMappings } from './services/shopeeCatalogSe
 import { getShopeeOrderSyncStatus, syncShopeeOrders } from './services/shopeeOrderSyncService';
 import { previewShopeeStock, pushShopeeStock } from './services/shopeeStockPushService';
 import { dateWhere, pageWindow, paginatedResponse, parseListPagination } from './routes/listPagination';
+import { deductionsFor, getInventorySnapshot, getReferenceCostMaps, getTreasurySnapshot, type ReferenceCostMaps } from './services/historyReadService';
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'tanle-dev';
 const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'tanle-dev.firebasestorage.app';
@@ -619,12 +620,8 @@ function buildOrderInput(data: any, dbProducts: any[]): OrderInput {
 }
 
 // Map a DB order (with items + products) to the shape the frontend expects.
-async function loadMappedOrder(orderId: string) {
-  const o = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: { orderItems: { include: { product: true } } }
-  });
-  if (!o) return null;
+function mapOrderRecord(o: any, costs: ReferenceCostMaps) {
+  const productCogs = Math.max(0, costs.totalByReference.get(o.id) || 0);
   return {
     ...o,
     id: o.externalCode,
@@ -637,15 +634,27 @@ async function loadMappedOrder(orderId: string) {
     returnFee: Number(o.returnFee),
     platformFee: Number(o.platformFee),
     marketingFee: Number(o.marketingFee),
-    items: o.orderItems.map(oi => ({
+    totalCost: productCogs + Number(o.packagingFee),
+    items: o.orderItems.map((oi: any) => ({
       productId: oi.productId,
       sku: oi.skuAtOrder || oi.product?.sku || oi.productId,
       name: oi.product?.name || oi.productId,
       qty: oi.qty,
       sellingPrice: Number(oi.sellingPrice),
       isReturned: oi.isReturned,
+      ...(oi.isReturned ? { totalCostDeducted: 0, batchesDeducted: [] } : deductionsFor(costs, o.id, oi.productId)),
     }))
   };
+}
+
+async function loadMappedOrder(orderId: string) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { orderItems: { include: { product: true } } }
+  });
+  if (!order) return null;
+  const costs = await getReferenceCostMaps('ORDER', [order.id]);
+  return mapOrderRecord(order, costs);
 }
 
 apiRouter.get('/orders', async (req, res) => {
@@ -665,27 +674,8 @@ apiRouter.get('/orders', async (req, res) => {
       prisma.order.count({ where: where || {} }),
     ])
     : [await prisma.order.findMany({ include: orderInclude, orderBy: { orderedAt: 'desc' } }), null];
-  const mapped = orders.map(o => ({
-    ...o,
-    id: o.externalCode,
-    shop: o.channel,
-    date: o.orderedAt.toISOString().split('T')[0],
-    settlementDate: o.settlementDate ? o.settlementDate.toISOString().split('T')[0] : null,
-    expectedRevenue: Number(o.expectedRevenue),
-    actualRevenue: o.actualRevenue === null ? null : Number(o.actualRevenue),
-    packagingFee: Number(o.packagingFee),
-    returnFee: Number(o.returnFee),
-    platformFee: Number(o.platformFee),
-    marketingFee: Number(o.marketingFee),
-    items: o.orderItems.map(oi => ({
-      productId: oi.productId,
-      sku: oi.skuAtOrder || oi.product?.sku || oi.productId,
-      name: oi.product?.name || oi.productId,
-      qty: oi.qty,
-      sellingPrice: Number(oi.sellingPrice),
-      isReturned: oi.isReturned,
-    }))
-  }));
+  const costs = await getReferenceCostMaps('ORDER', orders.map(order => order.id));
+  const mapped = orders.map(order => mapOrderRecord(order, costs));
   if (!pagination.enabled) return res.json(mapped);
   return res.json(paginatedResponse(mapped, total!, pagination));
 });
@@ -780,11 +770,14 @@ apiRouter.get('/losses', async (req, res) => {
       prisma.loss.count({ where: where || {} }),
     ])
     : [await prisma.loss.findMany({ include: lossInclude }), null];
-  const mapped = losses.map(l => ({
-    ...l,
-    name: l.product?.name,
-    sku: l.product?.sku,
-    date: l.occurredAt
+  const costs = await getReferenceCostMaps('LOSS', losses.map(loss => loss.id));
+  const mapped = losses.map(loss => ({
+    ...loss,
+    name: loss.product?.name,
+    sku: loss.product?.sku,
+    date: loss.occurredAt,
+    totalCostDeducted: Math.max(0, costs.totalByReference.get(loss.id) || 0),
+    batchesDeducted: deductionsFor(costs, loss.id, loss.productId).batchesDeducted,
   }));
   if (!pagination.enabled) return res.json(mapped);
   return res.json(paginatedResponse(mapped, total!, pagination));
@@ -807,24 +800,8 @@ apiRouter.post('/losses', async (req, res, next) => {
 });
 
 // --- Inventory ---
-apiRouter.get('/inventory', async (req, res) => {
-  const products = await prisma.product.findMany();
-  const batches = await prisma.inventoryBatch.findMany({ where: { qtyRemaining: { gt: 0 } } });
-  
-  const inventory = products.map(p => {
-    const pBatches = batches.filter(b => b.productId === p.id);
-    const totalQty = pBatches.reduce((sum, b) => sum + b.qtyRemaining, 0);
-    const totalCost = pBatches.reduce((sum, b) => sum + (b.qtyRemaining * Number(b.unitCost)), 0);
-    return {
-      productId: p.id,
-      sku: p.sku,
-      name: p.name,
-      totalQty,
-      avgUnitCost: totalQty > 0 ? totalCost / totalQty : 0,
-      batches: pBatches
-    };
-  });
-  res.json(inventory);
+apiRouter.get('/inventory', async (_req, res) => {
+  res.json(await getInventorySnapshot());
 });
 
 // --- Shopee connection ---
@@ -972,6 +949,11 @@ apiRouter.put('/settings', async (req, res) => {
 });
 
 // --- Treasury ---
+apiRouter.get('/treasury/summary', async (req, res) => {
+  const parsed = parseListPagination(req.query);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error });
+  res.json(await getTreasurySnapshot(parsed.data.from));
+});
 apiRouter.get('/treasury/transactions', async (req, res) => {
   const parsed = parseListPagination(req.query);
   if (!parsed.success) return res.status(400).json({ error: parsed.error });

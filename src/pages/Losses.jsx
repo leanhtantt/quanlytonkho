@@ -9,6 +9,7 @@ import Button from '../components/ui/Button';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useAuth } from '../lib/AuthContext';
 import PageHeader from '../components/ui/PageHeader';
+import HistoryRangeControl from '../components/HistoryRangeControl';
 import EmptyState from '../components/ui/EmptyState';
 import FormField from '../components/ui/FormField';
 import SearchInput from '../components/ui/SearchInput';
@@ -364,6 +365,7 @@ export default function Losses() {
           </div>
         ) : null}
       />
+      <HistoryRangeControl />
 
       {showForm && (
         <div className="card animate-fade-in loss-form-card">

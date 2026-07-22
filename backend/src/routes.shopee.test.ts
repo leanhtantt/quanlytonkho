@@ -91,6 +91,12 @@ mocks.ShopeeClient.mockImplementation(function ShopeeClientMock() {
   };
 });
 
+vi.mock('./services/historyReadService', () => ({
+  getReferenceCostMaps: vi.fn().mockResolvedValue({ totalByReference: new Map(), deductionsByReferenceProduct: new Map() }),
+  deductionsFor: vi.fn().mockReturnValue({ totalCostDeducted: 0, batchesDeducted: [] }),
+  getInventorySnapshot: vi.fn().mockResolvedValue([]),
+  getTreasurySnapshot: vi.fn().mockResolvedValue({ balances: {}, openingBalances: {}, capital: {}, marketplaceWallets: [], totalCashProfit: 0 }),
+}));
 import { apiRouter } from './routes';
 
 const routePermissionCalls = mocks.requirePermission.mock.calls.map(call => [...call]);

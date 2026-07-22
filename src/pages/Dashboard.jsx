@@ -5,6 +5,7 @@ import { useAppStore } from '../store/appStoreContext';
 import { calculateProfitAnalytics } from '../domain/profitAnalytics';
 import { calculateDailyDashboard, getLocalDateKey } from '../domain/dashboardAnalytics';
 import PageHeader from '../components/ui/PageHeader';
+import HistoryRangeControl from '../components/HistoryRangeControl';
 import Badge from '../components/ui/Badge';
 import EmptyState from '../components/ui/EmptyState';
 import StatCard from '../components/ui/StatCard';
@@ -66,6 +67,7 @@ export default function Dashboard() {
           />
         </div>}
       />
+      <HistoryRangeControl />
 
       <section className="dashboard-section" aria-labelledby="daily-shop-title">
         <div className="dashboard-section-heading">
@@ -163,8 +165,8 @@ export default function Dashboard() {
       </section>
 
       <div className="dashboard-stat-grid">
-        <StatCard label="Tổng Doanh thu" value={formatCurrency(totalRevenue)} icon={DollarSign} description="Tất cả thời gian" trend={<Badge variant="success">Thực thu</Badge>} />
-        <StatCard label="Tổng Đơn hàng" value={totalOrders} icon={ShoppingCart} description="Tất cả thời gian" trend={<Badge variant="success">Đơn</Badge>} />
+        <StatCard label="Tổng Doanh thu" value={formatCurrency(totalRevenue)} icon={DollarSign} description="Trong kỳ đang tải" trend={<Badge variant="success">Thực thu</Badge>} />
+        <StatCard label="Tổng Đơn hàng" value={totalOrders} icon={ShoppingCart} description="Trong kỳ đang tải" trend={<Badge variant="success">Đơn</Badge>} />
         <StatCard label="Sản phẩm trong kho" value={totalProducts} icon={Package} description="Mã hàng hóa" trend={<Badge variant="info">Mã</Badge>} />
         <StatCard label="Sắp Hết Hàng" value={lowStockCount} icon={AlertCircle} description="Tồn kho < 10" trend={<Badge variant="danger">Cảnh báo</Badge>} />
       </div>
